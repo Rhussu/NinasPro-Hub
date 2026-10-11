@@ -22,7 +22,8 @@ ninas-pro-hub/
 │   ├── workflows/                # Pipelines de GitHub Actions
 │   │   ├── ci-flutter.yml        # CI: Análisis estático, cobertura (>=80%) y build web
 │   │   ├── ci-database.yml       # CI: Entorno local efímero y tests pgTAP
-│   │   └── cd.yml                # CD: Despliegue de BD a Supabase y web a Pages (solo main)
+│   │   ├── cd-frontend.yml       # CD: Despliegue a GitHub Pages (solo si cambia frontend/**)
+│   │   └── cd-database.yml       # CD: Despliegue a Supabase Cloud (solo si cambia supabase/**)
 │   ├── ISSUE_TEMPLATE/           # Plantillas estandarizadas para User Stories
 │   └── pull_request_template.md  # Template para asegurar DoD y checklist
 │
@@ -95,10 +96,11 @@ Para garantizar estabilidad y seguridad, el repositorio implementa una política
      - **`CI - Flutter Web`**: Valida análisis estático estricto, 100% de tests unitarios aprobados con **cobertura `>= 80%`** y verificación del build de producción.
      - **`CI - Supabase Database`**: Levanta una base de datos efímera en el runner y ejecuta todas las aserciones de integridad relacional y políticas RLS con pgTAP.
    - **Bloqueo:** Si algún test falla, GitHub bloquea el botón de Merge para proteger la rama principal.
-2. **Merge a `main` (CD):**
-   - Una vez revisado y aprobado el PR, al hacer merge se ejecuta **`CD - Deploy Production`**:
-     - Aplica automáticamente las migraciones pendientes en **Supabase Cloud**.
-     - Compila y despliega la aplicación web a **GitHub Pages**.
+2. **Merge a `main` (CD - Despliegue Selectivo e Inteligente):**
+   - Una vez revisado y aprobado el PR, al hacer merge se activan únicamente los despliegues de las áreas afectadas mediante filtros de rutas (`paths`):
+     - **`CD - Deploy Supabase`**: Se dispara **únicamente** si se modificaron archivos en `supabase/**` (migraciones, RLS o funciones), aplicando los cambios a **Supabase Cloud**.
+     - **`CD - Deploy GitHub Pages`**: Se dispara **únicamente** si se modificaron archivos en `frontend/**`, compilando y publicando la web en **GitHub Pages**.
+     - *Si solo se modificó documentación (ej. `README.md`), ningún despliegue innecesario se ejecuta.*
 
 ---
 
