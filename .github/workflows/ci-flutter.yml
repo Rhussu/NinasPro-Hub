@@ -1,0 +1,63 @@
+name: CI - Flutter Web
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  test-flutter:
+    name: Flutter Lint, Tests & Coverage
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      # 1. Descargar el repositorio
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Configurar Java
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      # 3. Configurar Flutter SDK
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      # 4. Instalar dependencias
+      - name: Install dependencies
+        run: flutter pub get
+
+      # 5. Análisis estático estricto (RNF-M-2)
+      - name: Run Flutter analyzer
+        run: flutter analyze --fatal-infos --fatal-warnings
+
+      # 6. Pruebas unitarias y reporte de cobertura (RNF-M-1)
+      - name: Run unit tests with coverage
+        run: flutter test --coverage
+
+      # 7. Validar umbral de cobertura (>= 80%)
+      - name: Check 80% coverage threshold
+        run: |
+          sudo apt-get install -y lcov
+          COVERAGE=$(lcov --summary coverage/lcov.info | grep lines | awk '{print $2}' | tr -d '%')
+          echo "Cobertura actual: $COVERAGE%"
+          if (( $(echo "$COVERAGE < 80.0" | bc -l) )); then
+            echo "❌ La cobertura ($COVERAGE%) es inferior al 80% requerido."
+            exit 1
+          else
+            echo "✅ Cobertura aprobada ($COVERAGE%)."
+          fi
+
+      # 8. Validar compilación release para Web
+      - name: Verify Web Build
+        run: flutter build web --release --no-pub
