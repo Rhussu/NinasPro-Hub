@@ -60,6 +60,9 @@ jobs:
     name: Deploy Flutter Web to GitHub Pages
     needs: [deploy-database]
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     defaults:
       run:
         working-directory: frontend
