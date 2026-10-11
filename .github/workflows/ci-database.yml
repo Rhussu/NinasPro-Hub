@@ -1,0 +1,48 @@
+name: CI - Supabase Database
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  test-database:
+    name: Supabase Migrations & pgTAP Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Descargar repositorio
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Configurar Supabase CLI
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # 3. Levantar entorno local efímero de Supabase
+      - name: Start Supabase Local
+        run: supabase start
+
+      # 4. Ejecutar pruebas unitarias de base de datos y RLS con pgTAP
+      - name: Run pgTAP Database Tests
+        run: supabase test db
+
+      # 5. Ejecutar pruebas de Edge Functions (si existen)
+      - name: Run Edge Function Tests
+        run: |
+          if [ -d "supabase/functions/tests" ] && [ "$(ls -A supabase/functions/tests 2>/dev/null)" ]; then
+            echo "Ejecutando pruebas de Edge Functions..."
+            supabase functions serve &
+            sleep 5
+            deno test --allow-net --allow-env supabase/functions/tests/
+          else
+            echo "No se encontraron pruebas de Edge Functions; omitiendo paso."
+          fi
+
+      # 6. Apagar servicios locales de forma garantizada
+      - name: Stop Supabase Local
+        if: always()
+        run: supabase stop
