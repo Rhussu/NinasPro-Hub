@@ -3,6 +3,9 @@ name: CI - Supabase Database
 on:
   pull_request:
     branches: [ main ]
+    paths:
+      - 'supabase/**'
+      - '.github/workflows/ci-database.yml'
 
 jobs:
   test-database:

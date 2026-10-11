@@ -3,6 +3,9 @@ name: CI - Flutter Web
 on:
   pull_request:
     branches: [ main ]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/ci-flutter.yml'
 
 jobs:
   test-flutter:

@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'supabase/**'
+      - '.github/workflows/cd-database.yml'
 
 jobs:
   deploy-database:
