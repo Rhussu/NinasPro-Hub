@@ -5,15 +5,17 @@ import '../../services/health_service.dart';
 import '../../widgets/db_health_checker.dart';
 import '../../widgets/ninaspro_mobile_shell.dart';
 import 'alumna/portal_alumna_screen.dart';
-import 'directorio/directorio_mobile_screen.dart';
+import 'directorio/directorio_desktop_screen.dart';
+import 'gestion/gestion_mobile_screen.dart';
 import 'tutora/pase_lista_screen.dart';
 
 /// Contenedor maestro del Mockup de NiñasPro Hub.
 ///
-/// Permite alternar entre los 3 roles fundamentales del sistema:
-/// 1. 🏛️ Directorio & Gestión (Operación, sedes, nómina, alertas, justificativos)
-/// 2. 👩‍🏫 Tutora (Pase de lista táctil rápido, ejercicios en aula, evidencia fotográfica)
-/// 3. 👧 Portal de la Alumna (Progreso de asistencia %, sábados de clase, Kahoot)
+/// Soporta los 4 roles acordados:
+/// 0. 🏛️ Directiva Nacional (Exclusivamente Desktop Web / Pantalla completa)
+/// 1. 📋 Equipo de Gestión (Mobile-first: aprobación de justificativos, roles semanales US-43)
+/// 2. 👩‍🏫 Tutora (Mobile-first: pase de lista P/A, podio Kahoot, ejercicios)
+/// 3. 👧 Portal de la Alumna (Mobile-first: asistencia, recursos US-26, justificaciones sin advertencia médica)
 ///
 /// Además incorpora alternancia de tema claro/oscuro e indicador de salud de base de datos.
 class HubShellScreen extends StatefulWidget {
@@ -33,103 +35,170 @@ class HubShellScreen extends StatefulWidget {
 }
 
 class _HubShellScreenState extends State<HubShellScreen> {
-  int _currentRoleIndex = 1; // Inicia en Tutora (el flujo más táctil e interactivo)
+  int _currentRoleIndex = 2; // Inicia en Tutora (el flujo más interactivo y dinámico)
   bool _mostrarHealthChecker = false;
+
+  void _cambiarRol(int nuevoRol) {
+    setState(() {
+      _currentRoleIndex = nuevoRol;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final childScreen = Scaffold(
-      appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(5),
-              decoration: BoxDecoration(
-                color: NinasProColors.primary700.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(8),
+    // Si el rol es 0 (Directiva Nacional), renderizamos la vista Desktop de ancho completo sin NinasProMobileShell
+    if (_currentRoleIndex == 0) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: NinasProColors.primary700.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text('💜', style: TextStyle(fontSize: 14)),
               ),
-              child: const Text('💜', style: TextStyle(fontSize: 14)),
-            ),
-            const SizedBox(width: 8),
-            const Flexible(
-              child: Text(
-                'NiñasPro Hub',
+              const SizedBox(width: 8),
+              const Text(
+                'NiñasPro Hub · Directiva Desktop',
                 style: TextStyle(
                   fontWeight: FontWeight.w800,
                   fontSize: 16,
                   letterSpacing: -0.4,
                 ),
-                overflow: TextOverflow.ellipsis,
               ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: NinasProColors.brandPink.withValues(alpha: 0.20),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Text(
+                  'DESKTOP WEB',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.5,
+                    color: NinasProColors.brandPink,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            // Selector rápido de Rol
+            _buildRoleSwitcher(isDark),
+            const SizedBox(width: 8),
+            // Alternador de salud de base de datos
+            IconButton(
+              tooltip: 'Estado de conexión Supabase',
+              icon: Icon(
+                Icons.cloud_done_rounded,
+                size: 20,
+                color: _mostrarHealthChecker
+                    ? NinasProColors.brandPink
+                    : (isDark ? NinasProColors.neutral300 : NinasProColors.neutral500),
+              ),
+              onPressed: () {
+                setState(() => _mostrarHealthChecker = !_mostrarHealthChecker);
+              },
             ),
-            const SizedBox(width: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: NinasProColors.brandPink.withValues(alpha: 0.20),
-                borderRadius: BorderRadius.circular(10),
+            // Alternador de Modo Oscuro / Claro
+            if (widget.themeNotifier != null)
+              IconButton(
+                tooltip: isDark ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro',
+                icon: Icon(
+                  isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                  size: 20,
+                ),
+                onPressed: () {
+                  widget.themeNotifier!.value =
+                      isDark ? ThemeMode.light : ThemeMode.dark;
+                },
               ),
-              child: const Text(
+            const SizedBox(width: 12),
+          ],
+        ),
+        body: Stack(
+          children: [
+            DirectorioDesktopScreen(repository: widget.repository),
+            if (_mostrarHealthChecker)
+              Positioned(
+                bottom: 20,
+                right: 20,
+                child: DbHealthChecker(healthService: widget.healthService),
+              ),
+          ],
+        ),
+      );
+    }
+
+    // Para los roles 1, 2 y 3 (Gestión, Tutora, Alumna), renderizamos vista móvil envuelta en NinasProMobileShell
+    final childScreen = Scaffold(
+      appBar: AppBar(
+        titleSpacing: 12,
+        title: const FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'NiñasPro Hub',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                  letterSpacing: -0.4,
+                ),
+              ),
+              SizedBox(width: 4),
+              Text(
                 'MOCKUP',
                 style: TextStyle(
-                  fontSize: 9,
+                  fontSize: 8,
                   fontWeight: FontWeight.w900,
-                  letterSpacing: 0.5,
                   color: NinasProColors.brandPink,
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
-          // Alternador de salud de base de datos
-          IconButton(
-            tooltip: 'Estado de conexión Supabase',
-            icon: Icon(
-              Icons.cloud_done_rounded,
-              size: 20,
-              color: _mostrarHealthChecker
-                  ? NinasProColors.brandPink
-                  : (isDark ? NinasProColors.neutral300 : NinasProColors.neutral500),
-            ),
-            onPressed: () {
-              setState(() {
-                _mostrarHealthChecker = !_mostrarHealthChecker;
-              });
-            },
-          ),
+          // Selector de Rol
+          _buildRoleSwitcher(isDark),
           // Alternador de Modo Oscuro / Claro
           if (widget.themeNotifier != null)
             IconButton(
+              visualDensity: VisualDensity.compact,
               tooltip: isDark ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro',
               icon: Icon(
                 isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-                size: 20,
+                size: 19,
               ),
               onPressed: () {
                 widget.themeNotifier!.value =
                     isDark ? ThemeMode.light : ThemeMode.dark;
               },
             ),
+          const SizedBox(width: 4),
         ],
       ),
       body: Stack(
         children: [
-          // Vista principal según rol seleccionado
           IndexedStack(
-            index: _currentRoleIndex,
+            index: _currentRoleIndex - 1, // Offset 1 ya que 0 es Directiva
             children: [
-              DirectorioMobileScreen(repository: widget.repository),
+              GestionMobileScreen(repository: widget.repository),
               PaseListaScreen(repository: widget.repository),
               PortalAlumnaScreen(repository: widget.repository),
             ],
           ),
-
-          // Healthchecker desplegable opcional (mantiene total compatibilidad)
           if (_mostrarHealthChecker)
             Positioned(
               bottom: 16,
@@ -138,14 +207,11 @@ class _HubShellScreenState extends State<HubShellScreen> {
             ),
         ],
       ),
-      // Barra de navegación inferior móvil (ergonomía de pulgar)
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentRoleIndex,
+        selectedIndex: _currentRoleIndex - 1,
         height: 64,
         onDestinationSelected: (index) {
-          setState(() {
-            _currentRoleIndex = index;
-          });
+          _cambiarRol(index + 1);
         },
         destinations: const [
           NavigationDestination(
@@ -168,5 +234,135 @@ class _HubShellScreenState extends State<HubShellScreen> {
     );
 
     return NinasProMobileShell(child: childScreen);
+  }
+
+  Widget _buildRoleSwitcher(bool isDark) {
+    return PopupMenuButton<int>(
+      tooltip: 'Cambiar Rol de Usuario',
+      initialValue: _currentRoleIndex,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: isDark ? NinasProColors.dark800 : NinasProColors.white,
+      onSelected: _cambiarRol,
+      itemBuilder: (ctx) => [
+        const PopupMenuItem<int>(
+          value: 0,
+          child: Row(
+            children: [
+              Text('🏛️', style: TextStyle(fontSize: 16)),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Directiva (Desktop)',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const PopupMenuItem<int>(
+          value: 1,
+          child: Row(
+            children: [
+              Text('📋', style: TextStyle(fontSize: 16)),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Gestión (Móvil)',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const PopupMenuItem<int>(
+          value: 2,
+          child: Row(
+            children: [
+              Text('👩‍🏫', style: TextStyle(fontSize: 16)),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Tutora (Móvil)',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const PopupMenuItem<int>(
+          value: 3,
+          child: Row(
+            children: [
+              Text('👧', style: TextStyle(fontSize: 16)),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Alumna (Móvil)',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: NinasProColors.primary700.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: NinasProColors.brandPink.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(_getRolEmoji(_currentRoleIndex), style: const TextStyle(fontSize: 14)),
+            const SizedBox(width: 6),
+            Text(
+              _getRolNombreCorto(_currentRoleIndex),
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: NinasProColors.brandPink,
+              ),
+            ),
+            const Icon(Icons.arrow_drop_down_rounded, size: 18, color: NinasProColors.brandPink),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getRolEmoji(int rol) {
+    switch (rol) {
+      case 0:
+        return '🏛️';
+      case 1:
+        return '📋';
+      case 2:
+        return '👩‍🏫';
+      case 3:
+        return '👧';
+      default:
+        return '💜';
+    }
+  }
+
+  String _getRolNombreCorto(int rol) {
+    switch (rol) {
+      case 0:
+        return 'Directiva';
+      case 1:
+        return 'Gestión';
+      case 2:
+        return 'Tutora';
+      case 3:
+        return 'Alumna';
+      default:
+        return 'Rol';
+    }
   }
 }

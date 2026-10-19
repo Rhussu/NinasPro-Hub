@@ -1,53 +1,105 @@
 import 'package:flutter/foundation.dart';
 import '../config/ninaspro_theme.dart';
 
-/// Sede territorial o modalidad de NiñasPro
+/// Recurso educativo de aula con enlace HTTPS seguro (US-26)
+@immutable
+class RecursoEducativo {
+  final String id;
+  final String titulo;
+  final String tipo; // 'slides' | 'codigo' | 'guia' | 'video'
+  final String url;
+  final bool esSeguraHttps;
+
+  const RecursoEducativo({
+    required this.id,
+    required this.titulo,
+    required this.tipo,
+    required this.url,
+    this.esSeguraHttps = true,
+  });
+}
+
+/// Registro del podio de Kahoot de una sesión (US-29)
+@immutable
+class PodioKahootSesion {
+  final String primerLugarAlumnaId;
+  final String primerLugarNombre;
+  final String segundoLugarAlumnaId;
+  final String segundoLugarNombre;
+  final String tercerLugarAlumnaId;
+  final String tercerLugarNombre;
+
+  const PodioKahootSesion({
+    required this.primerLugarAlumnaId,
+    required this.primerLugarNombre,
+    required this.segundoLugarAlumnaId,
+    required this.segundoLugarNombre,
+    required this.tercerLugarAlumnaId,
+    required this.tercerLugarNombre,
+  });
+}
+
+/// Configuración de rol dinámico de tutoras de aula (US-43)
+@immutable
+class RolTutorConfig {
+  final String codigo;
+  final String nombre;
+  final String descripcion;
+  final String colorHex;
+  final bool esRequerido;
+
+  const RolTutorConfig({
+    required this.codigo,
+    required this.nombre,
+    required this.descripcion,
+    required this.colorHex,
+    this.esRequerido = false,
+  });
+}
+
+/// Asignación semanal de rol a una tutora (US-43)
+@immutable
+class AsignacionSemanalTutora {
+  final String tutoraId;
+  final String tutoraNombre;
+  final int semanaNumero;
+  final String rolCodigo;
+
+  const AsignacionSemanalTutora({
+    required this.tutoraId,
+    required this.tutoraNombre,
+    required this.semanaNumero,
+    required this.rolCodigo,
+  });
+}
+
+/// Sede territorial o modalidad de NiñasPro (US-01)
 @immutable
 class Sede {
   final String id;
   final String nombre;
+  final String universidad;
+  final String region;
   final String modalidad; // 'Presencial' | 'Online'
-  final String institucion;
-  final String direccion;
-  final int cursosActivos;
-  final int alumnasTotales;
-  final int tutorasActivas;
+  final int alumnasActivas;
+  final int capacidadTotal;
+  final String coordinadoraNombre;
+  final String estado;
 
   const Sede({
     required this.id,
     required this.nombre,
+    required this.universidad,
+    required this.region,
     required this.modalidad,
-    required this.institucion,
-    required this.direccion,
-    this.cursosActivos = 0,
-    this.alumnasTotales = 0,
-    this.tutorasActivas = 0,
+    required this.alumnasActivas,
+    required this.capacidadTotal,
+    required this.coordinadoraNombre,
+    this.estado = 'activa',
   });
-
-  Sede copyWith({
-    String? id,
-    String? nombre,
-    String? modalidad,
-    String? institucion,
-    String? direccion,
-    int? cursosActivos,
-    int? alumnasTotales,
-    int? tutorasActivas,
-  }) {
-    return Sede(
-      id: id ?? this.id,
-      nombre: nombre ?? this.nombre,
-      modalidad: modalidad ?? this.modalidad,
-      institucion: institucion ?? this.institucion,
-      direccion: direccion ?? this.direccion,
-      cursosActivos: cursosActivos ?? this.cursosActivos,
-      alumnasTotales: alumnasTotales ?? this.alumnasTotales,
-      tutorasActivas: tutorasActivas ?? this.tutorasActivas,
-    );
-  }
 }
 
-/// Curso formativo ofrecido por NiñasPro (ej: Pensamiento Computacional)
+/// Curso formativo ofrecido por NiñasPro
 @immutable
 class Curso {
   final String id;
@@ -58,7 +110,6 @@ class Curso {
   final int anio;
   final int semestre;
   final int totalSesiones;
-  final int sesionesRealizadas;
 
   const Curso({
     required this.id,
@@ -67,171 +118,128 @@ class Curso {
     required this.sedeId,
     required this.sedeNombre,
     required this.anio,
-    this.semestre = 1,
-    this.totalSesiones = 12,
-    this.sesionesRealizadas = 4,
+    required this.semestre,
+    required this.totalSesiones,
   });
 }
 
-/// Ficha de Alumna de NiñasPro Hub
+/// Alumna participante en NiñasPro Hub (US-07, US-09, US-25)
 @immutable
 class Alumna {
   final String id;
-  final String rut;
   final String nombre;
-  final String apellido;
-  final String email;
+  final String rut;
   final String cursoId;
   final String cursoNombre;
   final String sedeId;
   final String sedeNombre;
   final double porcentajeAsistencia;
   final int asistenciasCount;
-  final int inasistenciasCount;
-  final int justificadasCount;
-  final String estadoMatricula; // 'Activa' | 'Condicionada' | 'Retirada'
-  final bool autorizaImagen;
-  final String nombreApoderado;
-  final String telefonoApoderado;
-  final String emailApoderado;
-  final DateTime fechaInscripcion;
-  final bool retirado;
+  final bool autorizaFoto;
+  final String apoderadoNombre;
+  final String apoderadoTelefono;
+  final String estado; // 'activa' | 'retirada' | 'egresada'
   final String? motivoRetiro;
-  final List<String> historialCursosPrevios;
 
   const Alumna({
     required this.id,
-    required this.rut,
     required this.nombre,
-    required this.apellido,
-    required this.email,
+    required this.rut,
     required this.cursoId,
     required this.cursoNombre,
     required this.sedeId,
     required this.sedeNombre,
     required this.porcentajeAsistencia,
-    this.asistenciasCount = 0,
-    this.inasistenciasCount = 0,
-    this.justificadasCount = 0,
-    this.estadoMatricula = 'Activa',
-    required this.autorizaImagen,
-    required this.nombreApoderado,
-    required this.telefonoApoderado,
-    required this.emailApoderado,
-    required this.fechaInscripcion,
-    this.retirado = false,
+    required this.asistenciasCount,
+    required this.autorizaFoto,
+    required this.apoderadoNombre,
+    required this.apoderadoTelefono,
+    this.estado = 'activa',
     this.motivoRetiro,
-    this.historialCursosPrevios = const [],
   });
-
-  String get nombreCompleto => '$nombre $apellido';
 
   Alumna copyWith({
     String? id,
-    String? rut,
     String? nombre,
-    String? apellido,
-    String? email,
+    String? rut,
     String? cursoId,
     String? cursoNombre,
     String? sedeId,
     String? sedeNombre,
     double? porcentajeAsistencia,
     int? asistenciasCount,
-    int? inasistenciasCount,
-    int? justificadasCount,
-    String? estadoMatricula,
-    bool? autorizaImagen,
-    String? nombreApoderado,
-    String? telefonoApoderado,
-    String? emailApoderado,
-    DateTime? fechaInscripcion,
-    bool? retirado,
+    bool? autorizaFoto,
+    String? apoderadoNombre,
+    String? apoderadoTelefono,
+    String? estado,
     String? motivoRetiro,
-    List<String>? historialCursosPrevios,
   }) {
     return Alumna(
       id: id ?? this.id,
-      rut: rut ?? this.rut,
       nombre: nombre ?? this.nombre,
-      apellido: apellido ?? this.apellido,
-      email: email ?? this.email,
+      rut: rut ?? this.rut,
       cursoId: cursoId ?? this.cursoId,
       cursoNombre: cursoNombre ?? this.cursoNombre,
       sedeId: sedeId ?? this.sedeId,
       sedeNombre: sedeNombre ?? this.sedeNombre,
       porcentajeAsistencia: porcentajeAsistencia ?? this.porcentajeAsistencia,
       asistenciasCount: asistenciasCount ?? this.asistenciasCount,
-      inasistenciasCount: inasistenciasCount ?? this.inasistenciasCount,
-      justificadasCount: justificadasCount ?? this.justificadasCount,
-      estadoMatricula: estadoMatricula ?? this.estadoMatricula,
-      autorizaImagen: autorizaImagen ?? this.autorizaImagen,
-      nombreApoderado: nombreApoderado ?? this.nombreApoderado,
-      telefonoApoderado: telefonoApoderado ?? this.telefonoApoderado,
-      emailApoderado: emailApoderado ?? this.emailApoderado,
-      fechaInscripcion: fechaInscripcion ?? this.fechaInscripcion,
-      retirado: retirado ?? this.retirado,
+      autorizaFoto: autorizaFoto ?? this.autorizaFoto,
+      apoderadoNombre: apoderadoNombre ?? this.apoderadoNombre,
+      apoderadoTelefono: apoderadoTelefono ?? this.apoderadoTelefono,
+      estado: estado ?? this.estado,
       motivoRetiro: motivoRetiro ?? this.motivoRetiro,
-      historialCursosPrevios: historialCursosPrevios ?? this.historialCursosPrevios,
     );
   }
 }
 
-/// Sesión de clase (generalmente los sábados)
+/// Sesión de clase de un curso (sábado de clases) (US-13, US-26)
 @immutable
 class SesionClase {
   final String id;
   final String cursoId;
-  final String cursoNombre;
   final int numeroSesion;
   final DateTime fecha;
   final String tema;
-  final String estado; // 'programada' | 'realizada' | 'suspendida'
-  final String? motivoSuspension;
-  final bool evidenciaSubida;
-  final bool fotosAptas;
+  final String estado; // 'programada' | 'realizada'
+  final List<RecursoEducativo> recursos;
+  final PodioKahootSesion? podioKahoot;
 
   const SesionClase({
     required this.id,
     required this.cursoId,
-    required this.cursoNombre,
     required this.numeroSesion,
     required this.fecha,
     required this.tema,
-    this.estado = 'programada',
-    this.motivoSuspension,
-    this.evidenciaSubida = false,
-    this.fotosAptas = true,
+    required this.estado,
+    this.recursos = const [],
+    this.podioKahoot,
   });
 
   SesionClase copyWith({
     String? id,
     String? cursoId,
-    String? cursoNombre,
     int? numeroSesion,
     DateTime? fecha,
     String? tema,
     String? estado,
-    String? motivoSuspension,
-    bool? evidenciaSubida,
-    bool? fotosAptas,
+    List<RecursoEducativo>? recursos,
+    PodioKahootSesion? podioKahoot,
   }) {
     return SesionClase(
       id: id ?? this.id,
       cursoId: cursoId ?? this.cursoId,
-      cursoNombre: cursoNombre ?? this.cursoNombre,
       numeroSesion: numeroSesion ?? this.numeroSesion,
       fecha: fecha ?? this.fecha,
       tema: tema ?? this.tema,
       estado: estado ?? this.estado,
-      motivoSuspension: motivoSuspension ?? this.motivoSuspension,
-      evidenciaSubida: evidenciaSubida ?? this.evidenciaSubida,
-      fotosAptas: fotosAptas ?? this.fotosAptas,
+      recursos: recursos ?? this.recursos,
+      podioKahoot: podioKahoot ?? this.podioKahoot,
     );
   }
 }
 
-/// Registro individual de asistencia para una alumna en una clase
+/// Registro de asistencia de una alumna en una sesión (US-13)
 @immutable
 class RegistroAsistencia {
   final String id;
@@ -240,9 +248,8 @@ class RegistroAsistencia {
   final String alumnaNombre;
   final String alumnaRut;
   final EstadoAsistencia estado;
+  final DateTime? horaMarcado;
   final bool autorizaImagen;
-  final DateTime horaMarcado;
-  final String registradaPor;
 
   const RegistroAsistencia({
     required this.id,
@@ -251,9 +258,8 @@ class RegistroAsistencia {
     required this.alumnaNombre,
     required this.alumnaRut,
     required this.estado,
+    this.horaMarcado,
     required this.autorizaImagen,
-    required this.horaMarcado,
-    required this.registradaPor,
   });
 
   RegistroAsistencia copyWith({
@@ -263,9 +269,8 @@ class RegistroAsistencia {
     String? alumnaNombre,
     String? alumnaRut,
     EstadoAsistencia? estado,
-    bool? autorizaImagen,
     DateTime? horaMarcado,
-    String? registradaPor,
+    bool? autorizaImagen,
   }) {
     return RegistroAsistencia(
       id: id ?? this.id,
@@ -274,14 +279,13 @@ class RegistroAsistencia {
       alumnaNombre: alumnaNombre ?? this.alumnaNombre,
       alumnaRut: alumnaRut ?? this.alumnaRut,
       estado: estado ?? this.estado,
-      autorizaImagen: autorizaImagen ?? this.autorizaImagen,
       horaMarcado: horaMarcado ?? this.horaMarcado,
-      registradaPor: registradaPor ?? this.registradaPor,
+      autorizaImagen: autorizaImagen ?? this.autorizaImagen,
     );
   }
 }
 
-/// Registro pedagógico de ejercicios y participación activa por sesión
+/// Participación de clase y ejercicios resueltos en aula (US-28)
 @immutable
 class ParticipacionClase {
   final String id;
@@ -290,18 +294,14 @@ class ParticipacionClase {
   final String alumnaNombre;
   final int ejerciciosResueltos;
   final bool participacionActiva;
-  final int? podioKahoot;
-  final String? observacion;
 
   const ParticipacionClase({
     required this.id,
     required this.sesionId,
     required this.alumnaId,
     required this.alumnaNombre,
-    this.ejerciciosResueltos = 0,
-    this.participacionActiva = false,
-    this.podioKahoot,
-    this.observacion,
+    required this.ejerciciosResueltos,
+    required this.participacionActiva,
   });
 
   ParticipacionClase copyWith({
@@ -311,8 +311,6 @@ class ParticipacionClase {
     String? alumnaNombre,
     int? ejerciciosResueltos,
     bool? participacionActiva,
-    int? podioKahoot,
-    String? observacion,
   }) {
     return ParticipacionClase(
       id: id ?? this.id,
@@ -321,214 +319,178 @@ class ParticipacionClase {
       alumnaNombre: alumnaNombre ?? this.alumnaNombre,
       ejerciciosResueltos: ejerciciosResueltos ?? this.ejerciciosResueltos,
       participacionActiva: participacionActiva ?? this.participacionActiva,
-      podioKahoot: podioKahoot ?? this.podioKahoot,
-      observacion: observacion ?? this.observacion,
     );
   }
 }
 
-/// Registro de Tutora / Voluntaria de NiñasPro
-@immutable
-class Tutora {
-  final String id;
-  final String rut;
-  final String nombre;
-  final String email;
-  final String telefono;
-  final String sedeId;
-  final String sedeNombre;
-  final String rol; // 'Coordinadora de Sede' | 'Docente Guía' | 'Tutora de Sala'
-  final bool adhesionFirmada;
-  final bool presenteClaseActual;
-
-  const Tutora({
-    required this.id,
-    required this.rut,
-    required this.nombre,
-    required this.email,
-    required this.telefono,
-    required this.sedeId,
-    required this.sedeNombre,
-    required this.rol,
-    required this.adhesionFirmada,
-    this.presenteClaseActual = true,
-  });
-
-  Tutora copyWith({
-    String? id,
-    String? rut,
-    String? nombre,
-    String? email,
-    String? telefono,
-    String? sedeId,
-    String? sedeNombre,
-    String? rol,
-    bool? adhesionFirmada,
-    bool? presenteClaseActual,
-  }) {
-    return Tutora(
-      id: id ?? this.id,
-      rut: rut ?? this.rut,
-      nombre: nombre ?? this.nombre,
-      email: email ?? this.email,
-      telefono: telefono ?? this.telefono,
-      sedeId: sedeId ?? this.sedeId,
-      sedeNombre: sedeNombre ?? this.sedeNombre,
-      rol: rol ?? this.rol,
-      adhesionFirmada: adhesionFirmada ?? this.adhesionFirmada,
-      presenteClaseActual: presenteClaseActual ?? this.presenteClaseActual,
-    );
-  }
-}
-
-/// Alerta de riesgo de deserción escolar por 3 inasistencias
+/// Alerta confidencial de riesgo de deserción escolar (US-39, US-40)
 @immutable
 class AlertaDesercion {
   final String id;
   final String alumnaId;
   final String alumnaNombre;
-  final String alumnaRut;
-  final String cursoId;
-  final String cursoNombre;
-  final String sedeId;
   final String sedeNombre;
   final int inasistenciasConsecutivas;
-  final DateTime fechaGenerada;
-  final bool atendida;
-  final DateTime? fechaContacto;
-  final String? observacionGestion;
+  final String apoderadoContacto;
+  final String estado; // 'activa' | 'contactada'
+  final String? observacionesContacto;
 
   const AlertaDesercion({
     required this.id,
     required this.alumnaId,
     required this.alumnaNombre,
-    required this.alumnaRut,
-    required this.cursoId,
-    required this.cursoNombre,
-    required this.sedeId,
     required this.sedeNombre,
     required this.inasistenciasConsecutivas,
-    required this.fechaGenerada,
-    this.atendida = false,
-    this.fechaContacto,
-    this.observacionGestion,
+    required this.apoderadoContacto,
+    required this.estado,
+    this.observacionesContacto,
   });
 
   AlertaDesercion copyWith({
     String? id,
     String? alumnaId,
     String? alumnaNombre,
-    String? alumnaRut,
-    String? cursoId,
-    String? cursoNombre,
-    String? sedeId,
     String? sedeNombre,
     int? inasistenciasConsecutivas,
-    DateTime? fechaGenerada,
-    bool? atendida,
-    DateTime? fechaContacto,
-    String? observacionGestion,
+    String? apoderadoContacto,
+    String? estado,
+    String? observacionesContacto,
   }) {
     return AlertaDesercion(
       id: id ?? this.id,
       alumnaId: alumnaId ?? this.alumnaId,
       alumnaNombre: alumnaNombre ?? this.alumnaNombre,
-      alumnaRut: alumnaRut ?? this.alumnaRut,
-      cursoId: cursoId ?? this.cursoId,
-      cursoNombre: cursoNombre ?? this.cursoNombre,
-      sedeId: sedeId ?? this.sedeId,
       sedeNombre: sedeNombre ?? this.sedeNombre,
       inasistenciasConsecutivas: inasistenciasConsecutivas ?? this.inasistenciasConsecutivas,
-      fechaGenerada: fechaGenerada ?? this.fechaGenerada,
-      atendida: atendida ?? this.atendida,
-      fechaContacto: fechaContacto ?? this.fechaContacto,
-      observacionGestion: observacionGestion ?? this.observacionGestion,
+      apoderadoContacto: apoderadoContacto ?? this.apoderadoContacto,
+      estado: estado ?? this.estado,
+      observacionesContacto: observacionesContacto ?? this.observacionesContacto,
     );
   }
 }
 
-/// Justificativo de inasistencia enviado desde el portal
+/// Solicitud de justificativo de inasistencia (US-35, US-37)
 @immutable
 class Justificativo {
   final String id;
   final String alumnaId;
   final String alumnaNombre;
-  final String cursoId;
-  final String cursoNombre;
   final String sesionId;
-  final DateTime fechaSesion;
-  final String motivoTipificado; // 'Salud' | 'Familiar' | 'Escolar' | 'Transporte' | 'Otro'
+  final DateTime sesionFecha;
+  final String motivoTipificado;
   final String detalle;
-  final DateTime fechaEnvio;
   final String estado; // 'pendiente' | 'aprobado' | 'rechazado'
-  final String? respuestaGestion;
+  final String? observacionesResolucion;
 
   const Justificativo({
     required this.id,
     required this.alumnaId,
     required this.alumnaNombre,
-    required this.cursoId,
-    required this.cursoNombre,
     required this.sesionId,
-    required this.fechaSesion,
+    required this.sesionFecha,
     required this.motivoTipificado,
     required this.detalle,
-    required this.fechaEnvio,
-    this.estado = 'pendiente',
-    this.respuestaGestion,
+    required this.estado,
+    this.observacionesResolucion,
   });
 
   Justificativo copyWith({
     String? id,
     String? alumnaId,
     String? alumnaNombre,
-    String? cursoId,
-    String? cursoNombre,
     String? sesionId,
-    DateTime? fechaSesion,
+    DateTime? sesionFecha,
     String? motivoTipificado,
     String? detalle,
-    DateTime? fechaEnvio,
     String? estado,
-    String? respuestaGestion,
+    String? observacionesResolucion,
   }) {
     return Justificativo(
       id: id ?? this.id,
       alumnaId: alumnaId ?? this.alumnaId,
       alumnaNombre: alumnaNombre ?? this.alumnaNombre,
-      cursoId: cursoId ?? this.cursoId,
-      cursoNombre: cursoNombre ?? this.cursoNombre,
       sesionId: sesionId ?? this.sesionId,
-      fechaSesion: fechaSesion ?? this.fechaSesion,
+      sesionFecha: sesionFecha ?? this.sesionFecha,
       motivoTipificado: motivoTipificado ?? this.motivoTipificado,
       detalle: detalle ?? this.detalle,
-      fechaEnvio: fechaEnvio ?? this.fechaEnvio,
       estado: estado ?? this.estado,
-      respuestaGestion: respuestaGestion ?? this.respuestaGestion,
+      observacionesResolucion: observacionesResolucion ?? this.observacionesResolucion,
     );
   }
 }
 
-/// Datos agregados para el portal personal de la estudiante
+/// Tutora voluntaria del equipo pedagógico (US-33, US-43)
+@immutable
+class Tutora {
+  final String id;
+  final String nombre;
+  final String rol;
+  final String sedeId;
+  final String sedeNombre;
+  final bool adhesionFirmada;
+  final bool presenteClaseActual;
+  final bool esEquipoGestion;
+
+  const Tutora({
+    required this.id,
+    required this.nombre,
+    required this.rol,
+    required this.sedeId,
+    required this.sedeNombre,
+    required this.adhesionFirmada,
+    required this.presenteClaseActual,
+    this.esEquipoGestion = false,
+  });
+
+  Tutora copyWith({
+    String? id,
+    String? nombre,
+    String? rol,
+    String? sedeId,
+    String? sedeNombre,
+    bool? adhesionFirmada,
+    bool? presenteClaseActual,
+    bool? esEquipoGestion,
+  }) {
+    return Tutora(
+      id: id ?? this.id,
+      nombre: nombre ?? this.nombre,
+      rol: rol ?? this.rol,
+      sedeId: sedeId ?? this.sedeId,
+      sedeNombre: sedeNombre ?? this.sedeNombre,
+      adhesionFirmada: adhesionFirmada ?? this.adhesionFirmada,
+      presenteClaseActual: presenteClaseActual ?? this.presenteClaseActual,
+      esEquipoGestion: esEquipoGestion ?? this.esEquipoGestion,
+    );
+  }
+}
+
+/// Vista agregada del portal móvil de la alumna (US-25, US-26, US-29, US-35)
 @immutable
 class PortalAlumnaData {
   final Alumna alumna;
   final Curso curso;
   final List<SesionClase> sesiones;
   final List<RegistroAsistencia> asistencias;
-  final List<ParticipacionClase> participaciones;
   final List<Justificativo> justificativos;
-  final int posicionKahoot;
+  final int podiosPrimerLugar;
+  final int podiosSegundoLugar;
+  final int podiosTercerLugar;
   final int totalEjerciciosResueltos;
+  final double umbralAprobacion;
+  final int clasesRecuperadasPorEjercicios;
 
   const PortalAlumnaData({
     required this.alumna,
     required this.curso,
     required this.sesiones,
     required this.asistencias,
-    required this.participaciones,
     required this.justificativos,
-    required this.posicionKahoot,
+    required this.podiosPrimerLugar,
+    required this.podiosSegundoLugar,
+    required this.podiosTercerLugar,
     required this.totalEjerciciosResueltos,
+    required this.umbralAprobacion,
+    required this.clasesRecuperadasPorEjercicios,
   });
 }

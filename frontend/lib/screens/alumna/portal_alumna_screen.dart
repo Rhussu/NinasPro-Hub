@@ -8,10 +8,11 @@ import '../../widgets/ninaspro_mascot.dart';
 /// Portal Móvil de la Alumna en NiñasPro Hub.
 ///
 /// Cubre:
-/// - US-25: Dashboard de asistencia % y progreso académico vs. 75% mínimo.
-/// - US-26: Cronograma de clases de los sábados y recursos educativos (Colab, guías).
-/// - US-29: Podio Kahoot privado y reconocimientos de aula.
-/// - US-35: Envío de justificativo de inasistencia con minimización de datos de salud.
+/// - US-25: Dashboard de asistencia % y progreso académico vs. meta mínima (80% o 70% justificada).
+/// - US-26: Cronograma de clases de sábados y recursos educativos vinculados (Slides, Colab, Guías HTTPS).
+/// - US-29: Historial acumulado de podios Kahoot (conteo de 1°, 2° y 3° lugar).
+/// - US-35: Justificación de inasistencia especificando sábado/clase a faltar (sin advertencias médicas).
+/// - Recuperación de clases justificadas mediante ejercicios resueltos (25 ej. = +1 clase, 50 ej. = +2 clases).
 class PortalAlumnaScreen extends StatefulWidget {
   final HubRepository repository;
   final String alumnaId;
@@ -45,10 +46,15 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
     });
   }
 
+  // Modal para justificar inasistencia especificando clase y fecha (US-35)
   void _abrirModalJustificativo(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final motivoCtrl = TextEditingController();
     String motivoSeleccionado = 'Salud';
+
+    // Lista de sesiones para seleccionar
+    final sesionesDisponibles = _data.sesiones;
+    String sesionSeleccionadaId = sesionesDisponibles.firstOrNull?.id ?? 'sesion-4';
 
     showModalBottomSheet(
       context: context,
@@ -87,34 +93,54 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
                       'Justificar Inasistencia (US-35)',
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
                     Text(
-                      'Tu solicitud será revisada por el equipo de coordinación de tu sede.',
+                      'Indica la fecha y clase a la que faltarás. El Equipo de Gestión evaluará tu solicitud.',
                       style: TextStyle(
                         fontSize: 12.5,
                         color: isDark ? NinasProColors.neutral300 : NinasProColors.neutral500,
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 18),
 
-                    // Advertencia de privacidad médica (US-36)
+                    // Selector obligatorio de clase / sábado a faltar
+                    const Text(
+                      '¿A qué clase faltarás? (Fecha del Sábado):',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 8),
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                       decoration: BoxDecoration(
-                        color: NinasProColors.info100,
+                        color: isDark ? NinasProColors.dark700 : NinasProColors.neutral100,
                         borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isDark ? NinasProColors.dark600 : NinasProColors.neutral100,
+                        ),
                       ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.shield_outlined, size: 20, color: NinasProColors.info900),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Protección de datos: No es necesario detallar diagnósticos médicos sensibles, solo el tipo de reposo.',
-                              style: TextStyle(fontSize: 11.5, color: NinasProColors.info900),
-                            ),
-                          ),
-                        ],
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          isExpanded: true,
+                          value: sesionSeleccionadaId,
+                          dropdownColor: isDark ? NinasProColors.dark800 : NinasProColors.white,
+                          items: sesionesDisponibles.map((s) {
+                            final f = s.fecha;
+                            final fechaStr = '${f.day.toString().padLeft(2, '0')}/${f.month.toString().padLeft(2, '0')}/${f.year}';
+                            return DropdownMenuItem<String>(
+                              value: s.id,
+                              child: Text(
+                                'Clase #${s.numeroSesion} ($fechaStr) - ${s.tema}',
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (val) {
+                            if (val != null) {
+                              setModalState(() => sesionSeleccionadaId = val);
+                            }
+                          },
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -168,7 +194,7 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
                           Navigator.pop(ctx);
                           await widget.repository.enviarJustificativo(
                             alumnaId: widget.alumnaId,
-                            sesionId: 'sesion-3',
+                            sesionId: sesionSeleccionadaId,
                             motivoTipificado: motivoSeleccionado,
                             detalle: motivoCtrl.text.trim(),
                           );
@@ -177,7 +203,7 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               backgroundColor: NinasProColors.success700,
-                              content: Text('✅ Justificativo enviado con éxito.'),
+                              content: Text('✅ Justificativo enviado al Equipo de Gestión.'),
                             ),
                           );
                         },
@@ -195,6 +221,145 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
     );
   }
 
+  // Modal para ver los recursos educativos de una clase (US-26)
+  void _mostrarRecursosSesion(BuildContext context, SesionClase sesion) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? NinasProColors.dark800 : NinasProColors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? NinasProColors.dark600 : NinasProColors.neutral300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: NinasProColors.primary700.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.auto_stories_rounded, color: NinasProColors.brandPink, size: 22),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Recursos: Clase #${sesion.numeroSesion}',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                        ),
+                        Text(
+                          sesion.tema,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? NinasProColors.neutral300 : NinasProColors.neutral500,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              if (sesion.recursos.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Center(
+                    child: Text('No hay recursos publicados para esta clase aún.'),
+                  ),
+                )
+              else
+                ...sesion.recursos.map((r) {
+                  final icono = switch (r.tipo) {
+                    'slides' => Icons.co_present_rounded,
+                    'codigo' => Icons.terminal_rounded,
+                    'guia' => Icons.picture_as_pdf_rounded,
+                    'video' => Icons.play_circle_fill_rounded,
+                    _ => Icons.link_rounded,
+                  };
+
+                  return Card(
+                    elevation: 0,
+                    margin: const EdgeInsets.only(bottom: 8),
+                    color: isDark ? NinasProColors.dark700 : NinasProColors.neutral50,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                      leading: Icon(icono, color: NinasProColors.brandPink, size: 24),
+                      title: Text(
+                        r.titulo,
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                      ),
+                      subtitle: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: NinasProColors.success100,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              'HTTPS',
+                              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: NinasProColors.success900),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              r.url,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 11, color: NinasProColors.neutral500),
+                            ),
+                          ),
+                        ],
+                      ),
+                      trailing: FilledButton.tonal(
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          minimumSize: const Size(50, 30),
+                        ),
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              backgroundColor: NinasProColors.primary700,
+                              content: Text('🔗 Abriendo recurso: ${r.titulo}'),
+                            ),
+                          );
+                        },
+                        child: const Text('Abrir'),
+                      ),
+                    ),
+                  );
+                }),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -205,7 +370,11 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
 
     final alumna = _data.alumna;
     final asistenciaPorc = alumna.porcentajeAsistencia;
-    final aprueba = asistenciaPorc >= 75.0;
+    final umbral = _data.umbralAprobacion;
+    final aprueba = asistenciaPorc >= umbral;
+
+    // Conteo de clases realizadas y asistidas
+    final clasesRealizadas = _data.sesiones.where((s) => s.estado == 'realizada').length;
 
     return Scaffold(
       appBar: AppBar(
@@ -222,7 +391,7 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
         backgroundColor: NinasProColors.brandPink,
         foregroundColor: NinasProColors.neutral900,
         onPressed: () => _abrirModalJustificativo(context),
-        icon: const Icon(Icons.edit_document, size: 18),
+        icon: const Icon(Icons.edit_calendar_rounded, size: 20),
         label: const Text(
           'Justificar Falta',
           style: TextStyle(fontWeight: FontWeight.w700),
@@ -251,7 +420,7 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '¡Hola, ${alumna.nombre}! 💜',
+                        '¡Hola, ${alumna.nombre.split(' ').first}! 💜',
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w800,
@@ -285,7 +454,7 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
           ),
           const SizedBox(height: 16),
 
-          // Tarjeta de progreso de asistencia (US-25)
+          // Tarjeta de progreso de asistencia (US-25 & US-35)
           Card(
             elevation: 0,
             color: isDark ? NinasProColors.dark800 : NinasProColors.white,
@@ -317,7 +486,9 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          aprueba ? 'Cumple meta (>=75%)' : 'Bajo meta mínima',
+                          aprueba
+                              ? 'Cumple meta (>= ${umbral.toInt()}%)'
+                              : 'Bajo meta mínima (< ${umbral.toInt()}%)',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
@@ -360,7 +531,7 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              '${alumna.asistenciasCount} de 8 clases asistidas (Meta mínima: 75% para certificar)',
+                              '${alumna.asistenciasCount} de $clasesRealizadas clases asistidas (Meta: ${umbral.toInt()}% para certificar)',
                               style: TextStyle(
                                 fontSize: 11.5,
                                 color: isDark ? NinasProColors.neutral300 : NinasProColors.neutral500,
@@ -371,80 +542,192 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
                       ),
                     ],
                   ),
+
+                  if (umbral == 70.0) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: NinasProColors.primary700.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.info_outline, size: 16, color: NinasProColors.brandPink),
+                          SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Meta reducida al 70% gracias a que cuentas con al menos 1 justificativo aprobado.',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
           ),
           const SizedBox(height: 16),
 
-          // Logros, Kahoot y Ejercicios (US-28, US-29)
-          Row(
-            children: [
-              Expanded(
-                child: Card(
-                  elevation: 0,
-                  color: isDark ? NinasProColors.dark800 : NinasProColors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(
-                      color: isDark ? NinasProColors.dark700 : NinasProColors.neutral100,
-                    ),
-                  ),
-                  child: const Padding(
-                    padding: EdgeInsets.all(14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('🏆 Kahoot', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                        SizedBox(height: 4),
-                        Text('2° Lugar', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-                        SizedBox(height: 2),
-                        Text('Podio de la sala ✨', style: TextStyle(fontSize: 11, color: NinasProColors.brandPink)),
-                      ],
-                    ),
-                  ),
-                ),
+          // Tarjeta: Recuperación de Clases por Ejercicios Resueltos
+          Card(
+            elevation: 0,
+            color: isDark ? NinasProColors.dark800 : NinasProColors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(
+                color: isDark ? NinasProColors.dark700 : NinasProColors.neutral100,
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Card(
-                  elevation: 0,
-                  color: isDark ? NinasProColors.dark800 : NinasProColors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(
-                      color: isDark ? NinasProColors.dark700 : NinasProColors.neutral100,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.code_rounded, color: NinasProColors.brandPink, size: 18),
+                          SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              'Recuperación por Ejercicios',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: NinasProColors.success100,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '+${_data.clasesRecuperadasPorEjercicios} clases recuperadas',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: NinasProColors.success900,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Has resuelto ${_data.totalEjerciciosResueltos} ejercicios en clase y plataforma. '
+                    'Cada 25 ejercicios compensas 1 inasistencia justificada (máximo 2 clases).',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? NinasProColors.neutral300 : NinasProColors.neutral700,
                     ),
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('💻 Ejercicios', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 4),
-                        Text('${_data.totalEjerciciosResueltos} Resueltos',
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-                        const SizedBox(height: 2),
-                        const Text('100% participación activa', style: TextStyle(fontSize: 11, color: NinasProColors.success700)),
-                      ],
+                  const SizedBox(height: 10),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: (_data.totalEjerciciosResueltos / 50).clamp(0.0, 1.0),
+                      minHeight: 8,
+                      backgroundColor: isDark ? NinasProColors.dark700 : NinasProColors.neutral100,
+                      valueColor: const AlwaysStoppedAnimation(NinasProColors.brandPink),
                     ),
                   ),
-                ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '${_data.totalEjerciciosResueltos}/50 ejercicios hacia el máximo de 2 clases compensables',
+                    style: const TextStyle(fontSize: 10.5, color: NinasProColors.neutral500),
+                  ),
+                ],
               ),
-            ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Historial de Podios Kahoot (US-29)
+          Card(
+            elevation: 0,
+            color: isDark ? NinasProColors.dark800 : NinasProColors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(
+                color: isDark ? NinasProColors.dark700 : NinasProColors.neutral100,
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.emoji_events_rounded, color: NinasProColors.warning700, size: 20),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Historial de Podios Kahoot (US-29)',
+                          style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildPodioItem(
+                          posicion: '1° Lugar',
+                          emoji: '🥇',
+                          veces: _data.podiosPrimerLugar,
+                          color: NinasProColors.warning500,
+                          isDark: isDark,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildPodioItem(
+                          posicion: '2° Lugar',
+                          emoji: '🥈',
+                          veces: _data.podiosSegundoLugar,
+                          color: NinasProColors.neutral300,
+                          isDark: isDark,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildPodioItem(
+                          posicion: '3° Lugar',
+                          emoji: '🥉',
+                          veces: _data.podiosTercerLugar,
+                          color: const Color(0xFFCD7F32),
+                          isDark: isDark,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
           const SizedBox(height: 20),
 
-          // Cronograma de Sábados (US-25, US-26)
+          // Cronograma de Sábados y Recursos Educativos (US-25, US-26)
           const Text(
-            'Cronograma de Clases (Sábados)',
+            'Cronograma de Clases y Recursos (Sábados)',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 10),
 
           ..._data.sesiones.map((sesion) {
-            // Buscar estado de la alumna en esta sesión
+            // Buscar registro de asistencia de la alumna
             final reg = _data.asistencias.where((a) => a.sesionId == sesion.id).firstOrNull;
             final estado = reg?.estado ??
                 (sesion.estado == 'realizada' ? EstadoAsistencia.ausente : EstadoAsistencia.pendiente);
@@ -460,50 +743,128 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
                   color: isDark ? NinasProColors.dark700 : NinasProColors.neutral100,
                 ),
               ),
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                leading: Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: isDark ? NinasProColors.dark700 : NinasProColors.primary100,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    '#${sesion.numeroSesion}',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: isDark ? NinasProColors.primary300 : NinasProColors.primary900,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: isDark ? NinasProColors.dark700 : NinasProColors.primary100,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            '#${sesion.numeroSesion}',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: isDark ? NinasProColors.primary300 : NinasProColors.primary900,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                sesion.tema,
+                                style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${sesion.fecha.day}/${sesion.fecha.month}/${sesion.fecha.year}',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: isDark ? NinasProColors.neutral300 : NinasProColors.neutral500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: tono.decoration,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(estado.icon, size: 14, color: tono.foreground),
+                              const SizedBox(width: 4),
+                              Text(estado.label, style: tono.textStyle(fontSize: 11.5)),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ),
-                title: Text(
-                  sesion.tema,
-                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
-                ),
-                subtitle: Text(
-                  '${sesion.fecha.day}/${sesion.fecha.month}/${sesion.fecha.year}',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    color: isDark ? NinasProColors.neutral300 : NinasProColors.neutral500,
-                  ),
-                ),
-                trailing: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: tono.decoration,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(estado.icon, size: 14, color: tono.foreground),
-                      const SizedBox(width: 4),
-                      Text(estado.label, style: tono.textStyle(fontSize: 11.5)),
+                    if (sesion.recursos.isNotEmpty) ...[
+                      const Divider(height: 16),
+                      Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            '${sesion.recursos.length} recursos disponibles (Slides, Colab)',
+                            style: const TextStyle(fontSize: 11.5, color: NinasProColors.neutral500),
+                          ),
+                          TextButton.icon(
+                            style: TextButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                            ),
+                            onPressed: () => _mostrarRecursosSesion(context, sesion),
+                            icon: const Icon(Icons.folder_open_rounded, size: 16),
+                            label: const Text('Ver Recursos (US-26)', style: TextStyle(fontSize: 11.5)),
+                          ),
+                        ],
+                      ),
                     ],
-                  ),
+                  ],
                 ),
               ),
             );
           }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPodioItem({
+    required String posicion,
+    required String emoji,
+    required int veces,
+    required Color color,
+    required bool isDark,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: isDark ? NinasProColors.dark700 : NinasProColors.neutral50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? NinasProColors.dark600 : NinasProColors.neutral100,
+        ),
+      ),
+      child: Column(
+        children: [
+          Text(emoji, style: const TextStyle(fontSize: 22)),
+          const SizedBox(height: 4),
+          Text(
+            '$veces veces',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: isDark ? NinasProColors.white : NinasProColors.neutral900,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            posicion,
+            style: const TextStyle(fontSize: 10.5, color: NinasProColors.neutral500),
+          ),
         ],
       ),
     );

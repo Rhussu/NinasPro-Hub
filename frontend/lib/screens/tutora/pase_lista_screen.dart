@@ -4,13 +4,14 @@ import '../../config/ninaspro_theme.dart';
 import '../../models/hub_models.dart';
 import '../../repositories/hub_repository.dart';
 
-/// Pantalla móvil para la tutora en el aula de clases.
+/// Pantalla móvil para la Tutora en el aula de clases de NiñasPro Hub.
 ///
 /// Cubre:
-/// - US-13: Pase de lista rápido táctil de alumnas optimizado para móvil (área táctil >= 48px).
+/// - US-13: Pase de lista táctil rápido alternando únicamente Presente ↔ Ausente.
+///   (Los justificativos son gestionados exclusivamente por el Equipo de Gestión).
 /// - US-28: Registro de ejercicios resueltos y participación activa para alumnas presentes.
-/// - US-18 y US-19: Verificación de consentimiento de imagen antes de subir evidencia fotográfica.
-/// - US-33: Pase de lista de docentes / tutoras acompañantes.
+/// - US-29: Registro del podio Kahoot de la clase (1°, 2° y 3° lugar).
+/// - US-18 y US-19: Verificación de consentimientos de imagen antes de subir evidencia fotográfica.
 class PaseListaScreen extends StatefulWidget {
   final HubRepository repository;
 
@@ -28,13 +29,17 @@ class _PaseListaScreenState extends State<PaseListaScreen>
   final String _sesionId = 'sesion-4';
   List<RegistroAsistencia> _registros = [];
   List<ParticipacionClase> _participaciones = [];
-  List<Tutora> _tutoras = [];
   bool _fotoSubida = false;
+
+  // Podio Kahoot de la sesión
+  String? _primerLugarId;
+  String? _segundoLugarId;
+  String? _tercerLugarId;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _cargarDatos();
   }
 
@@ -48,27 +53,35 @@ class _PaseListaScreenState extends State<PaseListaScreen>
     setState(() => _cargando = true);
     final reg = await widget.repository.getAsistenciaSesion(sesionId: _sesionId);
     final part = await widget.repository.getParticipacionSesion(sesionId: _sesionId);
-    final tut = await widget.repository.getTutoras();
 
     setState(() {
       _registros = List.from(reg);
       _participaciones = List.from(part);
-      _tutoras = List.from(tut);
       _cargando = false;
     });
   }
 
+  // Regla US-13: Tutora solo alterna Presente ↔ Ausente. Justificada está bloqueada.
   void _ciclarEstado(int index) {
-    final actual = _registros[index].estado;
-    final nuevo = switch (actual) {
-      EstadoAsistencia.presente => EstadoAsistencia.ausente,
-      EstadoAsistencia.ausente => EstadoAsistencia.justificada,
-      EstadoAsistencia.justificada => EstadoAsistencia.presente,
-      EstadoAsistencia.pendiente => EstadoAsistencia.presente,
-    };
+    final reg = _registros[index];
+
+    if (reg.estado == EstadoAsistencia.justificada) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: NinasProColors.warning900,
+          content: Text('🔒 Justificada por Equipo de Gestión. Las tutoras solo marcan Presente o Ausente.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    final nuevo = reg.estado == EstadoAsistencia.presente
+        ? EstadoAsistencia.ausente
+        : EstadoAsistencia.presente;
 
     setState(() {
-      _registros[index] = _registros[index].copyWith(
+      _registros[index] = reg.copyWith(
         estado: nuevo,
         horaMarcado: DateTime.now(),
       );
@@ -84,6 +97,9 @@ class _PaseListaScreenState extends State<PaseListaScreen>
   int get _totalJustificadas =>
       _registros.where((r) => r.estado == EstadoAsistencia.justificada).length;
 
+  List<RegistroAsistencia> get _alumnasPresentes =>
+      _registros.where((r) => r.estado == EstadoAsistencia.presente).toList();
+
   Future<void> _guardarAsistencia() async {
     final stopwatch = Stopwatch()..start();
     await widget.repository.guardarAsistencia(
@@ -97,11 +113,202 @@ class _PaseListaScreenState extends State<PaseListaScreen>
       SnackBar(
         backgroundColor: NinasProColors.success700,
         content: Text(
-          '✅ Asistencia guardada: $_totalPresentes presentes, $_totalAusentes ausentes '
-          '(${stopwatch.elapsedMilliseconds} ms). Clase marcada como realizada.',
+          '✅ Asistencia guardada: $_totalPresentes presentes, $_totalAusentes ausentes, '
+          '$_totalJustificadas justificadas (${stopwatch.elapsedMilliseconds} ms).',
           style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white),
         ),
       ),
+    );
+  }
+
+  // Modal para registrar podio Kahoot de la clase (US-29)
+  void _mostrarModalRegistroKahoot() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final presentes = _alumnasPresentes;
+
+    if (presentes.length < 3) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Se necesitan al menos 3 alumnas presentes para registrar el podio Kahoot.'),
+        ),
+      );
+      return;
+    }
+
+    String primerId = _primerLugarId ?? presentes[0].alumnaId;
+    String segundoId = _segundoLugarId ?? presentes[1].alumnaId;
+    String tercerId = _tercerLugarId ?? presentes[2].alumnaId;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: isDark ? NinasProColors.dark800 : NinasProColors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: isDark ? NinasProColors.dark600 : NinasProColors.neutral300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: NinasProColors.warning100,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.emoji_events_rounded, color: NinasProColors.warning900, size: 22),
+                      ),
+                      const SizedBox(width: 10),
+                      const Expanded(
+                        child: Text(
+                          'Registrar Podio Kahoot (US-29)',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Asigna las 3 alumnas ganadoras del desafío de hoy. Se actualizará su historial.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? NinasProColors.neutral300 : NinasProColors.neutral500,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // 1° Lugar
+                  _buildDropdownKahoot(
+                    label: '🥇 1° Lugar (Medalla de Oro):',
+                    selectedValue: primerId,
+                    presentes: presentes,
+                    isDark: isDark,
+                    onChanged: (val) {
+                      if (val != null) setModalState(() => primerId = val);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+
+                  // 2° Lugar
+                  _buildDropdownKahoot(
+                    label: '🥈 2° Lugar (Medalla de Plata):',
+                    selectedValue: segundoId,
+                    presentes: presentes,
+                    isDark: isDark,
+                    onChanged: (val) {
+                      if (val != null) setModalState(() => segundoId = val);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+
+                  // 3° Lugar
+                  _buildDropdownKahoot(
+                    label: '🥉 3° Lugar (Medalla de Bronce):',
+                    selectedValue: tercerId,
+                    presentes: presentes,
+                    isDark: isDark,
+                    onChanged: (val) {
+                      if (val != null) setModalState(() => tercerId = val);
+                    },
+                  ),
+                  const SizedBox(height: 20),
+
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: FilledButton.icon(
+                      style: NinasProTheme.brandButton,
+                      onPressed: () async {
+                        Navigator.pop(ctx);
+                        await widget.repository.guardarPodioKahoot(
+                          sesionId: _sesionId,
+                          primerLugarAlumnaId: primerId,
+                          segundoLugarAlumnaId: segundoId,
+                          tercerLugarAlumnaId: tercerId,
+                        );
+                        setState(() {
+                          _primerLugarId = primerId;
+                          _segundoLugarId = segundoId;
+                          _tercerLugarId = tercerId;
+                        });
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            backgroundColor: NinasProColors.success700,
+                            content: Text('🏆 Podio Kahoot registrado con éxito.'),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.check_rounded, size: 20),
+                      label: const Text('Guardar Podio de la Sesión'),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildDropdownKahoot({
+    required String label,
+    required String selectedValue,
+    required List<RegistroAsistencia> presentes,
+    required bool isDark,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+          decoration: BoxDecoration(
+            color: isDark ? NinasProColors.dark700 : NinasProColors.neutral100,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              isExpanded: true,
+              value: selectedValue,
+              dropdownColor: isDark ? NinasProColors.dark800 : NinasProColors.white,
+              items: presentes.map((a) {
+                return DropdownMenuItem(
+                  value: a.alumnaId,
+                  child: Text(a.alumnaNombre, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                );
+              }).toList(),
+              onChanged: onChanged,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -156,17 +363,14 @@ class _PaseListaScreenState extends State<PaseListaScreen>
         ),
         bottom: TabBar(
           controller: _tabController,
-          isScrollable: true,
           labelColor: isDark ? NinasProColors.brandPink : NinasProColors.primary700,
-          unselectedLabelColor:
-              isDark ? NinasProColors.neutral300 : NinasProColors.neutral500,
+          unselectedLabelColor: isDark ? NinasProColors.neutral300 : NinasProColors.neutral500,
           indicatorColor: NinasProColors.brandPink,
           indicatorWeight: 3,
           tabs: const [
-            Tab(icon: Icon(Icons.fact_check_rounded, size: 20), text: 'Asistencia'),
+            Tab(icon: Icon(Icons.fact_check_rounded, size: 20), text: 'Asistencia P/A'),
             Tab(icon: Icon(Icons.code_rounded, size: 20), text: 'Ejercicios'),
             Tab(icon: Icon(Icons.camera_alt_rounded, size: 20), text: 'Fotos'),
-            Tab(icon: Icon(Icons.groups_rounded, size: 20), text: 'Tutoras'),
           ],
         ),
       ),
@@ -178,9 +382,15 @@ class _PaseListaScreenState extends State<PaseListaScreen>
                 _buildTabAsistencia(isDark),
                 _buildTabEjercicios(isDark),
                 _buildTabFotos(isDark),
-                _buildTabTutoras(isDark),
               ],
             ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: NinasProColors.brandPink,
+        foregroundColor: NinasProColors.neutral900,
+        tooltip: 'Registrar Kahoot de la clase',
+        onPressed: _mostrarModalRegistroKahoot,
+        child: const Icon(Icons.emoji_events_rounded),
+      ),
     );
   }
 
@@ -233,6 +443,7 @@ class _PaseListaScreenState extends State<PaseListaScreen>
             separatorBuilder: (context, index) => const SizedBox(height: 8),
             itemBuilder: (context, index) {
               final reg = _registros[index];
+              final esJustificada = reg.estado == EstadoAsistencia.justificada;
               final tono = context.statusColors.asistencia(reg.estado);
 
               return Card(
@@ -254,15 +465,12 @@ class _PaseListaScreenState extends State<PaseListaScreen>
                       // Avatar o iniciales
                       CircleAvatar(
                         radius: 20,
-                        backgroundColor:
-                            isDark ? NinasProColors.dark700 : NinasProColors.primary100,
+                        backgroundColor: isDark ? NinasProColors.dark700 : NinasProColors.primary100,
                         child: Text(
                           reg.alumnaNombre.isNotEmpty ? reg.alumnaNombre[0] : 'A',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: isDark
-                                ? NinasProColors.primary300
-                                : NinasProColors.primary900,
+                            color: isDark ? NinasProColors.primary300 : NinasProColors.primary900,
                           ),
                         ),
                       ),
@@ -275,28 +483,23 @@ class _PaseListaScreenState extends State<PaseListaScreen>
                           children: [
                             Text(
                               reg.alumnaNombre,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                              ),
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                             ),
                             const SizedBox(height: 2),
-                            Row(
+                            Wrap(
+                              spacing: 6,
+                              crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
                                 Text(
                                   reg.alumnaRut,
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color: isDark
-                                        ? NinasProColors.neutral300
-                                        : NinasProColors.neutral500,
+                                    color: isDark ? NinasProColors.neutral300 : NinasProColors.neutral500,
                                   ),
                                 ),
-                                if (!reg.autorizaImagen) ...[
-                                  const SizedBox(width: 6),
+                                if (!reg.autorizaImagen)
                                   Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 5, vertical: 1),
+                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                                     decoration: BoxDecoration(
                                       color: NinasProColors.warning100,
                                       borderRadius: BorderRadius.circular(4),
@@ -310,30 +513,33 @@ class _PaseListaScreenState extends State<PaseListaScreen>
                                       ),
                                     ),
                                   ),
-                                ],
                               ],
                             ),
                           ],
                         ),
                       ),
 
-                      // Botón táctil grande (área táctil >= 48px) para alternar estado
+                      // Botón táctil grande (área táctil >= 48px) para alternar estado P/A
                       InkWell(
                         onTap: () => _ciclarEstado(index),
                         borderRadius: BorderRadius.circular(10),
                         child: Container(
-                          constraints: const BoxConstraints(minWidth: 100, minHeight: 48),
+                          constraints: const BoxConstraints(minWidth: 105, minHeight: 48),
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                           decoration: tono.decoration,
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(reg.estado.icon, size: 16, color: tono.foreground),
+                              Icon(
+                                esJustificada ? Icons.lock_outline_rounded : reg.estado.icon,
+                                size: 16,
+                                color: tono.foreground,
+                              ),
                               const SizedBox(width: 6),
                               Text(
-                                reg.estado.label,
-                                style: tono.textStyle(fontSize: 12.5),
+                                esJustificada ? 'Justificada' : reg.estado.label,
+                                style: tono.textStyle(fontSize: 12),
                               ),
                             ],
                           ),
@@ -347,7 +553,7 @@ class _PaseListaScreenState extends State<PaseListaScreen>
           ),
         ),
 
-        // Barra inferior fija con el botón de acción principal (marca rosa)
+        // Barra inferior fija con el botón de guardar asistencia
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -403,10 +609,7 @@ class _PaseListaScreenState extends State<PaseListaScreen>
 
   // Pestaña 2: Registro de Ejercicios y Participación Activa (US-28)
   Widget _buildTabEjercicios(bool isDark) {
-    // Escenario 1 y 2 de US-28: Solo las presentes pueden registrar ejercicios
-    final alumnasPresentes = _registros
-        .where((r) => r.estado == EstadoAsistencia.presente)
-        .toList();
+    final alumnasPresentes = _alumnasPresentes;
 
     if (alumnasPresentes.isEmpty) {
       return const Center(
@@ -414,7 +617,7 @@ class _PaseListaScreenState extends State<PaseListaScreen>
           padding: EdgeInsets.all(24.0),
           child: Text(
             'No hay alumnas marcadas como Presentes en esta sesión. '
-            'Marca asistencia primero en la pestaña "Asistencia".',
+            'Marca asistencia primero en la pestaña "Asistencia P/A".',
             textAlign: TextAlign.center,
           ),
         ),
@@ -422,7 +625,7 @@ class _PaseListaScreenState extends State<PaseListaScreen>
     }
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 88),
       children: [
         Container(
           padding: const EdgeInsets.all(12),
@@ -432,8 +635,7 @@ class _PaseListaScreenState extends State<PaseListaScreen>
           ),
           child: const Row(
             children: [
-              Icon(Icons.info_outline_rounded,
-                  size: 18, color: NinasProColors.accent700),
+              Icon(Icons.info_outline_rounded, size: 18, color: NinasProColors.accent700),
               SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -445,10 +647,9 @@ class _PaseListaScreenState extends State<PaseListaScreen>
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
         ...alumnasPresentes.map((reg) {
-          final partIndex =
-              _participaciones.indexWhere((p) => p.alumnaId == reg.alumnaId);
+          final partIndex = _participaciones.indexWhere((p) => p.alumnaId == reg.alumnaId);
           final part = partIndex != -1
               ? _participaciones[partIndex]
               : ParticipacionClase(
@@ -475,42 +676,20 @@ class _PaseListaScreenState extends State<PaseListaScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        reg.alumnaNombre,
-                        style: const TextStyle(
-                            fontSize: 14, fontWeight: FontWeight.w700),
-                      ),
-                      if (part.podioKahoot != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: NinasProColors.warning100,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            '🏆 Kahoot #${part.podioKahoot}',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: NinasProColors.warning900,
-                            ),
-                          ),
-                        ),
-                    ],
+                  Text(
+                    reg.alumnaNombre,
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 4,
                     children: [
-                      const Text(
-                        'Ejercicios resueltos:',
-                        style: TextStyle(fontSize: 12.5),
-                      ),
+                      const Text('Ejercicios resueltos en aula:', style: TextStyle(fontSize: 12.5)),
                       Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
                             icon: const Icon(Icons.remove_circle_outline, size: 20),
@@ -518,10 +697,7 @@ class _PaseListaScreenState extends State<PaseListaScreen>
                               if (part.ejerciciosResueltos > 0) {
                                 setState(() {
                                   _actualizarParticipacion(
-                                    part.copyWith(
-                                      ejerciciosResueltos:
-                                          part.ejerciciosResueltos - 1,
-                                    ),
+                                    part.copyWith(ejerciciosResueltos: part.ejerciciosResueltos - 1),
                                   );
                                 });
                               }
@@ -529,20 +705,14 @@ class _PaseListaScreenState extends State<PaseListaScreen>
                           ),
                           Text(
                             '${part.ejerciciosResueltos}',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                            ),
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                           ),
                           IconButton(
                             icon: const Icon(Icons.add_circle_outline, size: 20),
                             onPressed: () {
                               setState(() {
                                 _actualizarParticipacion(
-                                  part.copyWith(
-                                    ejerciciosResueltos:
-                                        part.ejerciciosResueltos + 1,
-                                  ),
+                                  part.copyWith(ejerciciosResueltos: part.ejerciciosResueltos + 1),
                                 );
                               });
                             },
@@ -551,21 +721,19 @@ class _PaseListaScreenState extends State<PaseListaScreen>
                       ),
                     ],
                   ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 4,
                     children: [
-                      const Text(
-                        'Participación activa en aula:',
-                        style: TextStyle(fontSize: 12.5),
-                      ),
+                      const Text('Participación activa en aula:', style: TextStyle(fontSize: 12.5)),
                       Switch(
                         value: part.participacionActiva,
                         activeThumbColor: NinasProColors.brandPink,
                         onChanged: (val) {
                           setState(() {
-                            _actualizarParticipacion(
-                              part.copyWith(participacionActiva: val),
-                            );
+                            _actualizarParticipacion(part.copyWith(participacionActiva: val));
                           });
                         },
                       ),
@@ -591,7 +759,6 @@ class _PaseListaScreenState extends State<PaseListaScreen>
 
   // Pestaña 3: Evidencia Fotográfica y Consentimientos de Imagen (US-18, US-19)
   Widget _buildTabFotos(bool isDark) {
-    // Alumnas presentes que NO tienen autorización de imagen
     final alumnasSinFoto = _registros
         .where((r) => r.estado == EstadoAsistencia.presente && !r.autorizaImagen)
         .toList();
@@ -599,7 +766,7 @@ class _PaseListaScreenState extends State<PaseListaScreen>
     final todasConFoto = alumnasSinFoto.isEmpty;
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
       children: [
         Card(
           elevation: 0,
@@ -618,22 +785,17 @@ class _PaseListaScreenState extends State<PaseListaScreen>
                 Row(
                   children: [
                     Icon(
-                      todasConFoto
-                          ? Icons.check_circle_rounded
-                          : Icons.warning_amber_rounded,
-                      color: todasConFoto
-                          ? NinasProColors.success700
-                          : NinasProColors.warning700,
+                      todasConFoto ? Icons.check_circle_rounded : Icons.warning_amber_rounded,
+                      color: todasConFoto ? NinasProColors.success700 : NinasProColors.warning700,
                       size: 24,
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         todasConFoto
-                          ? 'Foto 100% Apta para Redes / Sponsors'
-                          : 'Atención: Restricción de Imagen',
-                        style: const TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.w800),
+                            ? 'Foto 100% Apta para Redes / Sponsors'
+                            : 'Atención: Restricción de Imagen',
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
                       ),
                     ),
                   ],
@@ -641,13 +803,10 @@ class _PaseListaScreenState extends State<PaseListaScreen>
                 const SizedBox(height: 10),
                 if (todasConFoto)
                   Text(
-                    'Todas las alumnas presentes cuentan con autorización de imagen '
-                    'firmada por sus apoderados (US-19). La foto puede publicarse libremente.',
+                    'Todas las alumnas presentes cuentan con autorización de imagen firmada por sus apoderados (US-19).',
                     style: TextStyle(
                       fontSize: 13,
-                      color: isDark
-                          ? NinasProColors.neutral300
-                          : NinasProColors.neutral700,
+                      color: isDark ? NinasProColors.neutral300 : NinasProColors.neutral700,
                     ),
                   )
                 else ...[
@@ -656,9 +815,7 @@ class _PaseListaScreenState extends State<PaseListaScreen>
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: isDark
-                          ? NinasProColors.neutral300
-                          : NinasProColors.neutral700,
+                      color: isDark ? NinasProColors.neutral300 : NinasProColors.neutral700,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -689,7 +846,6 @@ class _PaseListaScreenState extends State<PaseListaScreen>
         ),
         const SizedBox(height: 16),
 
-        // Simulación de subida móvil con compresión (US-18)
         Container(
           height: 180,
           decoration: BoxDecoration(
@@ -697,7 +853,6 @@ class _PaseListaScreenState extends State<PaseListaScreen>
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: isDark ? NinasProColors.dark700 : NinasProColors.neutral300,
-              style: BorderStyle.solid,
             ),
           ),
           child: Column(
@@ -733,84 +888,6 @@ class _PaseListaScreenState extends State<PaseListaScreen>
             ],
           ),
         ),
-      ],
-    );
-  }
-
-  // Pestaña 4: Asistencia de tutoras / voluntarias (US-33)
-  Widget _buildTabTutoras(bool isDark) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const Text(
-          'Pase de Lista de Tutoras y Docentes (US-33)',
-          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'Registra qué voluntarias están presentes hoy facilitando la sesión.',
-          style: TextStyle(
-            fontSize: 12.5,
-            color: isDark ? NinasProColors.neutral300 : NinasProColors.neutral500,
-          ),
-        ),
-        const SizedBox(height: 14),
-        ..._tutoras.map((tut) {
-          return Card(
-            elevation: 0,
-            margin: const EdgeInsets.only(bottom: 8),
-            color: isDark ? NinasProColors.dark800 : NinasProColors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-              side: BorderSide(
-                color: isDark ? NinasProColors.dark700 : NinasProColors.neutral100,
-              ),
-            ),
-            child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-              leading: CircleAvatar(
-                backgroundColor:
-                    isDark ? NinasProColors.dark700 : NinasProColors.accent100,
-                child: Text(
-                  tut.nombre[0],
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: isDark
-                        ? NinasProColors.accent300
-                        : NinasProColors.accent900,
-                  ),
-                ),
-              ),
-              title: Text(
-                tut.nombre,
-                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-              ),
-              subtitle: Text(
-                '${tut.rol} · Adhesión firmada: ${tut.adhesionFirmada ? "Sí" : "No"}',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  color: isDark ? NinasProColors.neutral300 : NinasProColors.neutral500,
-                ),
-              ),
-              trailing: Switch(
-                value: tut.presenteClaseActual,
-                activeThumbColor: NinasProColors.brandPink,
-                onChanged: (val) async {
-                  await widget.repository.actualizarAsistenciaTutora(
-                    tutoraId: tut.id,
-                    presente: val,
-                  );
-                  setState(() {
-                    final idx = _tutoras.indexWhere((t) => t.id == tut.id);
-                    if (idx != -1) {
-                      _tutoras[idx] = _tutoras[idx].copyWith(presenteClaseActual: val);
-                    }
-                  });
-                },
-              ),
-            ),
-          );
-        }),
       ],
     );
   }

@@ -133,8 +133,8 @@ void main() {
 
     expect(find.text('NiñasPro Hub'), findsOneWidget);
     expect(find.text('MOCKUP'), findsOneWidget);
-    expect(find.text('Tutora'), findsOneWidget);
-    expect(find.text('Gestión'), findsOneWidget);
-    expect(find.text('Alumna'), findsOneWidget);
+    expect(find.widgetWithText(NavigationDestination, 'Tutora'), findsOneWidget);
+    expect(find.widgetWithText(NavigationDestination, 'Gestión'), findsOneWidget);
+    expect(find.widgetWithText(NavigationDestination, 'Alumna'), findsOneWidget);
   });
 }
