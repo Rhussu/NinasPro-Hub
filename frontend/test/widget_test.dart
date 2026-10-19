@@ -34,7 +34,7 @@ void main() {
   testWidgets('Renders development screen and db health checker connected', (WidgetTester tester) async {
     final mockService = MockHealthService();
 
-    await tester.pumpWidget(NinasProApp(healthService: mockService));
+    await tester.pumpWidget(MaterialApp(home: DevelopmentHomeScreen(healthService: mockService)));
     await tester.pumpAndSettle();
 
     expect(find.text('NiñasPro Hub'), findsOneWidget);
@@ -123,5 +123,18 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('DB: Error (120ms)'), findsOneWidget);
+  });
+
+  testWidgets('NinasProApp renders mockup shell and initial Tutora tab', (WidgetTester tester) async {
+    final mockService = MockHealthService();
+
+    await tester.pumpWidget(NinasProApp(healthService: mockService));
+    await tester.pumpAndSettle();
+
+    expect(find.text('NiñasPro Hub'), findsOneWidget);
+    expect(find.text('MOCKUP'), findsOneWidget);
+    expect(find.text('Tutora'), findsOneWidget);
+    expect(find.text('Gestión'), findsOneWidget);
+    expect(find.text('Alumna'), findsOneWidget);
   });
 }
