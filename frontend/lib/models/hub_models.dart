@@ -1,5 +1,20 @@
+import 'dart:ui' show Color;
+
 import 'package:flutter/foundation.dart';
 import '../config/ninaspro_theme.dart';
+
+/// Estado de la conexión con la nube (Supabase).
+/// Con conexión, cada cambio se sube al instante; sin conexión, queda pendiente en el dispositivo.
+enum EstadoSincronizacion {
+  /// Hay conexión y todos los cambios ya están en la nube
+  sincronizado,
+
+  /// Volvió la conexión y se están subiendo los cambios pendientes
+  sincronizando,
+
+  /// Sin conexión: los cambios se guardan en el dispositivo hasta que vuelva internet
+  sinConexion,
+}
 
 /// Recurso educativo de aula con enlace HTTPS seguro (US-26)
 @immutable
@@ -55,6 +70,41 @@ class RolTutorConfig {
     required this.colorHex,
     this.esRequerido = false,
   });
+
+  /// Color del rol a partir de [colorHex] ('#RRGGBB'); violeta de marca si no es válido.
+  Color get color {
+    final valor = int.tryParse(colorHex.replaceFirst('#', ''), radix: 16);
+    return Color(0xFF000000 | (valor ?? 0x8B3295));
+  }
+}
+
+/// Registro de asistencia de una tutora a una clase (US-33).
+/// Solo usa Presente, Ausente o Pendiente: las tutoras no presentan justificativos.
+@immutable
+class RegistroAsistenciaTutora {
+  final String sesionId;
+  final String tutoraId;
+  final String tutoraNombre;
+  final bool esEquipoGestion;
+  final EstadoAsistencia estado;
+
+  const RegistroAsistenciaTutora({
+    required this.sesionId,
+    required this.tutoraId,
+    required this.tutoraNombre,
+    required this.esEquipoGestion,
+    required this.estado,
+  });
+
+  RegistroAsistenciaTutora copyWith({EstadoAsistencia? estado}) {
+    return RegistroAsistenciaTutora(
+      sesionId: sesionId,
+      tutoraId: tutoraId,
+      tutoraNombre: tutoraNombre,
+      esEquipoGestion: esEquipoGestion,
+      estado: estado ?? this.estado,
+    );
+  }
 }
 
 /// Asignación semanal de rol a una tutora (US-43)
@@ -81,10 +131,8 @@ class Sede {
   final String universidad;
   final String region;
   final String modalidad; // 'Presencial' | 'Online'
-  final int alumnasActivas;
-  final int capacidadTotal;
   final String coordinadoraNombre;
-  final String estado;
+  final String estado; // 'activa' | 'inactiva'
 
   const Sede({
     required this.id,
@@ -92,14 +140,56 @@ class Sede {
     required this.universidad,
     required this.region,
     required this.modalidad,
-    required this.alumnasActivas,
-    required this.capacidadTotal,
     required this.coordinadoraNombre,
     this.estado = 'activa',
   });
+
+  Sede copyWith({
+    String? nombre,
+    String? universidad,
+    String? region,
+    String? modalidad,
+    String? coordinadoraNombre,
+    String? estado,
+  }) {
+    return Sede(
+      id: id,
+      nombre: nombre ?? this.nombre,
+      universidad: universidad ?? this.universidad,
+      region: region ?? this.region,
+      modalidad: modalidad ?? this.modalidad,
+      coordinadoraNombre: coordinadoraNombre ?? this.coordinadoraNombre,
+      estado: estado ?? this.estado,
+    );
+  }
 }
 
-/// Curso formativo ofrecido por NiñasPro
+/// Curso del catálogo general de NiñasPro, independiente de sede y período (US-01)
+@immutable
+class CursoCatalogo {
+  final String id;
+  final String codigo;
+  final String nombre;
+  final String descripcion;
+
+  const CursoCatalogo({
+    required this.id,
+    required this.codigo,
+    required this.nombre,
+    this.descripcion = '',
+  });
+
+  CursoCatalogo copyWith({String? codigo, String? nombre, String? descripcion}) {
+    return CursoCatalogo(
+      id: id,
+      codigo: codigo ?? this.codigo,
+      nombre: nombre ?? this.nombre,
+      descripcion: descripcion ?? this.descripcion,
+    );
+  }
+}
+
+/// Instancia de un curso del catálogo dictada en una sede y período (US-01, US-02)
 @immutable
 class Curso {
   final String id;
@@ -110,6 +200,14 @@ class Curso {
   final int anio;
   final int semestre;
   final int totalSesiones;
+  // Enlaces únicos para todo el curso (US-26)
+  final String? classroomUrl;
+  final String? juezVirtualUrl;
+  // Origen en el catálogo y calendario de la instancia (US-02)
+  final String? catalogoId;
+  final DateTime? fechaInicio;
+  final DateTime? fechaTermino;
+  final int diaSemana; // DateTime.monday..DateTime.sunday
 
   const Curso({
     required this.id,
@@ -120,7 +218,98 @@ class Curso {
     required this.anio,
     required this.semestre,
     required this.totalSesiones,
+    this.classroomUrl,
+    this.juezVirtualUrl,
+    this.catalogoId,
+    this.fechaInicio,
+    this.fechaTermino,
+    this.diaSemana = DateTime.saturday,
   });
+
+  Curso copyWith({String? sedeNombre, String? nombre}) {
+    return Curso(
+      id: id,
+      codigo: codigo,
+      nombre: nombre ?? this.nombre,
+      sedeId: sedeId,
+      sedeNombre: sedeNombre ?? this.sedeNombre,
+      anio: anio,
+      semestre: semestre,
+      totalSesiones: totalSesiones,
+      classroomUrl: classroomUrl,
+      juezVirtualUrl: juezVirtualUrl,
+      catalogoId: catalogoId,
+      fechaInicio: fechaInicio,
+      fechaTermino: fechaTermino,
+      diaSemana: diaSemana,
+    );
+  }
+}
+
+/// Canales de difusión de imagen que el apoderado autoriza por separado (US-10)
+enum CanalImagen {
+  redesSociales,
+  memoriaAnual,
+  prensa,
+  webInstitucional,
+  patrocinadores;
+
+  String get label => switch (this) {
+        CanalImagen.redesSociales => 'Redes sociales',
+        CanalImagen.memoriaAnual => 'Memoria anual',
+        CanalImagen.prensa => 'Prensa',
+        CanalImagen.webInstitucional => 'Web institucional',
+        CanalImagen.patrocinadores => 'Patrocinadores',
+      };
+}
+
+/// Estado de la autorización de un canal de imagen (US-10, US-12)
+enum EstadoAutorizacion {
+  otorgada,
+  noAutorizada,
+  revocada;
+
+  String get label => switch (this) {
+        EstadoAutorizacion.otorgada => 'Autorizada',
+        EstadoAutorizacion.noAutorizada => 'No autorizada',
+        EstadoAutorizacion.revocada => 'Revocada',
+      };
+}
+
+/// Revocación formal de un canal de imagen solicitada por el apoderado (US-12)
+@immutable
+class RevocacionImagen {
+  final DateTime fecha;
+  final String motivo;
+
+  const RevocacionImagen({required this.fecha, required this.motivo});
+}
+
+/// Autorizaciones del apoderado registradas en la ficha de la alumna (US-10, US-12)
+@immutable
+class AutorizacionesAlumna {
+  final bool tratamientoDatos;
+  final Map<CanalImagen, EstadoAutorizacion> canales;
+  final Map<CanalImagen, RevocacionImagen> revocaciones;
+  // Mockup: nombre del documento firmado (la subida es simulada)
+  final String? respaldoNombre;
+  final DateTime? fechaRegistro;
+
+  const AutorizacionesAlumna({
+    this.tratamientoDatos = false,
+    this.canales = const {},
+    this.revocaciones = const {},
+    this.respaldoNombre,
+    this.fechaRegistro,
+  });
+
+  /// Un canal sin respuesta explícita queda como no autorizado (RB-2)
+  EstadoAutorizacion estado(CanalImagen canal) =>
+      canales[canal] ?? EstadoAutorizacion.noAutorizada;
+
+  /// Apta para fotos si hay tratamiento de datos y al menos un canal autorizado
+  bool get permiteFotos =>
+      tratamientoDatos && CanalImagen.values.any((c) => estado(c) == EstadoAutorizacion.otorgada);
 }
 
 /// Alumna participante en NiñasPro Hub (US-07, US-09, US-25)
@@ -138,8 +327,14 @@ class Alumna {
   final bool autorizaFoto;
   final String apoderadoNombre;
   final String apoderadoTelefono;
-  final String estado; // 'activa' | 'retirada' | 'egresada'
+  final String apoderadoCorreo;
+  final String estado; // 'preinscrita' | 'activa' | 'retirada' | 'egresada'
   final String? motivoRetiro;
+  final DateTime? fechaRetiro;
+  final AutorizacionesAlumna autorizaciones;
+
+  /// Inscripciones anteriores de la misma ficha (ej. 'PCB · Sede San Joaquín · 2026') (US-09)
+  final List<String> historialInscripciones;
 
   const Alumna({
     required this.id,
@@ -154,8 +349,12 @@ class Alumna {
     required this.autorizaFoto,
     required this.apoderadoNombre,
     required this.apoderadoTelefono,
+    this.apoderadoCorreo = '',
     this.estado = 'activa',
     this.motivoRetiro,
+    this.fechaRetiro,
+    this.autorizaciones = const AutorizacionesAlumna(),
+    this.historialInscripciones = const [],
   });
 
   Alumna copyWith({
@@ -171,8 +370,12 @@ class Alumna {
     bool? autorizaFoto,
     String? apoderadoNombre,
     String? apoderadoTelefono,
+    String? apoderadoCorreo,
     String? estado,
     String? motivoRetiro,
+    DateTime? fechaRetiro,
+    AutorizacionesAlumna? autorizaciones,
+    List<String>? historialInscripciones,
   }) {
     return Alumna(
       id: id ?? this.id,
@@ -187,8 +390,12 @@ class Alumna {
       autorizaFoto: autorizaFoto ?? this.autorizaFoto,
       apoderadoNombre: apoderadoNombre ?? this.apoderadoNombre,
       apoderadoTelefono: apoderadoTelefono ?? this.apoderadoTelefono,
+      apoderadoCorreo: apoderadoCorreo ?? this.apoderadoCorreo,
       estado: estado ?? this.estado,
       motivoRetiro: motivoRetiro ?? this.motivoRetiro,
+      fechaRetiro: fechaRetiro ?? this.fechaRetiro,
+      autorizaciones: autorizaciones ?? this.autorizaciones,
+      historialInscripciones: historialInscripciones ?? this.historialInscripciones,
     );
   }
 }
@@ -419,7 +626,7 @@ class Justificativo {
   }
 }
 
-/// Tutora voluntaria del equipo pedagógico (US-33, US-43)
+/// Tutora voluntaria del equipo pedagógico y su ficha de voluntariado (US-30, US-31, US-32, US-33, US-43)
 @immutable
 class Tutora {
   final String id;
@@ -430,6 +637,16 @@ class Tutora {
   final bool adhesionFirmada;
   final bool presenteClaseActual;
   final bool esEquipoGestion;
+  final String rut;
+  final String correo;
+  final String institucion;
+  final DateTime? fechaIngreso;
+  final DateTime? fechaSalida;
+  final String estado; // 'activa' | 'retirada'
+  final DateTime? fechaFirmaAdhesion;
+
+  /// Cursos (instancias) en que ha participado, del más antiguo al más reciente
+  final List<String> cursoIds;
 
   const Tutora({
     required this.id,
@@ -440,7 +657,18 @@ class Tutora {
     required this.adhesionFirmada,
     required this.presenteClaseActual,
     this.esEquipoGestion = false,
+    this.rut = '',
+    this.correo = '',
+    this.institucion = '',
+    this.fechaIngreso,
+    this.fechaSalida,
+    this.estado = 'activa',
+    this.fechaFirmaAdhesion,
+    this.cursoIds = const [],
   });
+
+  /// Rol institucional para filtros del directorio de voluntariado (US-32)
+  String get rolVoluntariado => esEquipoGestion ? 'Equipo de Gestión' : 'Tutora';
 
   Tutora copyWith({
     String? id,
@@ -451,6 +679,14 @@ class Tutora {
     bool? adhesionFirmada,
     bool? presenteClaseActual,
     bool? esEquipoGestion,
+    String? rut,
+    String? correo,
+    String? institucion,
+    DateTime? fechaIngreso,
+    DateTime? fechaSalida,
+    String? estado,
+    DateTime? fechaFirmaAdhesion,
+    List<String>? cursoIds,
   }) {
     return Tutora(
       id: id ?? this.id,
@@ -461,8 +697,195 @@ class Tutora {
       adhesionFirmada: adhesionFirmada ?? this.adhesionFirmada,
       presenteClaseActual: presenteClaseActual ?? this.presenteClaseActual,
       esEquipoGestion: esEquipoGestion ?? this.esEquipoGestion,
+      rut: rut ?? this.rut,
+      correo: correo ?? this.correo,
+      institucion: institucion ?? this.institucion,
+      fechaIngreso: fechaIngreso ?? this.fechaIngreso,
+      fechaSalida: fechaSalida ?? this.fechaSalida,
+      estado: estado ?? this.estado,
+      fechaFirmaAdhesion: fechaFirmaAdhesion ?? this.fechaFirmaAdhesion,
+      cursoIds: cursoIds ?? this.cursoIds,
     );
   }
+}
+
+/// Clasificación de una fila en la previsualización de una carga masiva (US-07, US-08, US-30)
+enum EstadoFilaImportacion {
+  nueva,
+  existente,
+  invalida;
+
+  String get label => switch (this) {
+        EstadoFilaImportacion.nueva => 'Nueva',
+        EstadoFilaImportacion.existente => 'Ya existe',
+        EstadoFilaImportacion.invalida => 'Inválida',
+      };
+}
+
+/// Fila de una planilla de carga masiva (alumnas o voluntariado)
+@immutable
+class FilaImportacion {
+  final int numeroFila;
+  final String nombre;
+  final String rut;
+  final String detalle; // apoderado o institución, según la planilla
+  final EstadoFilaImportacion estado;
+  final String? motivo;
+
+  const FilaImportacion({
+    required this.numeroFila,
+    required this.nombre,
+    required this.rut,
+    required this.detalle,
+    required this.estado,
+    this.motivo,
+  });
+}
+
+/// Resultado de procesar una planilla simulada antes de confirmar la carga (US-07, US-08, US-30)
+@immutable
+class ResultadoImportacion {
+  final String nombreArchivo;
+  final List<FilaImportacion> filas;
+
+  /// Si no es null, la planilla no respeta la plantilla y se rechaza completa (US-08)
+  final String? errorColumnas;
+
+  const ResultadoImportacion({
+    required this.nombreArchivo,
+    this.filas = const [],
+    this.errorColumnas,
+  });
+
+  int contar(EstadoFilaImportacion estado) => filas.where((f) => f.estado == estado).length;
+}
+
+/// Tipo de acción registrada en la bitácora de auditoría (US-23, US-24)
+enum TipoAccionAuditoria {
+  consulta,
+  modificacion,
+  exportacion,
+  acceso;
+
+  String get label => switch (this) {
+        TipoAccionAuditoria.consulta => 'Consulta',
+        TipoAccionAuditoria.modificacion => 'Modificación',
+        TipoAccionAuditoria.exportacion => 'Exportación',
+        TipoAccionAuditoria.acceso => 'Inicio de sesión',
+      };
+}
+
+/// Evento inmutable de la bitácora de auditoría (US-22, US-24)
+@immutable
+class EventoAuditoria {
+  final String id;
+  final DateTime fecha;
+  final String usuariaNombre;
+  final String usuariaCorreo;
+  final String sedeNombre;
+  final TipoAccionAuditoria tipo;
+  final String descripcion;
+  final String? alumnaRut;
+
+  const EventoAuditoria({
+    required this.id,
+    required this.fecha,
+    required this.usuariaNombre,
+    required this.usuariaCorreo,
+    required this.sedeNombre,
+    required this.tipo,
+    required this.descripcion,
+    this.alumnaRut,
+  });
+}
+
+/// Indicadores agregados de una sede para el dashboard de la Directiva
+@immutable
+class ResumenSede {
+  final Sede sede;
+  final int cursos;
+  final int alumnasActivas;
+  final double asistenciaPromedio;
+  final int voluntariasActivas;
+
+  const ResumenSede({
+    required this.sede,
+    required this.cursos,
+    required this.alumnasActivas,
+    required this.asistenciaPromedio,
+    required this.voluntariasActivas,
+  });
+}
+
+/// Asistencia de una sede en un día de clases
+@immutable
+class PuntoAsistencia {
+  final DateTime fecha;
+  final int presentes;
+  final int total;
+
+  const PuntoAsistencia({required this.fecha, required this.presentes, required this.total});
+
+  double get porcentaje => total == 0 ? 0 : presentes * 100 / total;
+}
+
+/// Evolución de la asistencia de una sede, clase a clase (dashboard de la Directiva)
+@immutable
+class SerieAsistencia {
+  final String sedeId;
+  final String sedeNombre;
+  final List<PuntoAsistencia> puntos;
+
+  const SerieAsistencia({required this.sedeId, required this.sedeNombre, required this.puntos});
+}
+
+/// Reporte que se puede exportar (US-21)
+enum TipoExportacion {
+  asistencia,
+  nomina,
+  participacion;
+
+  String get label => switch (this) {
+        TipoExportacion.asistencia => 'Asistencia',
+        TipoExportacion.nomina => 'Nómina de alumnas',
+        TipoExportacion.participacion => 'Participación y ejercicios',
+      };
+}
+
+/// Filtros del formulario de exportación (US-21, US-22)
+@immutable
+class FiltroExportacion {
+  final TipoExportacion tipo;
+  final String? sedeId;
+  final String? cursoId;
+  final DateTime? desde;
+  final DateTime? hasta;
+  final String formato; // 'CSV' | 'XLSX'
+  final bool disociado;
+
+  const FiltroExportacion({
+    required this.tipo,
+    this.sedeId,
+    this.cursoId,
+    this.desde,
+    this.hasta,
+    this.formato = 'CSV',
+    this.disociado = false,
+  });
+}
+
+/// Contenido de una exportación (mockup: no se descarga un archivo real) (US-21, US-22)
+@immutable
+class ResultadoExportacion {
+  final String nombreArchivo;
+  final List<String> encabezados;
+  final List<List<String>> filas;
+
+  const ResultadoExportacion({
+    required this.nombreArchivo,
+    required this.encabezados,
+    required this.filas,
+  });
 }
 
 /// Vista agregada del portal móvil de la alumna (US-25, US-26, US-29, US-35)
@@ -471,6 +894,9 @@ class PortalAlumnaData {
   final Alumna alumna;
   final Curso curso;
   final List<SesionClase> sesiones;
+
+  /// Clase de hoy según la planificación del curso (null si hoy no hay clase)
+  final SesionClase? sesionHoy;
   final List<RegistroAsistencia> asistencias;
   final List<Justificativo> justificativos;
   final int podiosPrimerLugar;
@@ -484,6 +910,7 @@ class PortalAlumnaData {
     required this.alumna,
     required this.curso,
     required this.sesiones,
+    this.sesionHoy,
     required this.asistencias,
     required this.justificativos,
     required this.podiosPrimerLugar,
