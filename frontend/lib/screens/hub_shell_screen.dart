@@ -40,7 +40,7 @@ class HubShellScreen extends StatefulWidget {
 }
 
 class _HubShellScreenState extends State<HubShellScreen> {
-  int _currentRoleIndex = 0; // Inicia en Tutora (el flujo más interactivo y dinámico)
+  int _currentRoleIndex = 1; // Inicia en Gestión
   bool _mostrarHealthChecker = false;
 
   void _cambiarRol(int nuevoRol) {
