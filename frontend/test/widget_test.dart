@@ -125,16 +125,17 @@ void main() {
     expect(find.textContaining('DB: Error (120ms)'), findsOneWidget);
   });
 
-  testWidgets('NinasProApp renders mockup shell and initial Tutora tab', (WidgetTester tester) async {
+  testWidgets('NinasProApp renders mobile shell with initial Gestión role', (WidgetTester tester) async {
     final mockService = MockHealthService();
 
     await tester.pumpWidget(NinasProApp(healthService: mockService));
     await tester.pumpAndSettle();
 
     expect(find.text('NiñasPro Hub'), findsOneWidget);
-    expect(find.text('MOCKUP'), findsOneWidget);
-    expect(find.widgetWithText(NavigationDestination, 'Tutora'), findsOneWidget);
-    expect(find.widgetWithText(NavigationDestination, 'Gestión'), findsOneWidget);
-    expect(find.widgetWithText(NavigationDestination, 'Alumna'), findsOneWidget);
+    expect(find.text('MOBILE'), findsOneWidget);
+    // Selector de rol muestra el rol inicial
+    expect(find.byType(PopupMenuButton<int>), findsOneWidget);
+    expect(find.text('Gestión'), findsOneWidget);
+    expect(find.text('¡Hola, Camila!').hitTestable(), findsOneWidget);
   });
 }
