@@ -4,10 +4,15 @@ import '../../repositories/hub_repository.dart';
 import '../../services/health_service.dart';
 import '../../widgets/db_health_checker.dart';
 import '../../widgets/ninaspro_mobile_shell.dart';
+import '../../widgets/ninaspro_sync_indicator.dart';
+import 'alumna/ajustes_alumna_screen.dart';
 import 'alumna/portal_alumna_screen.dart';
+import 'directorio/ajustes_directiva_screen.dart';
 import 'directorio/directorio_desktop_screen.dart';
+import 'gestion/ajustes_gestion_screen.dart';
 import 'gestion/gestion_mobile_screen.dart';
-import 'tutora/pase_lista_screen.dart';
+import 'tutora/ajustes_tutora_screen.dart';
+import 'tutora/tutora_mobile_screen.dart';
 
 /// Contenedor maestro del Mockup de NiñasPro Hub.
 ///
@@ -35,7 +40,7 @@ class HubShellScreen extends StatefulWidget {
 }
 
 class _HubShellScreenState extends State<HubShellScreen> {
-  int _currentRoleIndex = 2; // Inicia en Tutora (el flujo más interactivo y dinámico)
+  int _currentRoleIndex = 0; // Inicia en Tutora (el flujo más interactivo y dinámico)
   bool _mostrarHealthChecker = false;
 
   void _cambiarRol(int nuevoRol) {
@@ -53,7 +58,10 @@ class _HubShellScreenState extends State<HubShellScreen> {
     if (_currentRoleIndex == 0) {
       return Scaffold(
         appBar: AppBar(
-          title: Row(
+          title: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
@@ -92,15 +100,18 @@ class _HubShellScreenState extends State<HubShellScreen> {
               ),
             ],
           ),
+          ),
           actions: [
             // Selector rápido de Rol
             _buildRoleSwitcher(isDark),
             const SizedBox(width: 8),
-            // Alternador de salud de base de datos
+            // Estado de sincronización con la nube
+            NinasProIndicadorSync(repository: widget.repository),
+            // Alternador de salud de base de datos (herramienta de desarrollo)
             IconButton(
               tooltip: 'Estado de conexión Supabase',
               icon: Icon(
-                Icons.cloud_done_rounded,
+                Icons.dns_rounded,
                 size: 20,
                 color: _mostrarHealthChecker
                     ? NinasProColors.brandPink
@@ -110,19 +121,12 @@ class _HubShellScreenState extends State<HubShellScreen> {
                 setState(() => _mostrarHealthChecker = !_mostrarHealthChecker);
               },
             ),
-            // Alternador de Modo Oscuro / Claro
-            if (widget.themeNotifier != null)
-              IconButton(
-                tooltip: isDark ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro',
-                icon: Icon(
-                  isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-                  size: 20,
-                ),
-                onPressed: () {
-                  widget.themeNotifier!.value =
-                      isDark ? ThemeMode.light : ThemeMode.dark;
-                },
-              ),
+            // Ajustes de la Directiva (incluye el modo claro/oscuro)
+            IconButton(
+              tooltip: 'Ajustes',
+              icon: const Icon(Icons.settings_rounded, size: 20),
+              onPressed: _abrirAjustes,
+            ),
             const SizedBox(width: 12),
           ],
         ),
@@ -159,7 +163,7 @@ class _HubShellScreenState extends State<HubShellScreen> {
               ),
               SizedBox(width: 4),
               Text(
-                'MOCKUP',
+                'MOBILE',
                 style: TextStyle(
                   fontSize: 8,
                   fontWeight: FontWeight.w900,
@@ -172,8 +176,17 @@ class _HubShellScreenState extends State<HubShellScreen> {
         actions: [
           // Selector de Rol
           _buildRoleSwitcher(isDark),
-          // Alternador de Modo Oscuro / Claro
-          if (widget.themeNotifier != null)
+          // Estado de sincronización con la nube
+          NinasProIndicadorSync(repository: widget.repository),
+          // Ajustes del rol (incluye el modo claro/oscuro); si el rol aún no tiene, alternador de tema
+          if (_buildAjustesRol() != null)
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              tooltip: 'Ajustes',
+              icon: const Icon(Icons.settings_rounded, size: 19),
+              onPressed: _abrirAjustes,
+            )
+          else if (widget.themeNotifier != null)
             IconButton(
               visualDensity: VisualDensity.compact,
               tooltip: isDark ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro',
@@ -195,7 +208,7 @@ class _HubShellScreenState extends State<HubShellScreen> {
             index: _currentRoleIndex - 1, // Offset 1 ya que 0 es Directiva
             children: [
               GestionMobileScreen(repository: widget.repository),
-              PaseListaScreen(repository: widget.repository),
+              TutoraMobileScreen(repository: widget.repository),
               PortalAlumnaScreen(repository: widget.repository),
             ],
           ),
@@ -207,33 +220,50 @@ class _HubShellScreenState extends State<HubShellScreen> {
             ),
         ],
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentRoleIndex - 1,
-        height: 64,
-        onDestinationSelected: (index) {
-          _cambiarRol(index + 1);
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard_rounded, color: NinasProColors.brandPink),
-            label: 'Gestión',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.how_to_reg_outlined),
-            selectedIcon: Icon(Icons.how_to_reg_rounded, color: NinasProColors.brandPink),
-            label: 'Tutora',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.face_outlined),
-            selectedIcon: Icon(Icons.face_rounded, color: NinasProColors.brandPink),
-            label: 'Alumna',
-          ),
-        ],
-      ),
+      
     );
 
     return NinasProMobileShell(child: childScreen);
+  }
+
+  /// Pantalla de Ajustes de cada rol. Para habilitar la de otro rol, agrega su `case` aquí.
+  Widget? _buildAjustesRol() {
+    switch (_currentRoleIndex) {
+      case 0:
+        return AjustesDirectivaScreen(
+          repository: widget.repository,
+          themeNotifier: widget.themeNotifier,
+        );
+      case 1:
+        return AjustesGestionScreen(
+          repository: widget.repository,
+          themeNotifier: widget.themeNotifier,
+        );
+      case 2:
+        return AjustesTutoraScreen(
+          repository: widget.repository,
+          themeNotifier: widget.themeNotifier,
+        );
+      case 3:
+        return AjustesAlumnaScreen(
+          repository: widget.repository,
+          themeNotifier: widget.themeNotifier,
+        );
+      default:
+        return null;
+    }
+  }
+
+  void _abrirAjustes() {
+    final ajustes = _buildAjustesRol();
+    if (ajustes == null) return;
+
+    // Directiva (0) es Desktop; los demás roles se ven dentro del marco de teléfono
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _currentRoleIndex == 0 ? ajustes : NinasProMobileShell(child: ajustes),
+      ),
+    );
   }
 
   Widget _buildRoleSwitcher(bool isDark) {
