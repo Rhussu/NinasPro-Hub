@@ -11,6 +11,32 @@ void main() {
       repository = MockHubRepository();
     });
 
+    test('con conexión los cambios se suben al instante; sin conexión quedan pendientes', () async {
+      expect(repository.estadoSincronizacion.value, EstadoSincronizacion.sincronizado);
+
+      // Con conexión: nada queda pendiente
+      await repository.asignarRolSemanal(tutoraId: 'tutora-2', semanaNumero: 4, rolCodigo: 'inventario');
+      expect(repository.estadoSincronizacion.value, EstadoSincronizacion.sincronizado);
+      expect(repository.cambiosPendientes.value, 0);
+
+      // Sin conexión: los cambios se guardan en el dispositivo
+      await repository.simularConexion(false);
+      expect(repository.estadoSincronizacion.value, EstadoSincronizacion.sinConexion);
+      await repository.asignarRolSemanal(tutoraId: 'tutora-3', semanaNumero: 4, rolCodigo: 'inventario');
+      await repository.contactarAlerta(alertaId: 'alerta-1', observacionesContacto: 'Llamada');
+      expect(repository.cambiosPendientes.value, 2);
+      // El cambio igual se ve en este dispositivo
+      final asignaciones = await repository.getAsignacionesSemanales(semanaNumero: 4);
+      expect(asignaciones.any((a) => a.tutoraId == 'tutora-3' && a.rolCodigo == 'inventario'), isTrue);
+
+      // Al volver la conexión se suben los pendientes
+      final reconexion = repository.simularConexion(true);
+      expect(repository.estadoSincronizacion.value, EstadoSincronizacion.sincronizando);
+      await reconexion;
+      expect(repository.estadoSincronizacion.value, EstadoSincronizacion.sincronizado);
+      expect(repository.cambiosPendientes.value, 0);
+    });
+
     test('getSedes returns list of sedes', () async {
       final sedes = await repository.getSedes();
       expect(sedes.length, 3);
@@ -28,7 +54,7 @@ void main() {
 
     test('getAlumnas filters by cursoId and sedeId', () async {
       final allAlumnas = await repository.getAlumnas();
-      expect(allAlumnas.length, 8);
+      expect(allAlumnas.length, 15);
 
       final alumnasStgo = await repository.getAlumnas(sedeId: 'sede-beauchef');
       expect(alumnasStgo.length, 8);
@@ -204,8 +230,9 @@ void main() {
     });
 
     test('getTutoras, esEquipoGestion and actualizarAsistenciaTutora (US-33)', () async {
-      final tutoras = await repository.getTutoras();
-      expect(tutoras.length, 4);
+      final tutoras = await repository.getTutoras(sedeId: 'sede-beauchef');
+      expect(tutoras.length, 8);
+      expect((await repository.getTutoras()).length, 12);
       expect(tutoras.any((t) => t.esEquipoGestion), isTrue);
 
       final ok = await repository.actualizarAsistenciaTutora(
@@ -224,10 +251,66 @@ void main() {
       expect(fallo, isFalse);
     });
 
+    test('registrarJustificativoManual queda aprobado y justifica la asistencia (US-37)', () async {
+      final ok = await repository.registrarJustificativoManual(
+        alumnaId: 'alumna-1',
+        sesionId: 'sesion-4',
+        detalle: 'Apoderada avisó por teléfono.',
+      );
+      expect(ok, isTrue);
+
+      final justs = await repository.getJustificativos();
+      expect(justs.first.alumnaId, 'alumna-1');
+      expect(justs.first.estado, 'aprobado');
+
+      final asistencia = await repository.getAsistenciaSesion(sesionId: 'sesion-4');
+      expect(
+        asistencia.firstWhere((r) => r.alumnaId == 'alumna-1').estado,
+        EstadoAsistencia.justificada,
+      );
+
+      final sinDetalle = await repository.registrarJustificativoManual(
+        alumnaId: 'alumna-1',
+        sesionId: 'sesion-4',
+        detalle: '   ',
+      );
+      expect(sinDetalle, isFalse);
+    });
+
+    test('asistencia de tutoras por clase con historial (US-33)', () async {
+      // Clase pasada con historial
+      final semana3 = await repository.getAsistenciaTutoras(sesionId: 'sesion-3');
+      expect(semana3.length, 8);
+      expect(semana3.firstWhere((r) => r.tutoraId == 'tutora-8').estado, EstadoAsistencia.ausente);
+
+      // Clase programada sin pase de lista
+      final semana9 = await repository.getAsistenciaTutoras(sesionId: 'sesion-9');
+      expect(semana9.every((r) => r.estado == EstadoAsistencia.pendiente), isTrue);
+
+      // Guardar en la clase en curso se refleja en presenteClaseActual
+      final actual = await repository.getAsistenciaTutoras(sesionId: 'sesion-4');
+      final editados = actual
+          .map((r) => r.tutoraId == 'tutora-1' ? r.copyWith(estado: EstadoAsistencia.ausente) : r)
+          .toList();
+      final ok = await repository.guardarAsistenciaTutoras(sesionId: 'sesion-4', registros: editados);
+      expect(ok, isTrue);
+      final tutoras = await repository.getTutoras();
+      expect(tutoras.firstWhere((t) => t.id == 'tutora-1').presenteClaseActual, isFalse);
+    });
+
     test('roles dinámicos y asignación semanal (US-43)', () async {
       final roles = await repository.getRolesTutora();
-      expect(roles.isNotEmpty, isTrue);
-      expect(roles.any((r) => r.codigo == 'facilitadora'), isTrue);
+      expect(roles.length, 8);
+      expect(roles.any((r) => r.codigo == 'presentar_clase' && r.esRequerido), isTrue);
+      expect(roles.any((r) => r.codigo == 'inventario' && !r.esRequerido), isTrue);
+
+      // Semanas pasadas con todas las tutoras asignadas; semana actual incompleta
+      final semana1 = await repository.getAsignacionesSemanales(semanaNumero: 1);
+      expect(semana1.length, 8);
+      final semana4 = await repository.getAsignacionesSemanales(semanaNumero: 4);
+      expect(semana4.any((a) => a.tutoraId == 'tutora-4'), isFalse);
+      final semana5 = await repository.getAsignacionesSemanales(semanaNumero: 5);
+      expect(semana5, isEmpty);
 
       // Crear nuevo rol
       final nuevoRol = const RolTutorConfig(
