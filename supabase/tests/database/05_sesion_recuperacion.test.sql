@@ -29,7 +29,7 @@ SELECT pg_temp.como_sistema();
 -- 2. Pide el enlace y lo canjea: Auth guarda y luego limpia recovery_token
 UPDATE auth.users SET recovery_token = 'hash-del-enlace' WHERE id = '5e000000-0000-0000-0000-0000000000aa';
 SELECT is_empty(
-  $$ SELECT 1 FROM public.recuperaciones_pendientes $$,
+  $$ SELECT 1 FROM public.recuperaciones_pendientes WHERE user_id = '5e000000-0000-0000-0000-0000000000aa' $$,
   'Pedir el enlace no deja una recuperación pendiente'
 );
 UPDATE auth.users SET recovery_token = '' WHERE id = '5e000000-0000-0000-0000-0000000000aa';
@@ -55,7 +55,7 @@ SELECT pg_temp.como_sistema();
 UPDATE auth.users SET recovery_token = 'otro-enlace' WHERE id = '5e000000-0000-0000-0000-0000000000aa';
 UPDATE auth.users SET recovery_token = '' WHERE id = '5e000000-0000-0000-0000-0000000000aa';
 SELECT public.hook_password_verification_attempt('{"user_id": "5e000000-0000-0000-0000-0000000000aa", "valid": true}');
-SELECT is_empty($$ SELECT 1 FROM public.recuperaciones_pendientes $$, 'Un ingreso con contraseña válida cierra la recuperación');
+SELECT is_empty($$ SELECT 1 FROM public.recuperaciones_pendientes WHERE user_id = '5e000000-0000-0000-0000-0000000000aa' $$, 'Un ingreso con contraseña válida cierra la recuperación');
 
 -- 5. Una cuenta bloqueada pierde el acceso aunque tenga una sesión abierta
 INSERT INTO public.intentos_login (user_id, fallos_consecutivos, bloqueada_en)
