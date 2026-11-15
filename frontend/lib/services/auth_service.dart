@@ -4,8 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/sesion_usuario.dart';
-import 'almacen_compartido.dart';
-import 'coordinador_recuperacion.dart';
+import 'url_navegador.dart';
 
 /// Etapas del ciclo de autenticación que la app debe mostrar.
 enum EtapaAuth {
@@ -18,17 +17,11 @@ enum EtapaAuth {
   /// Sesión activa con perfil cargado
   conSesion,
 
-  /// Se envió el correo de recuperación; se espera que abran el enlace
-  correoEnviado,
+  /// Se envió el código de recuperación al correo; se espera que lo ingresen
+  codigoEnviado,
 
-  /// Esta pestaña se abrió desde el enlace: elegir dónde cambiar la contraseña
-  enlaceRecuperacion,
-
-  /// Esta pestaña es la única que muestra el formulario de contraseña nueva
+  /// El código se verificó: falta definir la contraseña nueva
   recuperandoContrasena,
-
-  /// Otra pestaña está cambiando la contraseña
-  esperandoOtraPestana,
 }
 
 @immutable
@@ -42,20 +35,7 @@ class EstadoAuth {
   /// Correo de la recuperación en curso
   final String? correo;
 
-  /// [EtapaAuth.enlaceRecuperacion]: la pestaña donde se pidió el correo sigue abierta
-  final bool otraPestanaDisponible;
-
-  /// [EtapaAuth.esperandoOtraPestana]: esta es la pestaña del enlace y la otra cambia la contraseña
-  final bool soyPestanaDelEnlace;
-
-  const EstadoAuth(
-    this.etapa, {
-    this.sesion,
-    this.aviso,
-    this.correo,
-    this.otraPestanaDisponible = false,
-    this.soyPestanaDelEnlace = false,
-  });
+  const EstadoAuth(this.etapa, {this.sesion, this.aviso, this.correo});
 
   static const iniciando = EstadoAuth(EtapaAuth.iniciando);
 
@@ -66,13 +46,10 @@ class EstadoAuth {
       other.sesion?.perfilId == sesion?.perfilId &&
       other.sesion?.rol == sesion?.rol &&
       other.aviso == aviso &&
-      other.correo == correo &&
-      other.otraPestanaDisponible == otraPestanaDisponible &&
-      other.soyPestanaDelEnlace == soyPestanaDelEnlace;
+      other.correo == correo;
 
   @override
-  int get hashCode =>
-      Object.hash(etapa, sesion?.perfilId, sesion?.rol, aviso, correo, otraPestanaDisponible, soyPestanaDelEnlace);
+  int get hashCode => Object.hash(etapa, sesion?.perfilId, sesion?.rol, aviso, correo);
 }
 
 /// Resultado de una operación de autenticación, con un mensaje listo para mostrar.
@@ -89,13 +66,14 @@ class ResultadoAuth {
 ///
 /// El registro es cerrado: solo puede crear su cuenta quien tenga su correo
 /// autorizado previamente por la Directiva o el Equipo de Gestión (US-04, US-05).
-/// Una sesión obtenida con el enlace de recuperación nunca cuenta como sesión
-/// iniciada: primero hay que definir la contraseña nueva.
+/// La recuperación se hace con un código que llega al correo y se ingresa en la
+/// misma pantalla donde se pidió. La sesión que da el código nunca cuenta como
+/// sesión iniciada: primero hay que definir la contraseña nueva.
 abstract class AuthService {
   ValueListenable<EstadoAuth> get estado;
 
-  /// Restaura la sesión guardada, procesa el enlace del correo (si la app se
-  /// abrió desde uno) y comienza a escuchar cambios de Auth y de otras pestañas
+  /// Restaura la sesión guardada, procesa el enlace de activación (si la app se
+  /// abrió desde uno) y comienza a escuchar cambios de Auth
   Future<void> iniciar();
 
   Future<ResultadoAuth> iniciarSesion({required String correo, required String contrasena});
@@ -103,24 +81,25 @@ abstract class AuthService {
   /// Crea la cuenta de un correo autorizado. Queda activa al abrir el enlace del correo.
   Future<ResultadoAuth> crearCuenta({required String correo, required String contrasena});
 
+  /// Envía (o reenvía) el código de recuperación al correo
   Future<ResultadoAuth> enviarRecuperacion({required String correo});
 
-  /// Desde la pestaña del enlace: cambiar la contraseña en esta pestaña
-  Future<void> cambiarContrasenaAqui();
-
-  /// Desde la pestaña del enlace: cambiarla en la pestaña donde se pidió el correo
-  Future<ResultadoAuth> cambiarContrasenaEnOtraPestana();
+  /// Verifica el código del correo; si es correcto, pasa a definir la contraseña nueva
+  Future<ResultadoAuth> verificarCodigo({required String codigo});
 
   /// Abandona la recuperación y vuelve al acceso
   Future<void> cancelarRecuperacion();
 
-  /// Define la contraseña nueva (solo en la pestaña dueña de la recuperación)
+  /// Define la contraseña nueva después de verificar el código
   Future<ResultadoAuth> actualizarContrasena({required String contrasena});
 
   Future<void> cerrarSesion();
 
   void dispose();
 }
+
+/// Largo del código de recuperación: el mismo `otp_length` de `config.toml`
+const largoCodigo = 6;
 
 /// Reglas de contraseña: las mismas que `config.toml` exige en Auth
 /// (mínimo 10 caracteres con minúsculas, mayúsculas y dígitos).
@@ -139,9 +118,20 @@ String? validarCorreo(String correo) {
   return null;
 }
 
+/// El código se puede pegar con espacios (ej. "123 456"); se valida sin ellos
+String limpiarCodigo(String codigo) => codigo.replaceAll(RegExp(r'\s'), '');
+
+String? validarCodigo(String codigo) {
+  final limpio = limpiarCodigo(codigo);
+  if (limpio.isEmpty) return 'Ingresa el código que te enviamos.';
+  if (!RegExp('^[0-9]{$largoCodigo}\$').hasMatch(limpio)) return 'El código tiene $largoCodigo números.';
+  return null;
+}
+
 const mensajeCuentaBloqueada =
     'Tu cuenta está bloqueada por 3 intentos fallidos. Usa "¿Olvidaste tu contraseña?" para desbloquearla.';
 const mensajeEnlaceInvalido = 'El enlace ya se usó o venció. Pide uno nuevo.';
+const mensajeCodigoInvalido = 'El código no es correcto o ya venció. Revísalo o pide uno nuevo.';
 
 /// Traduce los errores de Supabase Auth a mensajes en español para la usuaria.
 String mensajeErrorAuth(AuthException e) {
@@ -175,38 +165,25 @@ String mensajeErrorAuth(AuthException e) {
 /// Implementación sobre Supabase Auth + tablas `perfiles`, `usuarios_sedes` y `alumnas`.
 class SupabaseAuthService implements AuthService {
   final SupabaseClient _client;
-  final CoordinadorRecuperacion _coordinador;
-  final AlmacenCompartido _almacen;
 
-  /// URL a la que vuelven los enlaces de activación y recuperación
+  /// URL a la que vuelve el enlace de activación de la cuenta
   final String? redirectTo;
 
-  /// URL con la que se abrió la app (para leer el enlace del correo)
+  /// URL con la que se abrió la app (para leer el enlace de activación)
   final Uri? urlInicial;
 
+  /// Quita el token del enlace de la barra de direcciones
+  final void Function() _limpiarUrl;
+
   final _estado = ValueNotifier<EstadoAuth>(EstadoAuth.iniciando);
-  StreamSubscription<AuthState>? _suscripcionAuth;
-  StreamSubscription<void>? _suscripcionPestanas;
-  bool _canjeando = false;
+  StreamSubscription<AuthState>? _suscripcion;
 
-  factory SupabaseAuthService(
-    SupabaseClient client, {
-    String? redirectTo,
-    Uri? urlInicial,
-    AlmacenCompartido? almacen,
-    Duration intervaloLatido = const Duration(seconds: 2),
-  }) {
-    final a = almacen ?? crearAlmacenCompartido();
-    return SupabaseAuthService._(
-      client,
-      a,
-      CoordinadorRecuperacion(a, intervaloLatido: intervaloLatido),
-      redirectTo: redirectTo,
-      urlInicial: urlInicial,
-    );
-  }
-
-  SupabaseAuthService._(this._client, this._almacen, this._coordinador, {this.redirectTo, this.urlInicial});
+  SupabaseAuthService(
+    this._client, {
+    this.redirectTo,
+    this.urlInicial,
+    void Function()? limpiarUrl,
+  }) : _limpiarUrl = limpiarUrl ?? limpiarUrlDelNavegador;
 
   @override
   ValueListenable<EstadoAuth> get estado => _estado;
@@ -215,102 +192,30 @@ class SupabaseAuthService implements AuthService {
 
   @override
   Future<void> iniciar() async {
-    _suscripcionAuth ??= _client.auth.onAuthStateChange.listen(_alCambiarAuth, onError: (_) {});
-    _suscripcionPestanas ??= _coordinador.cambios.listen((_) => _alCambiarOtraPestana());
+    _suscripcion ??= _client.auth.onAuthStateChange.listen(_alCambiarAuth, onError: (_) {});
 
     final url = urlInicial ?? Uri.base;
     final tokenHash = url.queryParameters['token_hash'];
-    final tipo = url.queryParameters['type'];
-    if (tokenHash != null) _almacen.limpiarUrl();
-
-    if (tokenHash != null && tipo == 'email') {
-      await _activarCuenta(tokenHash);
-      return;
+    if (tokenHash != null) {
+      _limpiarUrl();
+      if (url.queryParameters['type'] == 'email') {
+        await _activarCuenta(tokenHash);
+        return;
+      }
     }
-    if (tokenHash != null && tipo == 'recovery') _coordinador.registrarEnlace(tokenHash);
     await _evaluar();
   }
 
-  /// Decide la etapa a partir de la recuperación en curso y de la sesión guardada
+  /// Decide la etapa a partir de la sesión guardada
   Future<void> _evaluar() async {
-    final r = _coordinador.estado;
-    final yo = _coordinador.idPestana;
-    final participo = r != null && (r.solicitante == yo || r.enlaceAbiertoPor == yo);
-
-    if (participo && r.fase != FaseRecuperacion.completada) {
-      final soyEnlace = r.enlaceAbiertoPor == yo;
-      switch (r.fase) {
-        case FaseRecuperacion.solicitada:
-          _emitir(EstadoAuth(EtapaAuth.correoEnviado, correo: r.correo));
-          return;
-        case FaseRecuperacion.enlaceAbierto:
-          _emitir(soyEnlace
-              ? EstadoAuth(
-                  EtapaAuth.enlaceRecuperacion,
-                  correo: r.correo,
-                  otraPestanaDisponible: _coordinador.solicitanteActivo,
-                )
-              : EstadoAuth(EtapaAuth.esperandoOtraPestana, correo: r.correo));
-          return;
-        case FaseRecuperacion.cambiando:
-          if (r.duenia == yo) {
-            await _tomarRecuperacion(r);
-          } else {
-            _emitir(EstadoAuth(EtapaAuth.esperandoOtraPestana, correo: r.correo, soyPestanaDelEnlace: soyEnlace));
-          }
-          return;
-        case FaseRecuperacion.completada:
-          break;
-      }
-    }
-
     final user = _client.auth.currentUser;
     if (user == null) {
+      // Esperando el código todavía no hay sesión: no se sale de esa pantalla
+      if (_estado.value.etapa == EtapaAuth.codigoEnviado) return;
       _emitir(EstadoAuth(EtapaAuth.sinSesion, aviso: _estado.value.aviso));
       return;
     }
     await _cargarSesion(user.id);
-  }
-
-  static const _etapasRecuperacion = {
-    EtapaAuth.correoEnviado,
-    EtapaAuth.enlaceRecuperacion,
-    EtapaAuth.recuperandoContrasena,
-    EtapaAuth.esperandoOtraPestana,
-  };
-
-  /// Otra pestaña cambió la recuperación: solo importa a las pestañas que participan en ella
-  void _alCambiarOtraPestana() {
-    final r = _coordinador.estado;
-    final yo = _coordinador.idPestana;
-    final participo = r != null && (r.solicitante == yo || r.enlaceAbiertoPor == yo);
-    if (participo || _etapasRecuperacion.contains(_estado.value.etapa)) _evaluar();
-  }
-
-  /// Esta pestaña es la dueña: canjea el enlace (una sola vez) y muestra el formulario
-  Future<void> _tomarRecuperacion(EstadoRecuperacion r) async {
-    if (_estado.value.etapa == EtapaAuth.recuperandoContrasena || _canjeando) return;
-
-    final token = r.tokenHash;
-    if (token != null) {
-      _canjeando = true;
-      try {
-        await _client.auth.verifyOTP(type: OtpType.recovery, tokenHash: token);
-        _coordinador.olvidarToken();
-      } on AuthException catch (e) {
-        _coordinador.limpiar();
-        _emitir(EstadoAuth(EtapaAuth.sinSesion, aviso: mensajeErrorAuth(e)));
-        return;
-      } finally {
-        _canjeando = false;
-      }
-    } else if (_client.auth.currentUser == null) {
-      // El enlace se canjeó y la sesión se perdió: hay que pedir uno nuevo
-      _coordinador.limpiar();
-      _emitir(const EstadoAuth(EtapaAuth.sinSesion, aviso: mensajeEnlaceInvalido));
-      return;
-    }
-    _emitir(EstadoAuth(EtapaAuth.recuperandoContrasena, correo: r.correo ?? _client.auth.currentUser?.email));
   }
 
   Future<void> _activarCuenta(String tokenHash) async {
@@ -339,7 +244,7 @@ class SupabaseAuthService implements AuthService {
         if (_estado.value.sesion?.perfilId != cambio.session?.user.id) _evaluar();
       case AuthChangeEvent.signedOut:
         _evaluar();
-      // La recuperación la coordina la app (ver CoordinadorRecuperacion), no este evento
+      // verificarCodigo ya pasa a la contraseña nueva
       default:
         break;
     }
@@ -367,29 +272,10 @@ class SupabaseAuthService implements AuthService {
         return;
       }
       if (cuenta?['recuperacion_pendiente'] == true) {
-        final r = _coordinador.estado;
-        final yo = _coordinador.idPestana;
-        // Solo espera una pestaña que participa en la recuperación; una pestaña nueva
-        // (la dueña pudo cerrarse) toma el cambio de contraseña
-        final otraEsDuenia = r != null &&
-            r.fase == FaseRecuperacion.cambiando &&
-            r.duenia != null &&
-            r.duenia != yo &&
-            (r.solicitante == yo || r.enlaceAbiertoPor == yo);
-        if (otraEsDuenia) {
-          _emitir(EstadoAuth(
-            EtapaAuth.esperandoOtraPestana,
-            correo: r.correo,
-            soyPestanaDelEnlace: r.enlaceAbiertoPor == _coordinador.idPestana,
-          ));
-        } else {
-          // Recarga o sesión sin coordinación: esta pestaña toma el cambio de contraseña
-          if (r != null && r.fase != FaseRecuperacion.completada) _coordinador.elegirDuenia(_coordinador.idPestana);
-          _emitir(EstadoAuth(EtapaAuth.recuperandoContrasena, correo: _client.auth.currentUser?.email));
-        }
+        // Recarga u otra pestaña con la sesión del código: primero la contraseña nueva
+        _emitir(EstadoAuth(EtapaAuth.recuperandoContrasena, correo: _client.auth.currentUser?.email));
         return;
       }
-
       final perfil = await _client
           .from('perfiles')
           .select('id, nombres, apellidos, correo, rol, activo, usuarios_sedes(sede_id, es_lider_sede, sedes(nombre))')
@@ -480,10 +366,10 @@ class SupabaseAuthService implements AuthService {
 
   @override
   Future<ResultadoAuth> enviarRecuperacion({required String correo}) async {
+    final limpio = correo.trim().toLowerCase();
     try {
-      await _client.auth.resetPasswordForEmail(correo.trim().toLowerCase(), redirectTo: redirectTo);
-      _coordinador.registrarSolicitud(correo);
-      await _evaluar();
+      await _client.auth.resetPasswordForEmail(limpio);
+      _emitir(EstadoAuth(EtapaAuth.codigoEnviado, correo: limpio));
       return const ResultadoAuth.ok();
     } on AuthException catch (e) {
       return ResultadoAuth.error(mensajeErrorAuth(e));
@@ -491,26 +377,24 @@ class SupabaseAuthService implements AuthService {
   }
 
   @override
-  Future<void> cambiarContrasenaAqui() async {
-    _coordinador.elegirDuenia(_coordinador.idPestana);
-    await _evaluar();
-  }
-
-  @override
-  Future<ResultadoAuth> cambiarContrasenaEnOtraPestana() async {
-    final r = _coordinador.estado;
-    if (r == null || r.solicitante == null || !_coordinador.solicitanteActivo) {
-      await _evaluar();
-      return const ResultadoAuth.error('La pestaña donde pediste el cambio ya no está abierta. Cámbiala aquí.');
+  Future<ResultadoAuth> verificarCodigo({required String codigo}) async {
+    final correo = _estado.value.correo;
+    if (_estado.value.etapa != EtapaAuth.codigoEnviado || correo == null) {
+      return const ResultadoAuth.error('Pide un código nuevo para continuar.');
     }
-    _coordinador.elegirDuenia(r.solicitante!);
-    await _evaluar();
-    return const ResultadoAuth.ok();
+    try {
+      final r = await _client.auth.verifyOTP(type: OtpType.recovery, email: correo, token: limpiarCodigo(codigo));
+      if (r.session == null) return const ResultadoAuth.error(mensajeCodigoInvalido);
+      // Aunque la cuenta esté bloqueada se sigue: la contraseña nueva la desbloquea
+      _emitir(EstadoAuth(EtapaAuth.recuperandoContrasena, correo: correo));
+      return const ResultadoAuth.ok();
+    } on AuthException catch (e) {
+      return ResultadoAuth.error(e.code == 'otp_expired' ? mensajeCodigoInvalido : mensajeErrorAuth(e));
+    }
   }
 
   @override
   Future<void> cancelarRecuperacion() async {
-    _coordinador.limpiar();
     _emitir(const EstadoAuth(EtapaAuth.sinSesion));
     if (_client.auth.currentUser != null) {
       try {
@@ -524,12 +408,11 @@ class SupabaseAuthService implements AuthService {
   @override
   Future<ResultadoAuth> actualizarContrasena({required String contrasena}) async {
     if (_estado.value.etapa != EtapaAuth.recuperandoContrasena) {
-      return const ResultadoAuth.error('La contraseña se está cambiando en otra pestaña.');
+      return const ResultadoAuth.error('Verifica primero el código que te enviamos.');
     }
     try {
       final r = await _client.auth.updateUser(UserAttributes(password: contrasena));
       // La base cierra la recuperación y desbloquea la cuenta al cambiar la contraseña
-      _coordinador.completar();
       final user = r.user;
       if (user != null) await _cargarSesion(user.id);
       return const ResultadoAuth.ok('Tu contraseña quedó actualizada.');
@@ -540,16 +423,13 @@ class SupabaseAuthService implements AuthService {
 
   @override
   Future<void> cerrarSesion() async {
-    _coordinador.limpiar();
     _emitir(const EstadoAuth(EtapaAuth.sinSesion));
     await _client.auth.signOut();
   }
 
   @override
   void dispose() {
-    _suscripcionAuth?.cancel();
-    _suscripcionPestanas?.cancel();
-    _coordinador.dispose();
+    _suscripcion?.cancel();
     _estado.dispose();
   }
 }

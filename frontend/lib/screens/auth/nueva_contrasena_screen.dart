@@ -3,9 +3,8 @@ import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import 'acceso_screen.dart';
 
-/// Formulario de contraseña nueva. Solo lo muestra la pestaña dueña de la
-/// recuperación; al guardarla la cuenta se desbloquea y recién ahí se entra a la
-/// app (US-05, US-06).
+/// Formulario de contraseña nueva, después de verificar el código del correo.
+/// Al guardarla la cuenta se desbloquea y recién ahí se entra a la app (US-05, US-06).
 class NuevaContrasenaScreen extends StatefulWidget {
   final AuthService authService;
   final String? correo;

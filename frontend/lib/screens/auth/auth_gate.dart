@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../../models/sesion_usuario.dart';
 import '../../services/auth_service.dart';
 import 'acceso_screen.dart';
+import 'codigo_recuperacion_screen.dart';
 import 'nueva_contrasena_screen.dart';
-import 'recuperacion_screens.dart';
 
 /// Decide qué mostrar según el estado de autenticación: carga, acceso, los pasos
 /// de la recuperación de contraseña o la app de la usuaria.
@@ -58,17 +58,13 @@ class _AuthGateState extends State<AuthGate> {
               authService: widget.authService,
               aviso: estado.aviso,
             ),
-          EtapaAuth.correoEnviado => CorreoEnviadoScreen(authService: widget.authService, correo: estado.correo),
-          EtapaAuth.enlaceRecuperacion => EnlaceRecuperacionScreen(
+          EtapaAuth.codigoEnviado => CodigoRecuperacionScreen(
+              // Una pantalla nueva por correo, para no arrastrar el código de otra solicitud
+              key: ValueKey(estado.correo),
               authService: widget.authService,
               correo: estado.correo,
-              otraPestanaDisponible: estado.otraPestanaDisponible,
             ),
           EtapaAuth.recuperandoContrasena => NuevaContrasenaScreen(authService: widget.authService, correo: estado.correo),
-          EtapaAuth.esperandoOtraPestana => EsperandoOtraPestanaScreen(
-              authService: widget.authService,
-              soyPestanaDelEnlace: estado.soyPestanaDelEnlace,
-            ),
           EtapaAuth.conSesion when sesion != null => KeyedSubtree(
               // Cambiar de cuenta reinicia por completo la app de la usuaria anterior
               key: ValueKey(sesion.perfilId),

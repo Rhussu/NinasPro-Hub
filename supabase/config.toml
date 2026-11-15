@@ -244,8 +244,10 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
-# Plantillas propias: los enlaces llevan token_hash y la app los canjea con verifyOTP,
-# así funcionan aunque se abran en otro dispositivo (sin el code_verifier de PKCE)
+# Plantillas propias. La activación lleva un enlace con token_hash que la app canjea con
+# verifyOTP (funciona aunque se abra en otro dispositivo, sin el code_verifier de PKCE).
+# La recuperación lleva un código de otp_length dígitos ({{ .Token }}) que se ingresa
+# en la misma pantalla donde se pidió.
 [auth.email.template.confirmation]
 subject = "Activa tu cuenta de NiñasPro Hub"
 content_path = "./supabase/templates/confirmacion.html"

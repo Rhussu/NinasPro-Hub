@@ -7,7 +7,7 @@ import '../../widgets/ninaspro_mascot.dart';
 enum ModoAcceso { iniciarSesion, crearCuenta, recuperar }
 
 /// Acceso a NiñasPro Hub: iniciar sesión, crear la cuenta de un correo
-/// autorizado (US-04, US-05) o pedir el enlace para recuperar la contraseña.
+/// autorizado (US-04, US-05) o pedir el código para recuperar la contraseña.
 ///
 /// Cada modo arma su propio formulario (campos, validaciones y errores nuevos):
 /// cambiar de modo nunca arrastra el estado del anterior.
@@ -181,8 +181,8 @@ class _FormularioAccesoState extends State<_FormularioAcceso> {
         ),
       ModoAcceso.recuperar => (
           'Recupera tu contraseña',
-          'Te enviaremos un enlace para crear una contraseña nueva. También sirve para desbloquear tu cuenta.',
-          'Enviar enlace',
+          'Te enviaremos un código para crear una contraseña nueva. También sirve para desbloquear tu cuenta.',
+          'Enviar código',
         ),
     };
 

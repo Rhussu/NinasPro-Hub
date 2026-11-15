@@ -73,7 +73,7 @@ class FakeAuthService implements AuthService {
   @override
   ValueListenable<EstadoAuth> get estado => _estado;
 
-  /// Simula un cambio de Auth (ej. abrir el enlace de recuperación)
+  /// Simula un cambio de Auth (ej. una sesión que se cierra desde otra pestaña)
   void emitir(EstadoAuth estado) => _estado.value = estado;
 
   @override
@@ -101,25 +101,19 @@ class FakeAuthService implements AuthService {
   @override
   Future<ResultadoAuth> enviarRecuperacion({required String correo}) async {
     llamadas.add('enviarRecuperacion:$correo');
-    if (resultadoRecuperacion.ok) _estado.value = EstadoAuth(EtapaAuth.correoEnviado, correo: correo);
+    if (resultadoRecuperacion.ok) _estado.value = EstadoAuth(EtapaAuth.codigoEnviado, correo: correo);
     return resultadoRecuperacion;
   }
 
-  ResultadoAuth resultadoOtraPestana = const ResultadoAuth.ok();
+  ResultadoAuth resultadoCodigo = const ResultadoAuth.ok();
 
   @override
-  Future<void> cambiarContrasenaAqui() async {
-    llamadas.add('cambiarContrasenaAqui');
-    _estado.value = EstadoAuth(EtapaAuth.recuperandoContrasena, correo: _estado.value.correo);
-  }
-
-  @override
-  Future<ResultadoAuth> cambiarContrasenaEnOtraPestana() async {
-    llamadas.add('cambiarContrasenaEnOtraPestana');
-    if (resultadoOtraPestana.ok) {
-      _estado.value = EstadoAuth(EtapaAuth.esperandoOtraPestana, correo: _estado.value.correo, soyPestanaDelEnlace: true);
+  Future<ResultadoAuth> verificarCodigo({required String codigo}) async {
+    llamadas.add('verificarCodigo:$codigo');
+    if (resultadoCodigo.ok) {
+      _estado.value = EstadoAuth(EtapaAuth.recuperandoContrasena, correo: _estado.value.correo);
     }
-    return resultadoOtraPestana;
+    return resultadoCodigo;
   }
 
   @override

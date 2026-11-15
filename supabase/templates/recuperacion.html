@@ -8,17 +8,17 @@
           <h2 style="margin:0 0 16px;font-size:18px;">Recupera tu contraseña</h2>
           <p style="margin:0 0 16px;line-height:1.5;">
             Recibimos una solicitud para crear una contraseña nueva para <strong>{{ .Email }}</strong>.
+            Ingresa este código en la pantalla donde la pediste:
+          </p>
+          <p style="margin:24px 0;text-align:center;">
+            <span style="display:inline-block;padding:14px 24px;background:#f8f4fa;border:2px solid #8b3295;border-radius:12px;font-size:32px;font-weight:bold;letter-spacing:8px;color:#8b3295;font-family:'Courier New',Courier,monospace;">{{ .Token }}</span>
+          </p>
+          <p style="margin:0 0 16px;line-height:1.5;">
             Si tu cuenta estaba bloqueada por intentos fallidos, al guardar la contraseña nueva quedará desbloqueada.
           </p>
-          <p style="margin:24px 0;">
-            <a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=recovery"
-               style="display:inline-block;padding:14px 24px;background:#8b3295;color:#ffffff;text-decoration:none;border-radius:12px;font-weight:bold;">
-              Crear contraseña nueva
-            </a>
-          </p>
           <p style="margin:0;font-size:13px;color:#72637e;line-height:1.5;">
-            El enlace sirve una sola vez y vence en una hora. Si no pediste este cambio, ignora este correo:
-            tu contraseña actual sigue funcionando.
+            El código sirve una sola vez y vence en una hora. No lo compartas con nadie: NiñasPro nunca te lo pedirá.
+            Si no pediste este cambio, ignora este correo: tu contraseña actual sigue funcionando.
           </p>
         </td>
       </tr>
