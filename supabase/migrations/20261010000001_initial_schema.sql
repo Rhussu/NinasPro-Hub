@@ -71,6 +71,12 @@ CREATE TYPE estado_justificativo AS ENUM (
   'rechazado'
 );
 
+CREATE TYPE rol_tarea_tutor AS ENUM (
+  'tutora_lider',
+  'tutora_apoyo',
+  'registro_asistencia',
+  'dinamica_kahoot'
+);
 
 CREATE TYPE tipo_pregunta_encuesta AS ENUM (
   'escala_1_a_5',
@@ -159,7 +165,7 @@ CREATE TABLE instancias_curso (
   dia_semana VARCHAR(15) NOT NULL DEFAULT 'Sábado',
   hora_inicio TIME NOT NULL DEFAULT '10:00',
   hora_fin TIME NOT NULL DEFAULT '13:00',
-  porcentaje_asistencia_minimo INTEGER NOT NULL DEFAULT 80,
+  porcentaje_asistencia_minimo INTEGER NOT NULL DEFAULT 75,
   activo BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
   UNIQUE(curso_id, sede_id, periodo_academico)
@@ -281,24 +287,15 @@ CREATE TABLE recursos_clase (
   orden INTEGER DEFAULT 0
 );
 
-CREATE TABLE rol_tarea_tutor (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  codigo VARCHAR(50) UNIQUE NOT NULL,
-  nombre VARCHAR(100) NOT NULL,
-  descripcion TEXT,
-  activo BOOLEAN NOT NULL DEFAULT true,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
-);
-
 CREATE TABLE tareas_semanales_tutores (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   clase_id UUID NOT NULL REFERENCES clases(id) ON DELETE CASCADE,
   tutor_id UUID NOT NULL REFERENCES perfiles(id) ON DELETE RESTRICT,
-  rol_tarea_tutor_id UUID NOT NULL REFERENCES rol_tarea_tutor(id) ON DELETE RESTRICT,
+  tarea rol_tarea_tutor NOT NULL,
   observaciones TEXT,
   completada BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
-  UNIQUE(clase_id, tutor_id, rol_tarea_tutor_id)
+  UNIQUE(clase_id, tutor_id, tarea)
 );
 
 -- -----------------------------------------------------------------------------

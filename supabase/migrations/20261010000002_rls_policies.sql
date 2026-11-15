@@ -22,7 +22,6 @@ ALTER TABLE public.inscripciones ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.clases ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.planificacion_clases ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.recursos_clase ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.rol_tarea_tutor ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tareas_semanales_tutores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.asistencia_alumnas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.justificativos_inasistencia ENABLE ROW LEVEL SECURITY;
@@ -86,11 +85,6 @@ CREATE POLICY "Lectura de cursos para usuarios autenticados"
 
 CREATE POLICY "Lectura de instancias de curso para usuarios autenticados"
   ON public.instancias_curso FOR SELECT
-  TO authenticated
-  USING (true);
-
-CREATE POLICY "Lectura de roles de tarea de tutor para usuarios autenticados"
-  ON public.rol_tarea_tutor FOR SELECT
   TO authenticated
   USING (true);
 
