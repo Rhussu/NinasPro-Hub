@@ -4,6 +4,8 @@ import 'package:ninas_pro_hub/main.dart';
 import 'package:ninas_pro_hub/services/health_service.dart';
 import 'package:ninas_pro_hub/widgets/db_health_checker.dart';
 
+import 'fakes/fake_auth_service.dart';
+
 class MockHealthService extends HealthService {
   final DbHealthResult Function(String? url, String? key)? onCheck;
 
@@ -31,18 +33,14 @@ class MockHealthService extends HealthService {
 }
 
 void main() {
-  testWidgets('Renders development screen and db health checker connected', (WidgetTester tester) async {
+  testWidgets('DbHealthChecker renders connected state with details and config', (WidgetTester tester) async {
     final mockService = MockHealthService();
 
-    await tester.pumpWidget(MaterialApp(home: DevelopmentHomeScreen(healthService: mockService)));
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: Center(child: DbHealthChecker(healthService: mockService)))));
     await tester.pumpAndSettle();
 
-    expect(find.text('NiñasPro Hub'), findsOneWidget);
-    expect(find.text('EN DESARROLLO'), findsOneWidget);
-    expect(find.text('Plataforma en Construcción'), findsOneWidget);
     expect(find.byType(DbHealthChecker), findsOneWidget);
     expect(find.textContaining('DB: Conectada'), findsOneWidget);
-    expect(supabaseClient, isNull);
 
     // Expand details
     final expandButton = find.byTooltip('Ver detalles');
@@ -125,17 +123,32 @@ void main() {
     expect(find.textContaining('DB: Error (120ms)'), findsOneWidget);
   });
 
-  testWidgets('NinasProApp renders mobile shell with initial Gestión role', (WidgetTester tester) async {
-    final mockService = MockHealthService();
+  testWidgets('NinasProApp sin sesión guardada muestra el acceso', (WidgetTester tester) async {
+    final auth = FakeAuthService();
 
-    await tester.pumpWidget(NinasProApp(healthService: mockService));
+    await tester.pumpWidget(NinasProApp(authService: auth, healthService: MockHealthService()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Te damos la bienvenida'), findsOneWidget);
+    expect(find.text('Ingresar'), findsOneWidget);
+  });
+
+  testWidgets('NinasProApp con sesión de Gestión abre su vista y al cerrar sesión vuelve al acceso', (WidgetTester tester) async {
+    final auth = FakeAuthService(sesionGuardada: SesionesDemo.gestion);
+
+    await tester.pumpWidget(NinasProApp(authService: auth, healthService: MockHealthService()));
     await tester.pumpAndSettle();
 
     expect(find.text('NiñasPro Hub'), findsOneWidget);
-    expect(find.text('MOBILE'), findsOneWidget);
-    // Selector de rol muestra el rol inicial
-    expect(find.byType(PopupMenuButton<int>), findsOneWidget);
-    expect(find.text('Gestión'), findsOneWidget);
     expect(find.text('¡Hola, Camila!').hitTestable(), findsOneWidget);
+
+    // Se abre Ajustes encima: al cerrar sesión no debe quedar a la vista
+    await tester.tap(find.byTooltip('Ajustes'));
+    await tester.pumpAndSettle();
+    await auth.cerrarSesion();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Te damos la bienvenida'), findsOneWidget);
+    expect(find.text('Ajustes'), findsNothing);
   });
 }

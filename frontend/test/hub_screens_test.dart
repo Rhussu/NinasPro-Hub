@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ninas_pro_hub/config/ninaspro_theme.dart';
+import 'package:ninas_pro_hub/models/sesion_usuario.dart';
 import 'package:ninas_pro_hub/repositories/mock_hub_repository.dart';
 import 'package:ninas_pro_hub/screens/alumna/portal_alumna_screen.dart';
 import 'package:ninas_pro_hub/screens/directorio/ajustes_directiva_screen.dart';
@@ -13,6 +14,8 @@ import 'package:ninas_pro_hub/screens/tutora/tutora_mobile_screen.dart';
 import 'package:ninas_pro_hub/widgets/ninaspro_mascot.dart';
 import 'package:ninas_pro_hub/widgets/ninaspro_skeleton.dart';
 import 'package:ninas_pro_hub/widgets/ninaspro_stat_card.dart';
+
+import 'fakes/fake_auth_service.dart';
 
 void main() {
   group('Mockup Screens & Widgets Tests', () {
@@ -443,24 +446,34 @@ void main() {
       expect(themeNotifier.value, ThemeMode.light);
     });
 
-    testWidgets('HubShellScreen navigates between 4 roles and toggles theme', (WidgetTester tester) async {
+    Future<ValueNotifier<ThemeMode>> pumpShell(
+      WidgetTester tester,
+      SesionUsuario sesion, {
+      VoidCallback? onCerrarSesion,
+    }) async {
       tester.view.physicalSize = const Size(1280, 800);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
       final themeNotifier = ValueNotifier(ThemeMode.dark);
-
       await tester.pumpWidget(MaterialApp(
         theme: NinasProTheme.light,
         darkTheme: NinasProTheme.dark,
         themeMode: ThemeMode.dark,
         home: HubShellScreen(
           repository: repository,
+          sesion: sesion,
           themeNotifier: themeNotifier,
+          onCerrarSesion: onCerrarSesion,
         ),
       ));
       await tester.pumpAndSettle();
+      return themeNotifier;
+    }
+
+    testWidgets('HubShellScreen muestra la nube de conexión y sincroniza los cambios pendientes', (WidgetTester tester) async {
+      await pumpShell(tester, SesionesDemo.gestion);
 
       expect(find.text('NiñasPro Hub'), findsOneWidget);
 
@@ -476,70 +489,85 @@ void main() {
       await tester.pump();
       expect(find.byTooltip('Conectado · todo guardado en la nube'), findsOneWidget);
 
-      // Mockup: se simula que se cae internet desde el menú de la nube
-      await tester.tap(find.byTooltip('Conectado · todo guardado en la nube'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Simular sin conexión'));
-      await tester.pumpAndSettle();
+      // Se cae internet: el cambio queda pendiente en el dispositivo
+      await repository.simularConexion(false);
       await guardarPodio();
       await tester.pump();
       expect(find.byTooltip('Sin conexión · 1 cambio pendiente'), findsOneWidget);
-      ScaffoldMessenger.of(tester.element(find.byType(HubShellScreen))).removeCurrentSnackBar();
-      await tester.pumpAndSettle();
 
       // Vuelve la conexión: se suben los pendientes solos
-      await tester.tap(find.byTooltip('Sin conexión · 1 cambio pendiente'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Recuperar conexión'));
+      final reconexion = repository.simularConexion(true);
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
       expect(find.byTooltip('Subiendo 1 cambio pendiente…'), findsOneWidget);
       await tester.pump(MockHubRepository.demoraSincronizacion);
+      await reconexion;
       await tester.pumpAndSettle();
       expect(find.byTooltip('Conectado · todo guardado en la nube'), findsOneWidget);
       expect(find.text('☁️ Volvió la conexión: 1 cambio subido a la nube.'), findsOneWidget);
-      ScaffoldMessenger.of(tester.element(find.byType(HubShellScreen))).removeCurrentSnackBar();
-      await tester.pumpAndSettle();
+    });
 
-      // Rol inicial: Gestión
+    testWidgets('HubShellScreen abre la vista de Gestión según la sesión', (WidgetTester tester) async {
+      await pumpShell(tester, SesionesDemo.gestion);
+
       expect(find.text('¡Hola, Camila!').hitTestable(), findsOneWidget);
+      expect(find.text('Gestión'), findsWidgets);
+      // Ya no existe el selector de roles del mockup
+      expect(find.byType(PopupMenuButton<int>), findsNothing);
+    });
 
-      // Cambio de rol mediante el selector (PopupMenuButton) del AppBar
-      Future<void> cambiarRol(String item) async {
-        await tester.tap(find.byType(PopupMenuButton<int>));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text(item));
-        await tester.pumpAndSettle();
-      }
+    testWidgets('HubShellScreen abre la vista y los ajustes de la Tutora', (WidgetTester tester) async {
+      await pumpShell(tester, SesionesDemo.tutora);
 
-      // Switch to Tutora
-      await cambiarRol('Tutora (Móvil)');
       expect(find.text('¡Hola, Daniela!').hitTestable(), findsOneWidget);
       await tester.tap(find.byTooltip('Ajustes'));
       await tester.pumpAndSettle();
       expect(find.text('Daniela Valenzuela Castro'), findsOneWidget);
-      await tester.pageBack();
-      await tester.pumpAndSettle();
+    });
 
-      // Switch to Alumna
-      await cambiarRol('Alumna (Móvil)');
+    testWidgets('HubShellScreen abre el portal de la Alumna', (WidgetTester tester) async {
+      await pumpShell(tester, SesionesDemo.alumna);
+
       expect(find.text('Mi Asistencia Acumulada').hitTestable(), findsOneWidget);
+    });
 
-      // Switch to Directiva Desktop
-      await cambiarRol('Directiva (Desktop)');
+    testWidgets('HubShellScreen abre la consola de la Directiva y cambia el tema desde Ajustes', (WidgetTester tester) async {
+      final themeNotifier = await pumpShell(tester, SesionesDemo.directiva);
 
-      // Now we should be in Desktop mode (DirectorioDesktopScreen)
-      expect(find.text('NiñasPro Hub · Directiva Desktop'), findsOneWidget);
+      expect(find.text('NiñasPro Hub · Directiva'), findsOneWidget);
       expect(find.text('Dashboard nacional'), findsOneWidget);
       expect(find.byTooltip('Conectado · todo guardado en la nube'), findsOneWidget);
 
-      // Toggle Theme desde Ajustes
       await tester.tap(find.byTooltip('Ajustes'));
       await tester.pumpAndSettle();
       expect(find.text('Directiva Nacional'), findsOneWidget);
+      expect(find.text('directiva@ninaspro.cl'), findsOneWidget);
       await tester.tap(find.text('Claro'));
       await tester.pumpAndSettle();
       expect(themeNotifier.value, ThemeMode.light);
+    });
+
+    testWidgets('HubShellScreen cierra sesión desde Ajustes', (WidgetTester tester) async {
+      var cerro = false;
+      await pumpShell(tester, SesionesDemo.directiva, onCerrarSesion: () => cerro = true);
+
+      await tester.tap(find.byTooltip('Ajustes'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Cerrar sesión'));
+      await tester.tap(find.text('Cerrar sesión'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Cerrar sesión'));
+      await tester.pumpAndSettle();
+      expect(cerro, isTrue);
+    });
+
+    testWidgets('HubShellScreen avisa cuando el rol aún no tiene vista', (WidgetTester tester) async {
+      var cerro = false;
+      await pumpShell(tester, SesionesDemo.comunicacion, onCerrarSesion: () => cerro = true);
+
+      expect(find.textContaining('aún no tiene una vista'), findsOneWidget);
+      expect(find.byTooltip('Ajustes'), findsNothing);
+      await tester.tap(find.text('Cerrar sesión'));
+      expect(cerro, isTrue);
     });
   });
 }
