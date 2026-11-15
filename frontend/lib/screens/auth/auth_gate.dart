@@ -5,6 +5,7 @@ import '../../services/auth_service.dart';
 import 'acceso_screen.dart';
 import 'codigo_recuperacion_screen.dart';
 import 'nueva_contrasena_screen.dart';
+import 'verificacion_mfa_screen.dart';
 
 /// Decide qué mostrar según el estado de autenticación: carga, acceso, los pasos
 /// de la recuperación de contraseña o la app de la usuaria.
@@ -63,8 +64,15 @@ class _AuthGateState extends State<AuthGate> {
               key: ValueKey(estado.correo),
               authService: widget.authService,
               correo: estado.correo,
+              aviso: estado.aviso,
             ),
           EtapaAuth.recuperandoContrasena => NuevaContrasenaScreen(authService: widget.authService, correo: estado.correo),
+          EtapaAuth.verificandoMfa => VerificacionMfaScreen(
+              key: ValueKey(estado.mfaInscrita),
+              authService: widget.authService,
+              correo: estado.correo,
+              inscrita: estado.mfaInscrita,
+            ),
           EtapaAuth.conSesion when sesion != null => KeyedSubtree(
               // Cambiar de cuenta reinicia por completo la app de la usuaria anterior
               key: ValueKey(sesion.perfilId),

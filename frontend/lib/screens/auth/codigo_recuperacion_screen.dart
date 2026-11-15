@@ -11,7 +11,10 @@ class CodigoRecuperacionScreen extends StatefulWidget {
   final AuthService authService;
   final String? correo;
 
-  const CodigoRecuperacionScreen({super.key, required this.authService, this.correo});
+  /// Motivo por el que se envió el código (ej. la cuenta quedó bloqueada)
+  final String? aviso;
+
+  const CodigoRecuperacionScreen({super.key, required this.authService, this.correo, this.aviso});
 
   @override
   State<CodigoRecuperacionScreen> createState() => _CodigoRecuperacionScreenState();
@@ -95,26 +98,11 @@ class _CodigoRecuperacionScreenState extends State<CodigoRecuperacionScreen> {
                         ),
                       ),
                       const SizedBox(height: 20),
+                      if (widget.aviso != null && _error == null && _exito == null)
+                        AvisoAcceso(texto: widget.aviso!, esError: true),
                       if (_error != null) AvisoAcceso(texto: _error!, esError: true),
                       if (_exito != null) AvisoAcceso(texto: _exito!, esError: false),
-                      TextFormField(
-                        controller: _codigo,
-                        autofocus: true,
-                        enabled: !_enviando,
-                        keyboardType: TextInputType.number,
-                        textInputAction: TextInputAction.done,
-                        autofillHints: const [AutofillHints.oneTimeCode],
-                        // Se admiten espacios para pegar el código tal como viene en el correo
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(RegExp(r'[0-9 ]')),
-                          LengthLimitingTextInputFormatter(largoCodigo + 2),
-                        ],
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: 8),
-                        decoration: const InputDecoration(labelText: 'Código'),
-                        validator: (v) => validarCodigo(v ?? ''),
-                        onFieldSubmitted: (_) => _verificar(),
-                      ),
+                      CampoCodigo(controller: _codigo, enabled: !_enviando, onSubmitted: _verificar),
                       const SizedBox(height: 20),
                       SizedBox(
                         height: 52,
@@ -144,6 +132,37 @@ class _CodigoRecuperacionScreenState extends State<CodigoRecuperacionScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Campo para un código de $largoCodigo dígitos (recuperación por correo o autenticador).
+class CampoCodigo extends StatelessWidget {
+  final TextEditingController controller;
+  final bool enabled;
+  final VoidCallback onSubmitted;
+
+  const CampoCodigo({super.key, required this.controller, required this.onSubmitted, this.enabled = true});
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      controller: controller,
+      autofocus: true,
+      enabled: enabled,
+      keyboardType: TextInputType.number,
+      textInputAction: TextInputAction.done,
+      autofillHints: const [AutofillHints.oneTimeCode],
+      // Se admiten espacios para pegar el código tal como viene (ej. "123 456")
+      inputFormatters: [
+        FilteringTextInputFormatter.allow(RegExp(r'[0-9 ]')),
+        LengthLimitingTextInputFormatter(largoCodigo + 2),
+      ],
+      textAlign: TextAlign.center,
+      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: 8),
+      decoration: const InputDecoration(labelText: 'Código'),
+      validator: (v) => validarCodigo(v ?? ''),
+      onFieldSubmitted: (_) => onSubmitted(),
     );
   }
 }

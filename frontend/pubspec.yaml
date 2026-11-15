@@ -38,6 +38,7 @@ dependencies:
   supabase_flutter: ^2.18.2
   url_launcher: ^6.3.2
   web: ^1.1.1
+  qr_flutter: ^4.1.0
 
 dev_dependencies:
   flutter_test:

@@ -131,6 +131,26 @@ class FakeAuthService implements AuthService {
     return resultadoNuevaContrasena;
   }
 
+  InscripcionMfa? inscripcionMfa = const InscripcionMfa(uri: 'otpauth://totp/NinasPro:directiva?secret=ABC', secreto: 'ABC');
+  ResultadoAuth resultadoMfa = const ResultadoAuth.ok();
+
+  @override
+  Future<InscripcionMfa> iniciarInscripcionMfa() async {
+    llamadas.add('iniciarInscripcionMfa');
+    final i = inscripcionMfa;
+    if (i == null) throw const ErrorAuth('No pudimos preparar el autenticador.');
+    return i;
+  }
+
+  @override
+  Future<ResultadoAuth> verificarMfa({required String codigo}) async {
+    llamadas.add('verificarMfa:$codigo');
+    if (resultadoMfa.ok) {
+      _estado.value = EstadoAuth(EtapaAuth.conSesion, sesion: sesionAlIngresar ?? sesionGuardada);
+    }
+    return resultadoMfa;
+  }
+
   @override
   Future<void> cerrarSesion() async {
     llamadas.add('cerrarSesion');

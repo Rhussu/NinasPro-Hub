@@ -22,6 +22,9 @@ enum EtapaAuth {
 
   /// El código se verificó: falta definir la contraseña nueva
   recuperandoContrasena,
+
+  /// La Directiva debe verificar su segundo factor (o inscribirlo la primera vez)
+  verificandoMfa,
 }
 
 @immutable
@@ -32,10 +35,13 @@ class EstadoAuth {
   /// Aviso para la pantalla de acceso (ej. cuenta bloqueada o enlace vencido)
   final String? aviso;
 
-  /// Correo de la recuperación en curso
+  /// Correo de la recuperación en curso o de la cuenta que verifica su segundo factor
   final String? correo;
 
-  const EstadoAuth(this.etapa, {this.sesion, this.aviso, this.correo});
+  /// [EtapaAuth.verificandoMfa]: ya tiene un autenticador inscrito (si no, hay que inscribirlo)
+  final bool mfaInscrita;
+
+  const EstadoAuth(this.etapa, {this.sesion, this.aviso, this.correo, this.mfaInscrita = false});
 
   static const iniciando = EstadoAuth(EtapaAuth.iniciando);
 
@@ -46,10 +52,33 @@ class EstadoAuth {
       other.sesion?.perfilId == sesion?.perfilId &&
       other.sesion?.rol == sesion?.rol &&
       other.aviso == aviso &&
-      other.correo == correo;
+      other.correo == correo &&
+      other.mfaInscrita == mfaInscrita;
 
   @override
-  int get hashCode => Object.hash(etapa, sesion?.perfilId, sesion?.rol, aviso, correo);
+  int get hashCode => Object.hash(etapa, sesion?.perfilId, sesion?.rol, aviso, correo, mfaInscrita);
+}
+
+/// Datos para inscribir el autenticador (TOTP) de la Directiva.
+@immutable
+class InscripcionMfa {
+  /// URI `otpauth://` que se muestra como código QR
+  final String uri;
+
+  /// Clave para ingresarla a mano si no se puede escanear el QR
+  final String secreto;
+
+  const InscripcionMfa({required this.uri, required this.secreto});
+}
+
+/// Falla de una operación de autenticación, con un mensaje listo para mostrar.
+class ErrorAuth implements Exception {
+  final String mensaje;
+
+  const ErrorAuth(this.mensaje);
+
+  @override
+  String toString() => mensaje;
 }
 
 /// Resultado de una operación de autenticación, con un mensaje listo para mostrar.
@@ -93,6 +122,12 @@ abstract class AuthService {
   /// Define la contraseña nueva después de verificar el código
   Future<ResultadoAuth> actualizarContrasena({required String contrasena});
 
+  /// Prepara la inscripción del autenticador de la Directiva. Lanza [ErrorAuth] si falla.
+  Future<InscripcionMfa> iniciarInscripcionMfa();
+
+  /// Verifica el código de 6 dígitos del autenticador; si es correcto, entra a la app
+  Future<ResultadoAuth> verificarMfa({required String codigo});
+
   Future<void> cerrarSesion();
 
   void dispose();
@@ -132,6 +167,10 @@ const mensajeCuentaBloqueada =
     'Tu cuenta está bloqueada por 3 intentos fallidos. Usa "¿Olvidaste tu contraseña?" para desbloquearla.';
 const mensajeEnlaceInvalido = 'El enlace ya se usó o venció. Pide uno nuevo.';
 const mensajeCodigoInvalido = 'El código no es correcto o ya venció. Revísalo o pide uno nuevo.';
+const mensajeMfaInvalido = 'El código no es correcto. Revisa que la hora de tu teléfono esté al día o espera el siguiente código.';
+
+/// El hook de Auth avisa así el intento que acaba de bloquear la cuenta (ver migración 08)
+bool esBloqueoNuevo(String mensaje) => mensaje.contains('quedó bloqueada');
 
 /// Traduce los errores de Supabase Auth a mensajes en español para la usuaria.
 String mensajeErrorAuth(AuthException e) {
@@ -244,6 +283,9 @@ class SupabaseAuthService implements AuthService {
         if (_estado.value.sesion?.perfilId != cambio.session?.user.id) _evaluar();
       case AuthChangeEvent.signedOut:
         _evaluar();
+      // El segundo factor se verificó en otra pestaña
+      case AuthChangeEvent.mfaChallengeVerified:
+        if (_estado.value.etapa == EtapaAuth.verificandoMfa) _evaluar();
       // verificarCodigo ya pasa a la contraseña nueva
       default:
         break;
@@ -274,6 +316,15 @@ class SupabaseAuthService implements AuthService {
       if (cuenta?['recuperacion_pendiente'] == true) {
         // Recarga u otra pestaña con la sesión del código: primero la contraseña nueva
         _emitir(EstadoAuth(EtapaAuth.recuperandoContrasena, correo: _client.auth.currentUser?.email));
+        return;
+      }
+      if (cuenta?['mfa_requerida'] == true) {
+        // Sin el segundo factor la base no entrega datos a la Directiva
+        _emitir(EstadoAuth(
+          EtapaAuth.verificandoMfa,
+          correo: _client.auth.currentUser?.email,
+          mfaInscrita: cuenta?['mfa_inscrita'] == true,
+        ));
         return;
       }
       final perfil = await _client
@@ -339,10 +390,18 @@ class SupabaseAuthService implements AuthService {
       final r = await _client.auth.signInWithPassword(email: correo.trim().toLowerCase(), password: contrasena);
       final user = r.user;
       if (user != null) await _cargarSesion(user.id);
-      final aviso = _estado.value.aviso;
-      return _estado.value.etapa == EtapaAuth.conSesion ? const ResultadoAuth.ok() : ResultadoAuth.error(aviso);
+      final etapa = _estado.value.etapa;
+      if (etapa == EtapaAuth.conSesion || etapa == EtapaAuth.verificandoMfa) return const ResultadoAuth.ok();
+      return ResultadoAuth.error(_estado.value.aviso);
     } on AuthException catch (e) {
-      return ResultadoAuth.error(mensajeErrorAuth(e));
+      final mensaje = mensajeErrorAuth(e);
+      // El tercer fallo bloqueó la cuenta: se envía en ese momento el código para desbloquearla (US-06)
+      if (esBloqueoNuevo(e.message)) {
+        final limpio = correo.trim().toLowerCase();
+        final envio = await enviarRecuperacion(correo: limpio);
+        if (envio.ok) _emitir(EstadoAuth(EtapaAuth.codigoEnviado, correo: limpio, aviso: e.message));
+      }
+      return ResultadoAuth.error(mensaje);
     }
   }
 
@@ -418,6 +477,60 @@ class SupabaseAuthService implements AuthService {
       return const ResultadoAuth.ok('Tu contraseña quedó actualizada.');
     } on AuthException catch (e) {
       return ResultadoAuth.error(mensajeErrorAuth(e));
+    }
+  }
+
+  /// Factor TOTP recién inscrito, a la espera de su primer código
+  String? _factorPendiente;
+
+  @override
+  Future<InscripcionMfa> iniciarInscripcionMfa() async {
+    try {
+      // Un intento de inscripción abandonado deja un factor sin verificar con el mismo nombre
+      final factores = await _client.auth.mfa.listFactors();
+      for (final f in factores.all) {
+        if (f.factorType == FactorType.totp && f.status != FactorStatus.verified) {
+          await _client.auth.mfa.unenroll(f.id);
+        }
+      }
+      final r = await _client.auth.mfa.enroll(
+        factorType: FactorType.totp,
+        issuer: 'NiñasPro Hub',
+        friendlyName: 'NiñasPro Hub',
+      );
+      final totp = r.totp;
+      if (totp == null) throw const ErrorAuth('No pudimos preparar el autenticador. Inténtalo nuevamente.');
+      _factorPendiente = r.id;
+      return InscripcionMfa(uri: totp.uri, secreto: totp.secret);
+    } on AuthException catch (e) {
+      throw ErrorAuth(mensajeErrorAuth(e));
+    }
+  }
+
+  @override
+  Future<ResultadoAuth> verificarMfa({required String codigo}) async {
+    if (_estado.value.etapa != EtapaAuth.verificandoMfa) {
+      return const ResultadoAuth.error('Inicia sesión nuevamente.');
+    }
+    try {
+      final String? factorId;
+      if (_estado.value.mfaInscrita) {
+        final factores = await _client.auth.mfa.listFactors();
+        factorId = factores.totp.firstOrNull?.id;
+      } else {
+        factorId = _factorPendiente;
+      }
+      if (factorId == null) return const ResultadoAuth.error('Vuelve a escanear el código QR para inscribir tu autenticador.');
+
+      await _client.auth.mfa.challengeAndVerify(factorId: factorId, code: limpiarCodigo(codigo));
+      _factorPendiente = null;
+      final user = _client.auth.currentUser;
+      if (user != null) await _cargarSesion(user.id);
+      return const ResultadoAuth.ok();
+    } on AuthException catch (e) {
+      return ResultadoAuth.error(
+        e.code == 'mfa_verification_failed' || e.code == 'mfa_challenge_expired' ? mensajeMfaInvalido : mensajeErrorAuth(e),
+      );
     }
   }
 
