@@ -17,6 +17,9 @@ class AjustesTutoraScreen extends StatefulWidget {
   final String rolEtiqueta;
   final String rolEmoji;
 
+  /// Secciones propias del rol que reutiliza la pantalla (ej. Accesos de Gestión)
+  final List<Widget> seccionesExtra;
+
   const AjustesTutoraScreen({
     super.key,
     required this.repository,
@@ -25,6 +28,7 @@ class AjustesTutoraScreen extends StatefulWidget {
     this.onCerrarSesion,
     this.rolEtiqueta = 'Tutora',
     this.rolEmoji = '👩‍🏫',
+    this.seccionesExtra = const [],
   });
 
   @override
@@ -72,7 +76,7 @@ class _AjustesTutoraScreenState extends State<AjustesTutoraScreen> {
               rolEtiqueta: widget.rolEtiqueta,
               rolEmoji: widget.rolEmoji,
             ),
-      secciones: tutora == null ? const [] : _buildSecciones(tutora),
+      secciones: [if (tutora != null) ..._buildSecciones(tutora), ...widget.seccionesExtra],
     );
   }
 

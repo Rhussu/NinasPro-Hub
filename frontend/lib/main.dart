@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config/app_config.dart';
 import 'config/ninaspro_theme.dart';
+import 'repositories/accesos_repository.dart';
 import 'repositories/hub_repository.dart';
 import 'repositories/mock_hub_repository.dart';
 import 'screens/auth/auth_gate.dart';
@@ -30,6 +31,7 @@ Future<void> main() async {
       // Los enlaces de confirmación y recuperación vuelven a esta misma app
       redirectTo: kIsWeb ? '${Uri.base.origin}${Uri.base.path}' : null,
     ),
+    accesosRepository: SupabaseAccesosRepository(Supabase.instance.client),
   ));
 }
 
@@ -38,6 +40,7 @@ class NinasProApp extends StatefulWidget {
   final HealthService? healthService;
   final HubRepository? repository;
   final ThemeMode initialThemeMode;
+  final AccesosRepository? accesosRepository;
 
   const NinasProApp({
     super.key,
@@ -45,6 +48,7 @@ class NinasProApp extends StatefulWidget {
     this.healthService,
     this.repository,
     this.initialThemeMode = ThemeMode.dark, // Estética ninaspro.cl cósmica por defecto
+    this.accesosRepository,
   });
 
   @override
@@ -89,6 +93,7 @@ class _NinasProAppState extends State<NinasProApp> {
               healthService: widget.healthService,
               themeNotifier: _themeNotifier,
               onCerrarSesion: widget.authService.cerrarSesion,
+              accesosRepository: widget.accesosRepository,
             ),
           ),
         );

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../config/ninaspro_colors.dart';
+import '../../repositories/accesos_repository.dart';
 import '../../repositories/hub_repository.dart';
 import '../../models/sesion_usuario.dart';
 import '../../widgets/ninaspro_ajustes.dart';
+import '../accesos/accesos_view.dart';
 import 'ajustes/ajustes_cursos_view.dart';
 import 'ajustes/ajustes_instancias_view.dart';
 import 'ajustes/ajustes_roles_view.dart';
@@ -14,6 +16,7 @@ import 'directorio_widgets.dart';
 /// - Sedes y Cursos del catálogo (US-01)
 /// - Instancias y sesiones (US-02)
 /// - Roles de tutoras: catálogo de roles semanales (US-43)
+/// - Accesos: correos autorizados para crear su cuenta (US-04)
 class AjustesDirectivaScreen extends StatefulWidget {
   final HubRepository repository;
   final ValueNotifier<ThemeMode>? themeNotifier;
@@ -21,6 +24,7 @@ class AjustesDirectivaScreen extends StatefulWidget {
   /// Usuaria autenticada; sin sesión se muestra el perfil genérico de la Directiva
   final SesionUsuario? sesion;
   final VoidCallback? onCerrarSesion;
+  final AccesosRepository? accesosRepository;
 
   const AjustesDirectivaScreen({
     super.key,
@@ -28,6 +32,7 @@ class AjustesDirectivaScreen extends StatefulWidget {
     this.themeNotifier,
     this.sesion,
     this.onCerrarSesion,
+    this.accesosRepository,
   });
 
   @override
@@ -37,13 +42,17 @@ class AjustesDirectivaScreen extends StatefulWidget {
 class _AjustesDirectivaScreenState extends State<AjustesDirectivaScreen> {
   int _seccion = 0;
 
-  static const _opciones = [
-    OpcionMenuLateral(Icons.person_rounded, 'Perfil'),
-    OpcionMenuLateral(Icons.location_city_rounded, 'Sedes'),
-    OpcionMenuLateral(Icons.menu_book_rounded, 'Cursos'),
-    OpcionMenuLateral(Icons.event_note_rounded, 'Instancias y sesiones'),
-    OpcionMenuLateral(Icons.assignment_ind_rounded, 'Roles de tutoras'),
-  ];
+  /// "Accesos" solo aparece con una sesión real (necesita la base de datos)
+  bool get _conAccesos => widget.accesosRepository != null && widget.sesion != null;
+
+  List<OpcionMenuLateral> get _opciones => [
+        const OpcionMenuLateral(Icons.person_rounded, 'Perfil'),
+        const OpcionMenuLateral(Icons.location_city_rounded, 'Sedes'),
+        const OpcionMenuLateral(Icons.menu_book_rounded, 'Cursos'),
+        const OpcionMenuLateral(Icons.event_note_rounded, 'Instancias y sesiones'),
+        const OpcionMenuLateral(Icons.assignment_ind_rounded, 'Roles de tutoras'),
+        if (_conAccesos) const OpcionMenuLateral(Icons.how_to_reg_rounded, 'Accesos'),
+      ];
 
   @override
   Widget build(BuildContext context) {
@@ -52,6 +61,7 @@ class _AjustesDirectivaScreenState extends State<AjustesDirectivaScreen> {
       2 => AjustesCursosView(repository: widget.repository),
       3 => AjustesInstanciasView(repository: widget.repository),
       4 => AjustesRolesView(repository: widget.repository),
+      5 when _conAccesos => AccesosView(repository: widget.accesosRepository!, sesion: widget.sesion!),
       _ => _buildPerfil(),
     };
 
