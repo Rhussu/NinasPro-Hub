@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="es">
+  <body style="margin:0;padding:24px;background:#f8f4fa;font-family:Arial,Helvetica,sans-serif;color:#1a161d;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:16px;">
+      <tr>
+        <td style="padding:32px;">
+          <h1 style="margin:0 0 8px;font-size:22px;color:#8b3295;">NiñasPro Hub</h1>
+          <h2 style="margin:0 0 16px;font-size:18px;">Activa tu cuenta</h2>
+          <p style="margin:0 0 16px;line-height:1.5;">
+            Creaste tu cuenta con <strong>{{ .Email }}</strong>. Abre el enlace para activarla y entrar a NiñasPro Hub.
+          </p>
+          <p style="margin:24px 0;">
+            <a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email"
+               style="display:inline-block;padding:14px 24px;background:#8b3295;color:#ffffff;text-decoration:none;border-radius:12px;font-weight:bold;">
+              Activar mi cuenta
+            </a>
+          </p>
+          <p style="margin:0;font-size:13px;color:#72637e;line-height:1.5;">
+            El enlace sirve una sola vez. Si no creaste esta cuenta, ignora este correo.
+          </p>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

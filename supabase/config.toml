@@ -244,10 +244,15 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
-# Uncomment to customize email template
-# [auth.email.template.invite]
-# subject = "You have been invited"
-# content_path = "./supabase/templates/invite.html"
+# Plantillas propias: los enlaces llevan token_hash y la app los canjea con verifyOTP,
+# así funcionan aunque se abran en otro dispositivo (sin el code_verifier de PKCE)
+[auth.email.template.confirmation]
+subject = "Activa tu cuenta de NiñasPro Hub"
+content_path = "./supabase/templates/confirmacion.html"
+
+[auth.email.template.recovery]
+subject = "Recupera tu contraseña de NiñasPro Hub"
+content_path = "./supabase/templates/recuperacion.html"
 
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
