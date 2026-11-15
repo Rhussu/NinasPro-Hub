@@ -1,19 +1,16 @@
 BEGIN;
 SELECT plan(8); -- Actualizado a 8 aserciones
 
--- 1. Crear usuario base en auth.users y su perfil
+-- 1. Crear usuario base: el registro cerrado exige un correo autorizado y el
+--    trigger de auth crea el perfil a partir de esa autorización
+INSERT INTO sedes (id, nombre, modalidad)
+VALUES ('00000000-0000-0000-0000-000000000010', 'Sede Online', 'online');
+
+INSERT INTO correos_autorizados (correo, rol, sede_id, rut, nombres, apellidos, autorizado_por)
+VALUES ('tutora@ninaspro.cl', 'tutora', '00000000-0000-0000-0000-000000000010', '11111111-1', 'Andrea', 'González', NULL);
+
 INSERT INTO auth.users (id, email)
 VALUES ('00000000-0000-0000-0000-000000000001', 'tutora@ninaspro.cl');
-
-INSERT INTO perfiles (id, rut, nombres, apellidos, correo, rol)
-VALUES (
-    '00000000-0000-0000-0000-000000000001',
-    '11111111-1',
-    'Andrea',
-    'González',
-    'tutora@ninaspro.cl',
-    'tutora'
-);
 
 SELECT is(
     (SELECT count(*)::integer FROM perfiles WHERE id = '00000000-0000-0000-0000-000000000001'),
@@ -22,9 +19,6 @@ SELECT is(
 );
 
 -- 2. Crear estructura académica (Sede + Curso + Instancia)
-INSERT INTO sedes (id, nombre, modalidad)
-VALUES ('00000000-0000-0000-0000-000000000010', 'Sede Online', 'online');
-
 INSERT INTO cursos (id, nombre, codigo)
 VALUES ('00000000-0000-0000-0000-000000000020', 'Introducción a Python', 'PY-101');
 
