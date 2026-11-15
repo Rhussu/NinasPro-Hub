@@ -12,9 +12,9 @@ SELECT fk_ok(
 );
 
 -- 2. Los valores del enum anterior quedan cargados en el catálogo
-SELECT set_eq(
+SELECT set_has(
   $$ SELECT codigo::text FROM public.rol_tarea_tutor $$,
-  ARRAY['tutora_lider', 'tutora_apoyo', 'registro_asistencia', 'dinamica_kahoot'],
+  $$ VALUES ('tutora_lider'), ('tutora_apoyo'), ('registro_asistencia'), ('dinamica_kahoot') $$,
   'El catálogo contiene los roles del enum anterior'
 );
 

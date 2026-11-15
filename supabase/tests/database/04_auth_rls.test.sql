@@ -31,7 +31,7 @@ INSERT INTO public.sedes (id, nombre) VALUES
   ('a0000000-0000-0000-0000-00000000000a', 'Sede A'),
   ('b0000000-0000-0000-0000-00000000000b', 'Sede B');
 INSERT INTO public.cursos (id, nombre, codigo) VALUES
-  ('c0000000-0000-0000-0000-000000000001', 'Programación', 'PCB');
+  ('c0000000-0000-0000-0000-000000000001', 'Programación', 'TEST-PCB');
 INSERT INTO public.instancias_curso (id, curso_id, sede_id, periodo_academico, fecha_inicio, fecha_termino) VALUES
   ('1a000000-0000-0000-0000-000000000001', 'c0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-00000000000a', '2026-1', '2026-04-04', '2026-06-06'),
   ('1b000000-0000-0000-0000-000000000001', 'c0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-00000000000b', '2026-1', '2026-04-04', '2026-06-06');
@@ -50,8 +50,8 @@ SELECT pg_temp.crear_usuario('7b000000-0000-0000-0000-000000000001', 'test.tutor
 INSERT INTO public.apoderados (id, nombres, apellidos, correo, telefono) VALUES
   ('ab000000-0000-0000-0000-000000000001', 'Marcela', 'Morales', 'marcela@correo.cl', '+56987654321');
 INSERT INTO public.alumnas (id, rut, nombres, apellidos, fecha_nacimiento, apoderado_id) VALUES
-  ('aa000000-0000-0000-0000-00000000000a', '22.341.890-2', 'Valentina', 'Soto', '2011-05-10', 'ab000000-0000-0000-0000-000000000001'),
-  ('aa000000-0000-0000-0000-00000000000b', '22.567.301-2', 'Josefa', 'Rojas', '2011-08-21', 'ab000000-0000-0000-0000-000000000001');
+  ('aa000000-0000-0000-0000-00000000000a', '30.000.001-1', 'Valentina', 'Soto', '2011-05-10', 'ab000000-0000-0000-0000-000000000001'),
+  ('aa000000-0000-0000-0000-00000000000b', '30.000.002-2', 'Josefa', 'Rojas', '2011-08-21', 'ab000000-0000-0000-0000-000000000001');
 INSERT INTO public.inscripciones (alumna_id, instancia_curso_id, estado) VALUES
   ('aa000000-0000-0000-0000-00000000000a', '1a000000-0000-0000-0000-000000000001', 'activa'),
   ('aa000000-0000-0000-0000-00000000000b', '1b000000-0000-0000-0000-000000000001', 'activa');
@@ -166,7 +166,7 @@ SELECT throws_ok(
 
 SELECT pg_temp.como_sistema();
 INSERT INTO public.alumnas (id, rut, nombres, apellidos, fecha_nacimiento, apoderado_id) VALUES
-  ('aa000000-0000-0000-0000-0000000000a2', '21.904.331-7', 'Florencia', 'Muñoz', '2011-02-02', 'ab000000-0000-0000-0000-000000000001');
+  ('aa000000-0000-0000-0000-0000000000a2', '30.000.003-3', 'Florencia', 'Muñoz', '2011-02-02', 'ab000000-0000-0000-0000-000000000001');
 INSERT INTO public.inscripciones (alumna_id, instancia_curso_id) VALUES
   ('aa000000-0000-0000-0000-0000000000a2', '1a000000-0000-0000-0000-000000000001');
 SELECT pg_temp.actuar_como('9a000000-0000-0000-0000-000000000001');
