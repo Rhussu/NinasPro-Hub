@@ -7,12 +7,14 @@ class AjustesGestionScreen extends StatelessWidget {
   final HubRepository repository;
   final String tutoraId;
   final ValueNotifier<ThemeMode>? themeNotifier;
+  final VoidCallback? onCerrarSesion;
 
   const AjustesGestionScreen({
     super.key,
     required this.repository,
     this.tutoraId = 'tutora-1', // Misma tutora por defecto que GestionMobileScreen
     this.themeNotifier,
+    this.onCerrarSesion,
   });
 
   @override
@@ -21,6 +23,7 @@ class AjustesGestionScreen extends StatelessWidget {
       repository: repository,
       tutoraId: tutoraId,
       themeNotifier: themeNotifier,
+      onCerrarSesion: onCerrarSesion,
       rolEtiqueta: 'Gestión',
       rolEmoji: '📋',
     );

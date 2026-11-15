@@ -11,6 +11,7 @@ class AjustesTutoraScreen extends StatefulWidget {
   final HubRepository repository;
   final String tutoraId;
   final ValueNotifier<ThemeMode>? themeNotifier;
+  final VoidCallback? onCerrarSesion;
 
   /// Etiqueta y emoji del rol que se muestran en el perfil
   final String rolEtiqueta;
@@ -21,6 +22,7 @@ class AjustesTutoraScreen extends StatefulWidget {
     required this.repository,
     this.tutoraId = 'tutora-3', // Misma tutora por defecto que TutoraMobileScreen
     this.themeNotifier,
+    this.onCerrarSesion,
     this.rolEtiqueta = 'Tutora',
     this.rolEmoji = '👩‍🏫',
   });
@@ -61,6 +63,7 @@ class _AjustesTutoraScreenState extends State<AjustesTutoraScreen> {
     return AjustesScreen(
       cargando: _cargando,
       themeNotifier: widget.themeNotifier,
+      onCerrarSesion: widget.onCerrarSesion,
       perfil: tutora == null
           ? null
           : AjustesPerfil(

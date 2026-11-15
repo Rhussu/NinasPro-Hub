@@ -10,12 +10,14 @@ class AjustesAlumnaScreen extends StatefulWidget {
   final HubRepository repository;
   final String alumnaId;
   final ValueNotifier<ThemeMode>? themeNotifier;
+  final VoidCallback? onCerrarSesion;
 
   const AjustesAlumnaScreen({
     super.key,
     required this.repository,
     this.alumnaId = 'alumna-1', // Misma alumna por defecto que PortalAlumnaScreen
     this.themeNotifier,
+    this.onCerrarSesion,
   });
 
   @override
@@ -44,6 +46,7 @@ class _AjustesAlumnaScreenState extends State<AjustesAlumnaScreen> {
     return AjustesScreen(
       cargando: _data == null,
       themeNotifier: widget.themeNotifier,
+      onCerrarSesion: widget.onCerrarSesion,
       perfil: alumna == null
           ? null
           : AjustesPerfil(

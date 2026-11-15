@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../config/ninaspro_colors.dart';
 import '../../repositories/hub_repository.dart';
+import '../../models/sesion_usuario.dart';
 import '../../widgets/ninaspro_ajustes.dart';
 import 'ajustes/ajustes_cursos_view.dart';
 import 'ajustes/ajustes_instancias_view.dart';
@@ -17,7 +18,17 @@ class AjustesDirectivaScreen extends StatefulWidget {
   final HubRepository repository;
   final ValueNotifier<ThemeMode>? themeNotifier;
 
-  const AjustesDirectivaScreen({super.key, required this.repository, this.themeNotifier});
+  /// Usuaria autenticada; sin sesión se muestra el perfil genérico de la Directiva
+  final SesionUsuario? sesion;
+  final VoidCallback? onCerrarSesion;
+
+  const AjustesDirectivaScreen({
+    super.key,
+    required this.repository,
+    this.themeNotifier,
+    this.sesion,
+    this.onCerrarSesion,
+  });
 
   @override
   State<AjustesDirectivaScreen> createState() => _AjustesDirectivaScreenState();
@@ -68,18 +79,18 @@ class _AjustesDirectivaScreenState extends State<AjustesDirectivaScreen> {
         child: ListView(
           padding: const EdgeInsets.all(28),
           children: [
-            const AjustesPerfilHeader(
-              nombre: 'Directiva Nacional',
-              detalle: 'NiñasPro · Todas las sedes',
+            AjustesPerfilHeader(
+              nombre: widget.sesion?.nombreCompleto ?? 'Directiva Nacional',
+              detalle: widget.sesion?.correo ?? 'NiñasPro · Todas las sedes',
               rolEtiqueta: 'Directiva',
               rolEmoji: '🏛️',
             ),
             const SizedBox(height: 20),
             if (widget.themeNotifier != null) AjustesApariencia(themeNotifier: widget.themeNotifier!),
-            const AjustesCuenta(),
+            AjustesCuenta(onCerrarSesion: widget.onCerrarSesion),
             const Center(
               child: Text(
-                'NiñasPro Hub · Mockup v1.0.0',
+                'NiñasPro Hub · v1.0.0',
                 style: TextStyle(fontSize: 11, color: NinasProColors.neutral500),
               ),
             ),
