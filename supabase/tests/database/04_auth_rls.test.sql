@@ -172,8 +172,7 @@ INSERT INTO public.inscripciones (alumna_id, instancia_curso_id) VALUES
 SELECT pg_temp.actuar_como('9a000000-0000-0000-0000-000000000001');
 
 SELECT lives_ok(
-  $$ INSERT INTO public.correos_autorizados (correo, rol, sede_id, alumna_id, autorizado_por)
-     VALUES ('florencia@gmail.com', 'alumna', 'a0000000-0000-0000-0000-00000000000a', 'aa000000-0000-0000-0000-0000000000a2', auth.uid()) $$,
+  $$ SELECT public.autorizar_correo('florencia@gmail.com', 'alumna', 'a0000000-0000-0000-0000-00000000000a', 'aa000000-0000-0000-0000-0000000000a2') $$,
   'Gestión autoriza el correo de una alumna inscrita en su sede'
 );
 
