@@ -171,9 +171,9 @@ class _GestionMobileScreenState extends State<GestionMobileScreen> {
     setState(() => _asignaciones = asigs);
   }
 
-  // Abre una pantalla de la clase o de tutoras dentro del marco móvil
+  // Abre una pantalla de la clase o de tutoras
   Future<void> _abrirPantallaClase(String titulo, Widget vista) =>
-      abrirPantallaEnMarco(context, titulo, vista);
+      abrirPantallaSecundaria(context, titulo, vista);
 
   // Modal para ingresar un justificativo manualmente; queda aprobado de inmediato (US-37)
   void _mostrarModalJustificativoManual() {

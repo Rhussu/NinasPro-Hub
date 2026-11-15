@@ -99,7 +99,7 @@ class _TutoraMobileScreenState extends State<TutoraMobileScreen> {
       _historial.where((c) => c.estado != EstadoAsistencia.pendiente);
 
   Future<void> _abrirPantallaClase(String titulo, Widget vista) =>
-      abrirPantallaEnMarco(context, titulo, vista);
+      abrirPantallaSecundaria(context, titulo, vista);
 
   @override
   Widget build(BuildContext context) {

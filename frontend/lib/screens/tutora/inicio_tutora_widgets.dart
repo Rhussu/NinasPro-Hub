@@ -4,21 +4,19 @@ import '../../config/ninaspro_theme.dart';
 import '../../models/hub_models.dart';
 import '../../repositories/hub_repository.dart';
 import '../../widgets/ninaspro_mascot.dart';
-import '../../widgets/ninaspro_mobile_shell.dart';
+import '../../widgets/ninaspro_vista_centrada.dart';
 import '../../widgets/ninaspro_planificacion_hoy.dart';
 
 /// Piezas de la pantalla de inicio compartidas por Tutora y Equipo de Gestión
 /// (todas las integrantes de Gestión también son tutoras).
 
-/// Abre una pantalla secundaria (asistencia, fotos, historial...) dentro del marco móvil.
-Future<void> abrirPantallaEnMarco(BuildContext context, String titulo, Widget vista) {
+/// Abre una pantalla secundaria (asistencia, fotos, historial...) con su propia barra superior.
+Future<void> abrirPantallaSecundaria(BuildContext context, String titulo, Widget vista) {
   return Navigator.of(context).push(
     MaterialPageRoute(
-      builder: (_) => NinasProMobileShell(
-        child: Scaffold(
-          appBar: AppBar(title: Text(titulo)),
-          body: vista,
-        ),
+      builder: (_) => Scaffold(
+        appBar: AppBar(title: Text(titulo)),
+        body: NinasProVistaCentrada(child: vista),
       ),
     ),
   );

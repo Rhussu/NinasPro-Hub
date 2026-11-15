@@ -4,8 +4,8 @@ import '../../models/sesion_usuario.dart';
 import '../../repositories/hub_repository.dart';
 import '../../services/health_service.dart';
 import '../../widgets/db_health_checker.dart';
-import '../../widgets/ninaspro_mobile_shell.dart';
 import '../../widgets/ninaspro_sync_indicator.dart';
+import '../../widgets/ninaspro_vista_centrada.dart';
 import 'alumna/ajustes_alumna_screen.dart';
 import 'alumna/portal_alumna_screen.dart';
 import 'directorio/ajustes_directiva_screen.dart';
@@ -19,9 +19,12 @@ import 'tutora/tutora_mobile_screen.dart';
 ///
 /// La vista depende del rol de la sesión:
 /// - 🏛️ Directiva Nacional: consola Desktop Web de pantalla completa
-/// - 📋 Equipo de Gestión: vista móvil (justificativos, alertas, roles semanales)
-/// - 👩‍🏫 Tutora: vista móvil (pase de lista, participación, podio Kahoot)
-/// - 👧 Alumna: portal móvil (asistencia, recursos, justificativos)
+/// - 📋 Equipo de Gestión: justificativos, alertas, roles semanales
+/// - 👩‍🏫 Tutora: pase de lista, participación, podio Kahoot
+/// - 👧 Alumna: asistencia, recursos, justificativos
+///
+/// Gestión, Tutora y Alumna son vistas responsivas pensadas primero para el
+/// celular; en pantallas anchas se centran con un ancho máximo legible.
 class HubShellScreen extends StatefulWidget {
   final HubRepository repository;
   final SesionUsuario sesion;
@@ -111,7 +114,7 @@ class _HubShellScreenState extends State<HubShellScreen> {
       );
     }
 
-    final childScreen = Scaffold(
+    return Scaffold(
       appBar: AppBar(
         titleSpacing: 12,
         title: const FittedBox(
@@ -132,10 +135,8 @@ class _HubShellScreenState extends State<HubShellScreen> {
           const SizedBox(width: 4),
         ],
       ),
-      body: _buildVistaMovil(),
+      body: NinasProVistaCentrada(child: _buildVistaMovil()),
     );
-
-    return NinasProMobileShell(child: childScreen);
   }
 
   Widget _buildVistaMovil() {
@@ -178,12 +179,7 @@ class _HubShellScreenState extends State<HubShellScreen> {
     final ajustes = _buildAjustesRol();
     if (ajustes == null) return;
 
-    // La Directiva es Desktop; los demás roles se ven dentro del marco de teléfono
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => widget.sesion.usaVistaEscritorio ? ajustes : NinasProMobileShell(child: ajustes),
-      ),
-    );
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => ajustes));
   }
 }
 
