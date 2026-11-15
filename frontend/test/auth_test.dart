@@ -9,6 +9,8 @@ import 'package:ninas_pro_hub/models/sesion_usuario.dart';
 import 'package:ninas_pro_hub/screens/auth/acceso_screen.dart';
 import 'package:ninas_pro_hub/screens/auth/auth_gate.dart';
 import 'package:ninas_pro_hub/screens/auth/nueva_contrasena_screen.dart';
+import 'package:ninas_pro_hub/services/almacen_compartido.dart';
+import 'package:ninas_pro_hub/services/almacen_compartido_memoria.dart';
 import 'package:ninas_pro_hub/services/auth_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -119,20 +121,65 @@ void main() {
 
       await tester.enterText(find.widgetWithText(TextFormField, 'Contraseña'), 'NinasPro2026');
       await tester.enterText(find.widgetWithText(TextFormField, 'Repite la contraseña'), 'NinasPro2026');
-      // Ver la contraseña escrita
-      await tester.tap(find.byTooltip('Mostrar contraseña'));
       await tester.tap(find.widgetWithText(FilledButton, 'Crear cuenta'));
       await tester.pumpAndSettle();
       expect(auth.llamadas, ['crearCuenta:valentina@correo.cl']);
       expect(find.text('Te enviamos un correo para activar tu cuenta.'), findsOneWidget);
+    });
 
+    // Regresión C1: tras mostrar la contraseña y fallar la validación, los campos
+    // siguen editables y el error no pasa al login
+    testWidgets('mostrar la contraseña y fallar no bloquea los campos ni arrastra errores al login', (tester) async {
+      tester.view.physicalSize = const Size(800, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final auth = FakeAuthService()..resultadoCrearCuenta = const ResultadoAuth.error('Este correo no está autorizado.');
+      await tester.pumpWidget(_app(AccesoScreen(authService: auth)));
+      await tester.tap(find.text('Primera vez: crear mi cuenta'));
+      await tester.pumpAndSettle();
+
+      Finder campo(String etiqueta) => find.widgetWithText(TextFormField, etiqueta);
+      String texto(String etiqueta) => tester.widget<TextFormField>(campo(etiqueta)).controller!.text;
+
+      await tester.enterText(campo('Correo'), 'valentina@correo.cl');
+      await tester.enterText(campo('Contraseña'), 'sinmayuscula1');
+      // Mostrar y volver a ocultar la primera contraseña
+      await tester.tap(find.byTooltip('Mostrar contraseña').first);
+      await tester.pump();
+      expect(find.byTooltip('Ocultar contraseña'), findsOneWidget);
+      expect(texto('Contraseña'), 'sinmayuscula1');
+      await tester.tap(find.byTooltip('Ocultar contraseña'));
+      await tester.pump();
+
+      await tester.enterText(campo('Repite la contraseña'), 'sinmayuscula1');
+      await tester.tap(find.widgetWithText(FilledButton, 'Crear cuenta'));
+      await tester.pumpAndSettle();
+      expect(find.text('Incluye al menos una letra mayúscula.'), findsOneWidget);
+
+      // El campo sigue aceptando cambios después del error
+      await tester.enterText(campo('Contraseña'), 'ConMayuscula1');
+      expect(texto('Contraseña'), 'ConMayuscula1');
+      await tester.enterText(campo('Repite la contraseña'), 'ConMayuscula1');
+      await tester.tap(find.widgetWithText(FilledButton, 'Crear cuenta'));
+      await tester.pumpAndSettle();
+      expect(find.text('Este correo no está autorizado.'), findsOneWidget);
+
+      // Al volver al login no queda ningún error ni contraseña del modo anterior
       await tester.tap(find.text('Volver a iniciar sesión'));
       await tester.pumpAndSettle();
       expect(find.text('Te damos la bienvenida'), findsOneWidget);
+      expect(find.text('Este correo no está autorizado.'), findsNothing);
+      expect(find.text('Incluye al menos una letra mayúscula.'), findsNothing);
+      expect(texto('Correo'), 'valentina@correo.cl');
+      expect(texto('Contraseña'), isEmpty);
+      await tester.enterText(campo('Contraseña'), 'NinasPro2026');
+      expect(texto('Contraseña'), 'NinasPro2026');
     });
 
-    testWidgets('envía el enlace de recuperación de contraseña', (tester) async {
-      final auth = FakeAuthService();
+    testWidgets('pide el enlace de recuperación de contraseña', (tester) async {
+      final auth = FakeAuthService()..resultadoRecuperacion = const ResultadoAuth.error('Hiciste demasiados intentos.');
       await tester.pumpWidget(_app(AccesoScreen(authService: auth)));
 
       await tester.tap(find.text('¿Olvidaste tu contraseña?'));
@@ -143,7 +190,7 @@ void main() {
       await tester.tap(find.text('Enviar enlace'));
       await tester.pumpAndSettle();
       expect(auth.llamadas, ['enviarRecuperacion:tutora@ninaspro.cl']);
-      expect(find.text('Te enviamos un enlace.'), findsOneWidget);
+      expect(find.text('Hiciste demasiados intentos.'), findsOneWidget);
     });
   });
 
@@ -163,6 +210,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(auth.llamadas, ['actualizarContrasena']);
       expect(find.text('Debe ser distinta.'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('Cancelar y volver al inicio'));
+      await tester.tap(find.text('Cancelar y volver al inicio'));
+      expect(auth.llamadas, contains('cancelarRecuperacion'));
     });
   });
 
@@ -186,14 +237,35 @@ void main() {
       expect(find.text('App de Daniela'), findsOneWidget);
     });
 
-    testWidgets('muestra la contraseña nueva al abrir el enlace de recuperación', (tester) async {
+    testWidgets('recorre la recuperación: correo enviado, enlace, contraseña nueva y app', (tester) async {
       final auth = FakeAuthService(sesionGuardada: SesionesDemo.alumna);
+      auth.sesionGuardada = null;
+      auth.sesionAlIngresar = SesionesDemo.alumna;
       await tester.pumpWidget(gate(auth));
       await tester.pumpAndSettle();
-      expect(find.text('App de Valentina'), findsOneWidget);
 
-      auth.emitir(const EstadoAuth(EtapaAuth.recuperandoContrasena, sesion: SesionesDemo.alumna));
+      await tester.tap(find.text('¿Olvidaste tu contraseña?'));
       await tester.pumpAndSettle();
+      await tester.enterText(find.widgetWithText(TextFormField, 'Correo'), 'valentina@correo.cl');
+      await tester.tap(find.text('Enviar enlace'));
+      await tester.pump();
+      expect(find.text('Revisa tu correo'), findsOneWidget);
+      expect(find.textContaining('valentina@correo.cl'), findsOneWidget);
+
+      // Se abrió el enlace en otra pestaña: esta espera
+      auth.emitir(const EstadoAuth(EtapaAuth.esperandoOtraPestana, correo: 'valentina@correo.cl'));
+      await tester.pump();
+      expect(find.text('Esperando mientras cambias la contraseña…'), findsOneWidget);
+
+      // La pestaña del enlace elige dónde cambiarla
+      auth.emitir(const EstadoAuth(EtapaAuth.enlaceRecuperacion, correo: 'valentina@correo.cl', otraPestanaDisponible: true));
+      await tester.pump();
+      expect(find.text('Cambiarla en la pestaña donde la pedí'), findsOneWidget);
+      await tester.tap(find.text('Cambiarla en la pestaña donde la pedí'));
+      await tester.pump();
+      expect(find.text('Continúa en la otra pestaña'), findsOneWidget);
+      await tester.tap(find.text('Prefiero cambiarla aquí'));
+      await tester.pump();
       expect(find.text('Crea tu contraseña nueva'), findsOneWidget);
 
       await tester.enterText(find.widgetWithText(TextFormField, 'Contraseña nueva'), 'NinasPro2027');
@@ -201,6 +273,29 @@ void main() {
       await tester.tap(find.text('Guardar contraseña'));
       await tester.pumpAndSettle();
       expect(find.text('App de Valentina'), findsOneWidget);
+    });
+
+    testWidgets('sin la pestaña de origen solo ofrece cambiarla aquí y permite cancelar', (tester) async {
+      final auth = FakeAuthService();
+      await tester.pumpWidget(gate(auth));
+      await tester.pumpAndSettle();
+
+      auth.emitir(const EstadoAuth(EtapaAuth.enlaceRecuperacion, correo: 'rita@ninaspro.cl'));
+      await tester.pump();
+      expect(find.text('Cambiarla en la pestaña donde la pedí'), findsNothing);
+      expect(find.textContaining('rita@ninaspro.cl'), findsOneWidget);
+
+      auth.resultadoOtraPestana = const ResultadoAuth.error('La pestaña donde pediste el cambio ya no está abierta.');
+      auth.emitir(const EstadoAuth(EtapaAuth.enlaceRecuperacion, otraPestanaDisponible: true));
+      await tester.pump();
+      await tester.tap(find.text('Cambiarla en la pestaña donde la pedí'));
+      await tester.pump();
+      expect(find.text('La pestaña donde pediste el cambio ya no está abierta.'), findsOneWidget);
+
+      await tester.tap(find.text('Cancelar y volver al inicio'));
+      await tester.pumpAndSettle();
+      expect(auth.llamadas, contains('cancelarRecuperacion'));
+      expect(find.text('Te damos la bienvenida'), findsOneWidget);
     });
 
     testWidgets('muestra el aviso cuando la sesión se cierra por falta de perfil', (tester) async {
@@ -216,6 +311,7 @@ void main() {
 
   group('SupabaseAuthService', () {
     const userId = '7a000000-0000-0000-0000-000000000001';
+    const json = {'content-type': 'application/json'};
 
     String jwt() {
       String b64(Map<String, dynamic> m) => base64Url.encode(utf8.encode(jsonEncode(m))).replaceAll('=', '');
@@ -242,23 +338,55 @@ void main() {
           'user': usuario(),
         };
 
-    /// Servidor simulado de Supabase: Auth + PostgREST
-    ({SupabaseAuthService servicio, List<String> rutas}) crear({
+    final perfilTutora = {
+      'id': userId,
+      'nombres': 'Daniela',
+      'apellidos': 'Valenzuela Castro',
+      'correo': 'daniela.valenzuela@ninaspro.cl',
+      'rol': 'tutora',
+      'activo': true,
+      'usuarios_sedes': [
+        {'sede_id': 'sede-1', 'es_lider_sede': false, 'sedes': {'nombre': 'Sede Beauchef'}},
+      ],
+    };
+
+    /// Servidor simulado de Supabase (Auth + PostgREST) que puede compartir el
+    /// estado de la cuenta entre varias "pestañas"
+    late Map<String, dynamic> cuenta;
+    late List<String> rutas;
+
+    setUp(() {
+      cuenta = {'bloqueada': false, 'recuperacion_pendiente': false};
+      rutas = [];
+    });
+
+    SupabaseAuthService crear({
       http.Response? Function(http.Request r)? auth,
       Map<String, dynamic>? perfil,
       Map<String, dynamic>? alumna,
+      AlmacenCompartido? almacen,
+      Uri? url,
     }) {
-      final rutas = <String>[];
       http.Response responder(http.Request r) {
-        final json = {'content-type': 'application/json'};
-        if (r.url.path.startsWith('/auth/v1')) {
+        final ruta = r.url.path;
+        if (ruta.startsWith('/auth/v1')) {
           final respuesta = auth?.call(r);
           if (respuesta != null) return respuesta;
-          if (r.url.path.endsWith('/token')) return http.Response(jsonEncode(sesionJson()), 200, headers: json);
-          if (r.url.path.endsWith('/logout')) return http.Response('', 204);
+          if (ruta.endsWith('/token')) return http.Response(jsonEncode(sesionJson()), 200, headers: json);
+          if (ruta.endsWith('/verify')) {
+            // Canjear el enlace de recuperación deja la recuperación pendiente en la base
+            if ((jsonDecode(r.body) as Map)['type'] == 'recovery') cuenta['recuperacion_pendiente'] = true;
+            return http.Response(jsonEncode(sesionJson()), 200, headers: json);
+          }
+          if (ruta.endsWith('/user')) {
+            cuenta['recuperacion_pendiente'] = false;
+            return http.Response(jsonEncode(usuario()), 200, headers: json);
+          }
+          if (ruta.endsWith('/logout')) return http.Response('', 204);
           return http.Response('{}', 200, headers: json);
         }
-        final fila = r.url.path.endsWith('/perfiles') ? perfil : alumna;
+        if (ruta.endsWith('/rpc/estado_mi_cuenta')) return http.Response(jsonEncode(cuenta), 200, headers: json);
+        final fila = ruta.endsWith('/perfiles') ? perfil : alumna;
         final objeto = (r.headers['Accept'] ?? r.headers['accept'] ?? '').contains('vnd.pgrst.object');
         if (fila == null) {
           return objeto
@@ -280,30 +408,33 @@ void main() {
         httpClient: cliente,
         authOptions: AuthClientOptions(autoRefreshToken: false, pkceAsyncStorage: _AlmacenPkce()),
       );
-      return (servicio: SupabaseAuthService(client, redirectTo: 'http://localhost:3000/'), rutas: rutas);
+      return SupabaseAuthService(
+        client,
+        redirectTo: 'http://localhost:3000/',
+        urlInicial: url ?? Uri.parse('http://localhost:3000/'),
+        almacen: almacen ?? AlmacenEnMemoria(),
+      );
     }
 
-    final perfilTutora = {
-      'id': userId,
-      'nombres': 'Daniela',
-      'apellidos': 'Valenzuela Castro',
-      'correo': 'daniela.valenzuela@ninaspro.cl',
-      'rol': 'tutora',
-      'activo': true,
-      'usuarios_sedes': [
-        {'sede_id': 'sede-1', 'es_lider_sede': false, 'sedes': {'nombre': 'Sede Beauchef'}},
-      ],
-    };
+    /// Espera a que las pestañas procesen los avisos de las otras
+    Future<void> esperarHasta(bool Function() condicion) async {
+      for (var i = 0; i < 100 && !condicion(); i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      expect(condicion(), isTrue);
+    }
+
+    Uri enlace(String tipo) => Uri.parse('http://localhost:3000/?token_hash=pkce_abc123&type=$tipo');
 
     test('sin sesión guardada queda en el acceso', () async {
-      final s = crear().servicio;
+      final s = crear();
       await s.iniciar();
       expect(s.estado.value.etapa, EtapaAuth.sinSesion);
       s.dispose();
     });
 
     test('iniciar sesión carga el perfil, el rol y las sedes', () async {
-      final s = crear(perfil: perfilTutora).servicio;
+      final s = crear(perfil: perfilTutora);
       await s.iniciar();
       final r = await s.iniciarSesion(correo: ' Daniela.Valenzuela@NinasPro.cl ', contrasena: 'NinasPro2026');
 
@@ -323,7 +454,7 @@ void main() {
       final s = crear(
         perfil: {...perfilTutora, 'rol': 'alumna', 'usuarios_sedes': []},
         alumna: {'id': 'alumna-uuid'},
-      ).servicio;
+      );
       final r = await s.iniciarSesion(correo: 'valentina@correo.cl', contrasena: 'NinasPro2026');
       expect(r.ok, isTrue);
       expect(s.estado.value.sesion!.alumnaId, 'alumna-uuid');
@@ -331,7 +462,7 @@ void main() {
     });
 
     test('una alumna sin ficha vinculada no puede entrar', () async {
-      final s = crear(perfil: {...perfilTutora, 'rol': 'alumna'}).servicio;
+      final s = crear(perfil: {...perfilTutora, 'rol': 'alumna'});
       final r = await s.iniciarSesion(correo: 'valentina@correo.cl', contrasena: 'NinasPro2026');
       expect(r.ok, isFalse);
       expect(r.mensaje, contains('no está vinculada'));
@@ -340,10 +471,19 @@ void main() {
     });
 
     test('una cuenta sin perfil activo se cierra con aviso', () async {
-      final s = crear(perfil: {...perfilTutora, 'activo': false}).servicio;
+      final s = crear(perfil: {...perfilTutora, 'activo': false});
       final r = await s.iniciarSesion(correo: 'daniela@ninaspro.cl', contrasena: 'NinasPro2026');
       expect(r.ok, isFalse);
       expect(s.estado.value.aviso, contains('perfil activo'));
+      s.dispose();
+    });
+
+    test('una cuenta bloqueada pierde la sesión aunque la tuviera abierta', () async {
+      final s = crear(perfil: perfilTutora);
+      cuenta['bloqueada'] = true;
+      final r = await s.iniciarSesion(correo: 'daniela@ninaspro.cl', contrasena: 'NinasPro2026');
+      expect(r.ok, isFalse);
+      expect(s.estado.value.aviso, mensajeCuentaBloqueada);
       s.dispose();
     });
 
@@ -352,9 +492,9 @@ void main() {
         auth: (r) => http.Response(
           jsonEncode({'code': 400, 'error_code': 'invalid_credentials', 'msg': 'Invalid login credentials'}),
           400,
-          headers: {'content-type': 'application/json'},
+          headers: json,
         ),
-      ).servicio;
+      );
       final r = await s.iniciarSesion(correo: 'x@ninaspro.cl', contrasena: 'mala');
       expect(r.ok, isFalse);
       expect(r.mensaje, 'Correo o contraseña incorrectos.');
@@ -366,14 +506,14 @@ void main() {
       final s = crear(
         auth: (r) => r.url.path.endsWith('/signup')
             ? (autorizado
-                ? http.Response(jsonEncode(usuario()), 200, headers: {'content-type': 'application/json'})
+                ? http.Response(jsonEncode(usuario()), 200, headers: json)
                 : http.Response(
                     jsonEncode({'code': 403, 'msg': 'Este correo no está autorizado para crear una cuenta.'}),
                     403,
-                    headers: {'content-type': 'application/json'},
+                    headers: json,
                   ))
             : null,
-      ).servicio;
+      );
 
       final ok = await s.crearCuenta(correo: 'valentina@correo.cl', contrasena: 'NinasPro2026');
       expect(ok.ok, isTrue);
@@ -386,22 +526,155 @@ void main() {
       s.dispose();
     });
 
-    test('envía la recuperación y actualiza la contraseña', () async {
-      final (:servicio, :rutas) = crear(
-        perfil: perfilTutora,
-        auth: (r) => r.url.path.endsWith('/user')
-            ? http.Response(jsonEncode(usuario()), 200, headers: {'content-type': 'application/json'})
+    test('el enlace de activación canjea el token_hash y entra a la app', () async {
+      final almacen = AlmacenEnMemoria();
+      final s = crear(perfil: perfilTutora, almacen: almacen, url: enlace('email'));
+      await s.iniciar();
+      expect(rutas, contains('POST /auth/v1/verify'));
+      expect(almacen.urlLimpiada, 1);
+      expect(s.estado.value.etapa, EtapaAuth.conSesion);
+      s.dispose();
+    });
+
+    test('un enlace de activación vencido avisa en el acceso', () async {
+      final s = crear(
+        url: enlace('email'),
+        auth: (r) => r.url.path.endsWith('/verify')
+            ? http.Response(jsonEncode({'code': 403, 'error_code': 'otp_expired', 'msg': 'expired'}), 403, headers: json)
             : null,
       );
-      final rec = await servicio.enviarRecuperacion(correo: 'daniela@ninaspro.cl');
-      expect(rec.ok, isTrue);
-      expect(rutas, contains('POST /auth/v1/recover'));
+      await s.iniciar();
+      expect(s.estado.value.etapa, EtapaAuth.sinSesion);
+      expect(s.estado.value.aviso, contains('ya se usó o venció'));
+      s.dispose();
+    });
 
-      await servicio.iniciarSesion(correo: 'daniela@ninaspro.cl', contrasena: 'NinasPro2026');
-      final act = await servicio.actualizarContrasena(contrasena: 'NinasPro2027');
-      expect(act.ok, isTrue);
-      expect(rutas, contains('PUT /auth/v1/user'));
-      servicio.dispose();
+    group('recuperación entre pestañas', () {
+      late MemoriaCompartida memoria;
+      late SupabaseAuthService origen;
+      late SupabaseAuthService delEnlace;
+
+      Future<void> abrirAmbas() async {
+        memoria = MemoriaCompartida();
+        origen = crear(perfil: perfilTutora, almacen: AlmacenEnMemoria(memoria: memoria, idPestana: 'origen'));
+        await origen.iniciar();
+        final r = await origen.enviarRecuperacion(correo: 'Daniela@NinasPro.cl');
+        expect(r.ok, isTrue);
+        expect(origen.estado.value.etapa, EtapaAuth.correoEnviado);
+        expect(origen.estado.value.correo, 'daniela@ninaspro.cl');
+
+        delEnlace = crear(
+          perfil: perfilTutora,
+          almacen: AlmacenEnMemoria(memoria: memoria, idPestana: 'enlace'),
+          url: enlace('recovery'),
+        );
+        await delEnlace.iniciar();
+      }
+
+      tearDown(() {
+        origen.dispose();
+        delEnlace.dispose();
+      });
+
+      test('la pestaña del enlace ofrece elegir y la de origen espera', () async {
+        await abrirAmbas();
+        expect(delEnlace.estado.value.etapa, EtapaAuth.enlaceRecuperacion);
+        expect(delEnlace.estado.value.otraPestanaDisponible, isTrue);
+        // Abrir el enlace no canjea el token ni entra a la app
+        expect(rutas, isNot(contains('POST /auth/v1/verify')));
+        await esperarHasta(() => origen.estado.value.etapa == EtapaAuth.esperandoOtraPestana);
+        expect(origen.estado.value.soyPestanaDelEnlace, isFalse);
+      });
+
+      test('cambiarla aquí: solo la pestaña del enlace muestra el formulario y al guardar entra', () async {
+        await abrirAmbas();
+        await delEnlace.cambiarContrasenaAqui();
+        expect(delEnlace.estado.value.etapa, EtapaAuth.recuperandoContrasena);
+        expect(rutas.where((r) => r == 'POST /auth/v1/verify'), hasLength(1));
+        await esperarHasta(() => origen.estado.value.etapa == EtapaAuth.esperandoOtraPestana);
+
+        // La pestaña que no es dueña no puede cambiarla
+        final ajena = await origen.actualizarContrasena(contrasena: 'NinasPro2027');
+        expect(ajena.ok, isFalse);
+
+        final r = await delEnlace.actualizarContrasena(contrasena: 'NinasPro2027');
+        expect(r.ok, isTrue);
+        expect(delEnlace.estado.value.etapa, EtapaAuth.conSesion);
+        await esperarHasta(() => origen.estado.value.etapa != EtapaAuth.esperandoOtraPestana);
+      });
+
+      test('cambiarla en la pestaña de origen: la del enlace queda esperando', () async {
+        await abrirAmbas();
+        final r = await delEnlace.cambiarContrasenaEnOtraPestana();
+        expect(r.ok, isTrue);
+        expect(delEnlace.estado.value.etapa, EtapaAuth.esperandoOtraPestana);
+        expect(delEnlace.estado.value.soyPestanaDelEnlace, isTrue);
+        await esperarHasta(() => origen.estado.value.etapa == EtapaAuth.recuperandoContrasena);
+        expect(rutas.where((r) => r == 'POST /auth/v1/verify'), hasLength(1));
+      });
+
+      test('cancelar desde la pestaña de origen devuelve ambas al acceso', () async {
+        await abrirAmbas();
+        await origen.cancelarRecuperacion();
+        expect(origen.estado.value.etapa, EtapaAuth.sinSesion);
+        await esperarHasta(() => delEnlace.estado.value.etapa == EtapaAuth.sinSesion);
+      });
+    });
+
+    test('sin la pestaña de origen abierta solo se puede cambiar en la del enlace', () async {
+      final s = crear(perfil: perfilTutora, url: enlace('recovery'));
+      await s.iniciar();
+      expect(s.estado.value.etapa, EtapaAuth.enlaceRecuperacion);
+      expect(s.estado.value.otraPestanaDisponible, isFalse);
+      final r = await s.cambiarContrasenaEnOtraPestana();
+      expect(r.ok, isFalse);
+      expect(r.mensaje, contains('ya no está abierta'));
+      s.dispose();
+    });
+
+    test('un enlace de recuperación vencido vuelve al acceso con aviso', () async {
+      final s = crear(
+        url: enlace('recovery'),
+        auth: (r) => r.url.path.endsWith('/verify')
+            ? http.Response(jsonEncode({'code': 403, 'error_code': 'otp_expired', 'msg': 'expired'}), 403, headers: json)
+            : null,
+      );
+      await s.iniciar();
+      await s.cambiarContrasenaAqui();
+      expect(s.estado.value.etapa, EtapaAuth.sinSesion);
+      expect(s.estado.value.aviso, mensajeEnlaceInvalido);
+      s.dispose();
+    });
+
+    test('recargar con una recuperación pendiente nunca entra a la app', () async {
+      final memoria = MemoriaCompartida();
+      final s = crear(perfil: perfilTutora, almacen: AlmacenEnMemoria(memoria: memoria, idPestana: 'p'), url: enlace('recovery'));
+      await s.iniciar();
+      await s.cambiarContrasenaAqui();
+      expect(s.estado.value.etapa, EtapaAuth.recuperandoContrasena);
+
+      // Recarga: misma pestaña, la sesión de recuperación sigue guardada
+      final recargada = crear(perfil: perfilTutora, almacen: AlmacenEnMemoria(memoria: memoria, idPestana: 'p'));
+      await recargada.iniciarSesion(correo: 'daniela@ninaspro.cl', contrasena: 'x');
+      cuenta['recuperacion_pendiente'] = true;
+      await recargada.iniciar();
+      expect(recargada.estado.value.etapa, isNot(EtapaAuth.conSesion));
+      expect(recargada.estado.value.etapa, EtapaAuth.recuperandoContrasena);
+      s.dispose();
+      recargada.dispose();
+    });
+
+    test('una pestaña nueva toma la recuperación si la dueña ya se cerró', () async {
+      final memoria = MemoriaCompartida();
+      final duenia = crear(perfil: perfilTutora, almacen: AlmacenEnMemoria(memoria: memoria, idPestana: 'cerrada'), url: enlace('recovery'));
+      await duenia.iniciar();
+      await duenia.cambiarContrasenaAqui();
+      duenia.dispose();
+
+      final nueva = crear(perfil: perfilTutora, almacen: AlmacenEnMemoria(memoria: memoria, idPestana: 'nueva'));
+      await nueva.iniciarSesion(correo: 'daniela@ninaspro.cl', contrasena: 'x');
+      expect(nueva.estado.value.etapa, EtapaAuth.recuperandoContrasena);
+      nueva.dispose();
     });
   });
 }

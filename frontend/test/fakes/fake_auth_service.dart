@@ -63,7 +63,7 @@ class FakeAuthService implements AuthService {
 
   ResultadoAuth resultadoIngreso = const ResultadoAuth.ok();
   ResultadoAuth resultadoCrearCuenta = const ResultadoAuth.ok('Te enviamos un correo para activar tu cuenta.');
-  ResultadoAuth resultadoRecuperacion = const ResultadoAuth.ok('Te enviamos un enlace.');
+  ResultadoAuth resultadoRecuperacion = const ResultadoAuth.ok();
   ResultadoAuth resultadoNuevaContrasena = const ResultadoAuth.ok();
 
   final llamadas = <String>[];
@@ -101,14 +101,38 @@ class FakeAuthService implements AuthService {
   @override
   Future<ResultadoAuth> enviarRecuperacion({required String correo}) async {
     llamadas.add('enviarRecuperacion:$correo');
+    if (resultadoRecuperacion.ok) _estado.value = EstadoAuth(EtapaAuth.correoEnviado, correo: correo);
     return resultadoRecuperacion;
+  }
+
+  ResultadoAuth resultadoOtraPestana = const ResultadoAuth.ok();
+
+  @override
+  Future<void> cambiarContrasenaAqui() async {
+    llamadas.add('cambiarContrasenaAqui');
+    _estado.value = EstadoAuth(EtapaAuth.recuperandoContrasena, correo: _estado.value.correo);
+  }
+
+  @override
+  Future<ResultadoAuth> cambiarContrasenaEnOtraPestana() async {
+    llamadas.add('cambiarContrasenaEnOtraPestana');
+    if (resultadoOtraPestana.ok) {
+      _estado.value = EstadoAuth(EtapaAuth.esperandoOtraPestana, correo: _estado.value.correo, soyPestanaDelEnlace: true);
+    }
+    return resultadoOtraPestana;
+  }
+
+  @override
+  Future<void> cancelarRecuperacion() async {
+    llamadas.add('cancelarRecuperacion');
+    _estado.value = const EstadoAuth(EtapaAuth.sinSesion);
   }
 
   @override
   Future<ResultadoAuth> actualizarContrasena({required String contrasena}) async {
     llamadas.add('actualizarContrasena');
     if (resultadoNuevaContrasena.ok) {
-      _estado.value = EstadoAuth(EtapaAuth.conSesion, sesion: _estado.value.sesion ?? sesionAlIngresar);
+      _estado.value = EstadoAuth(EtapaAuth.conSesion, sesion: _estado.value.sesion ?? sesionAlIngresar ?? sesionGuardada);
     }
     return resultadoNuevaContrasena;
   }
