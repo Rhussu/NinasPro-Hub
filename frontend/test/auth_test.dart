@@ -328,6 +328,9 @@ void main() {
       return '${b64({'alg': 'HS256', 'typ': 'JWT'})}.${b64({'sub': userId, 'exp': exp, 'role': 'authenticated'})}.firma';
     }
 
+    /// Factores MFA de la cuenta simulada
+    var factores = <Map<String, dynamic>>[];
+
     Map<String, dynamic> usuario() => {
           'id': userId,
           'aud': 'authenticated',
@@ -336,6 +339,7 @@ void main() {
           'app_metadata': {'provider': 'email'},
           'user_metadata': {},
           'created_at': '2026-11-01T00:00:00Z',
+          'factors': factores,
         };
 
     Map<String, dynamic> sesionJson() => {
@@ -366,6 +370,7 @@ void main() {
 
     setUp(() {
       cuenta = {'bloqueada': false, 'recuperacion_pendiente': false};
+      factores = [];
       rutas = [];
     });
 
@@ -641,6 +646,127 @@ void main() {
       expect(rutas, isNot(contains('POST /auth/v1/verify')));
       expect(s.estado.value.etapa, EtapaAuth.sinSesion);
       s.dispose();
+    });
+
+    group('segundo factor de la Directiva', () {
+      final perfilDirectiva = {...perfilTutora, 'rol': 'directorio', 'usuarios_sedes': const []};
+      late List<String> borrados;
+
+      Map<String, dynamic> factor(String id, String estado) => {
+            'id': id,
+            'friendly_name': 'NiñasPro Hub',
+            'factor_type': 'totp',
+            'status': estado,
+            'created_at': '2026-11-01T00:00:00Z',
+            'updated_at': '2026-11-01T00:00:00Z',
+          };
+
+      /// Auth simulado para inscribir y verificar factores; el código correcto es 123456
+      http.Response? servidorMfa(http.Request r) {
+        final ruta = r.url.path;
+        http.Response responder(Object cuerpo, [int estado = 200]) =>
+            http.Response(jsonEncode(cuerpo), estado, headers: json);
+        if (ruta.endsWith('/factors') && r.method == 'POST') {
+          return responder({
+            'id': 'f-nuevo',
+            'type': 'totp',
+            'totp': {'qr_code': '<svg/>', 'secret': 'JBSWY3DPEHPK3PXP', 'uri': 'otpauth://totp/NinasPro?secret=JBSWY3DPEHPK3PXP'},
+          });
+        }
+        if (ruta.contains('/factors/') && r.method == 'DELETE') {
+          borrados.add(ruta.split('/').last);
+          return responder({'id': ruta.split('/').last});
+        }
+        if (ruta.endsWith('/challenge')) return responder({'id': 'desafio', 'type': 'totp', 'expires_at': 1900000000});
+        if (ruta.contains('/factors/') && ruta.endsWith('/verify')) {
+          if ((jsonDecode(r.body) as Map)['code'] != '123456') {
+            return responder({'code': 422, 'error_code': 'mfa_verification_failed', 'msg': 'Invalid TOTP code entered'}, 422);
+          }
+          // La sesión pasa a aal2: la base deja de pedir el segundo factor
+          cuenta['mfa_requerida'] = false;
+          return responder(sesionJson());
+        }
+        return null;
+      }
+
+      setUp(() => borrados = []);
+
+      test('la primera vez inscribe el autenticador y recién al verificarlo entra a la app', () async {
+        cuenta['mfa_requerida'] = true;
+        factores = [factor('f-abandonado', 'unverified')];
+        final s = crear(perfil: perfilDirectiva, auth: servidorMfa);
+        await s.iniciar();
+
+        final ingreso = await s.iniciarSesion(correo: 'directiva@ninaspro.cl', contrasena: 'NinasPro2026');
+        expect(ingreso.ok, isTrue);
+        expect(s.estado.value.etapa, EtapaAuth.verificandoMfa);
+        expect(s.estado.value.mfaInscrita, isFalse);
+        expect(rutas, isNot(contains('GET /rest/v1/perfiles')));
+
+        final inscripcion = await s.iniciarInscripcionMfa();
+        expect(inscripcion.uri, startsWith('otpauth://'));
+        expect(inscripcion.secreto, 'JBSWY3DPEHPK3PXP');
+        expect(borrados, ['f-abandonado']);
+
+        final mal = await s.verificarMfa(codigo: '000000');
+        expect(mal.ok, isFalse);
+        expect(mal.mensaje, mensajeMfaInvalido);
+        expect(s.estado.value.etapa, EtapaAuth.verificandoMfa);
+
+        final bien = await s.verificarMfa(codigo: '123 456');
+        expect(bien.ok, isTrue);
+        expect(rutas, contains('POST /auth/v1/factors/f-nuevo/verify'));
+        expect(s.estado.value.etapa, EtapaAuth.conSesion);
+        expect(s.estado.value.sesion?.rol, RolUsuario.directorio);
+        s.dispose();
+      });
+
+      test('con el autenticador ya inscrito solo pide el código', () async {
+        cuenta['mfa_requerida'] = true;
+        cuenta['mfa_inscrita'] = true;
+        factores = [factor('f-1', 'verified')];
+        final s = crear(perfil: perfilDirectiva, auth: servidorMfa);
+        await s.iniciarSesion(correo: 'directiva@ninaspro.cl', contrasena: 'NinasPro2026');
+        expect(s.estado.value.etapa, EtapaAuth.verificandoMfa);
+        expect(s.estado.value.mfaInscrita, isTrue);
+
+        final r = await s.verificarMfa(codigo: '123456');
+        expect(r.ok, isTrue);
+        expect(rutas, contains('POST /auth/v1/factors/f-1/challenge'));
+        expect(rutas, isNot(contains('POST /auth/v1/factors')));
+        expect(s.estado.value.etapa, EtapaAuth.conSesion);
+        s.dispose();
+      });
+    });
+
+    group('bloqueo por intentos fallidos', () {
+      SupabaseAuthService conRechazo(String mensaje) => crear(
+            auth: (r) => r.url.path.endsWith('/token')
+                ? http.Response(jsonEncode({'code': 400, 'error_code': 'invalid_credentials', 'msg': mensaje}), 400, headers: json)
+                : null,
+          );
+
+      test('el intento que bloquea la cuenta envía el código para desbloquearla', () async {
+        final s = conRechazo('Tu cuenta quedó bloqueada por 3 intentos fallidos. Te enviamos un código a tu correo para desbloquearla.');
+        await s.iniciar();
+        final r = await s.iniciarSesion(correo: ' Daniela@NinasPro.cl ', contrasena: 'Incorrecta1');
+        expect(r.ok, isFalse);
+        expect(rutas, contains('POST /auth/v1/recover'));
+        expect(s.estado.value.etapa, EtapaAuth.codigoEnviado);
+        expect(s.estado.value.correo, 'daniela@ninaspro.cl');
+        expect(s.estado.value.aviso, contains('quedó bloqueada'));
+        s.dispose();
+      });
+
+      test('con la cuenta ya bloqueada solo avisa, sin enviar otro correo', () async {
+        final s = conRechazo(mensajeCuentaBloqueada);
+        await s.iniciar();
+        final r = await s.iniciarSesion(correo: 'daniela@ninaspro.cl', contrasena: 'Incorrecta1');
+        expect(r.mensaje, mensajeCuentaBloqueada);
+        expect(rutas, isNot(contains('POST /auth/v1/recover')));
+        expect(s.estado.value.etapa, EtapaAuth.sinSesion);
+        s.dispose();
+      });
     });
 
     test('recargar con una recuperación pendiente nunca entra a la app', () async {
