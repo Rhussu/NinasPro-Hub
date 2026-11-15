@@ -30,7 +30,10 @@ ninas-pro-hub/
 ├── frontend/                     # Aplicación Flutter Web (código cliente)
 │   ├── lib/                      # Código fuente Dart/Flutter
 │   │   ├── config/               # Configuración dinámica y resolución de entornos
-│   │   ├── services/             # Servicios de salud y conectividad BaaS
+│   │   ├── models/               # Modelos de dominio y sesión de la usuaria
+│   │   ├── repositories/         # Acceso a datos (Supabase y mock del mockup)
+│   │   ├── screens/              # Vistas por rol, acceso (auth/) y Accesos (accesos/)
+│   │   ├── services/             # Autenticación (Supabase Auth) y salud del BaaS
 │   │   ├── widgets/              # Componentes de UI y Healthchecker en tiempo real
 │   │   └── main.dart             # Punto de entrada de la aplicación
 │   ├── test/                     # Pruebas unitarias y de widgets (cobertura >= 80%)
@@ -39,8 +42,10 @@ ninas-pro-hub/
 │   └── Dockerfile.web            # Servidor Nginx ligero para despliegue local/contenedor
 │
 ├── supabase/                     # Configuración del BaaS e Infraestructura de Datos
-│   ├── config.toml               # Configuración del CLI local de Supabase
+│   ├── config.toml               # Configuración del CLI local de Supabase (Auth, hooks, MFA)
 │   ├── migrations/               # Scripts SQL versionados (tablas 3NF, RLS, triggers)
+│   ├── templates/                # Correos de activación y recuperación
+│   ├── seed.sql                  # Datos demo y cuentas por rol (solo local)
 │   └── tests/database/           # Batería de pruebas unitarias de BD con pgTAP
 │
 ├── .gitignore
@@ -84,6 +89,51 @@ flutter test --coverage
 # Iniciar aplicación en Chrome (se conecta automáticamente a tu Supabase local)
 flutter run -d chrome
 ```
+
+> Después de cambiar `supabase/config.toml` o las plantillas de `supabase/templates/`, reinicia el stack (`npx supabase stop && npx supabase start`) para que Auth las tome. Las migraciones nuevas se aplican sin borrar datos con `npx supabase migration up`.
+
+---
+
+## 🔐 Autenticación y Accesos
+
+### Cuentas demo (solo en local)
+`supabase/seed.sql` crea estas cuentas, todas con la contraseña `NinasPro2026`:
+
+| Correo | Rol |
+|---|---|
+| `directiva@ninaspro.cl` | Directiva (nacional). La primera vez inscribe su autenticador (MFA) |
+| `camila.sepulveda@ninaspro.cl` | Equipo de Gestión, Sede Beauchef |
+| `daniela.valenzuela@ninaspro.cl` | Tutora, Sede Beauchef |
+| `valentina.soto@correo.cl` | Alumna, PCB Beauchef |
+
+Los correos que envía Auth (activación y códigos de recuperación) llegan a **Mailpit**: `http://127.0.0.1:54324`.
+
+### Flujos
+- **Registro cerrado (US-04, US-05):** solo crea su cuenta quien tenga su correo autorizado en la vista **Accesos**. La Directiva la abre desde *Ajustes → Accesos* y autoriza cualquier rol y sede (incluida la líder de sede). El Equipo de Gestión la abre desde *Ajustes → Administración → Accesos* y solo autoriza alumnas inscritas en su sede. La persona autorizada entra a *Primera vez: crear mi cuenta* con ese correo y activa la cuenta con el enlace que le llega. La autorización vence a los 30 días.
+- **Intentos sin permiso:** si Gestión intenta autorizar otro rol u otra sede, la base responde `403` y registra el intento en `auditoria_seguridad`. Lo mismo pasa con los registros de correos no autorizados y con los bloqueos de cuenta. Solo la Directiva puede leer esa tabla y nadie puede modificarla.
+- **Recuperar la contraseña:** *¿Olvidaste tu contraseña?* envía un **código de 6 dígitos** que se ingresa en la misma pantalla. Funciona aunque el correo se abra en otro dispositivo. Hasta guardar la contraseña nueva, la sesión no da acceso a datos.
+- **Bloqueo tras 3 intentos fallidos (US-06):** el tercer intento bloquea la cuenta y la app envía en ese momento un código de recuperación. Al definir la contraseña nueva, la cuenta queda desbloqueada.
+- **Segundo factor de la Directiva (RNF-S-1):** la Directiva solo accede a los datos con un código TOTP verificado en la sesión (`aal2`). La primera vez escanea un QR con una app autenticadora (Google Authenticator, Microsoft Authenticator o similar). Después ingresa el código en cada inicio de sesión. Para volver a inscribirlo en local, borra su factor en *Studio → Authentication → Users*.
+
+### Configuración manual en Supabase Cloud
+`cd-database.yml` aplica las migraciones (`supabase db push`), pero **no** sube `config.toml`. Ese archivo tiene valores de desarrollo, como `site_url = localhost:3000` y `max_frequency = 1s`. Por eso, en el panel del proyecto hay que configurar a mano:
+
+1. **Authentication → Hooks:**
+   - *Before User Created* → `public.hook_before_user_created`.
+   - *Password Verification Attempt* → `public.hook_password_verification_attempt`.
+2. **Authentication → Email Templates:**
+   - *Confirm signup* con el contenido de `supabase/templates/confirmacion.html`.
+   - *Reset password* con el contenido de `supabase/templates/recuperacion.html`, que usa `{{ .Token }}`.
+   - Los asuntos están en `config.toml`.
+3. **Authentication → Multi-Factor:** TOTP habilitado (inscripción y verificación).
+4. **Authentication → URL Configuration:**
+   - *Site URL* = `https://rhussu.github.io/NinasPro-Hub/`.
+   - La misma URL en *Redirect URLs*.
+5. **Authentication → Providers → Email:**
+   - Confirmación de correo activa.
+   - OTP de 6 dígitos con vencimiento de 3600 s.
+   - Contraseña mínima de 10 caracteres con minúsculas, mayúsculas y dígitos.
+6. **SMTP propio** (*Authentication → SMTP Settings*). El SMTP de Supabase solo envía unos pocos correos por hora y únicamente al equipo del proyecto.
 
 ---
 
