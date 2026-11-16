@@ -809,6 +809,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Directiva Nacional'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('APARIENCIA'), 300, scrollable: find.byType(Scrollable).last);
       expect(find.text('APARIENCIA'), findsOneWidget);
       await tester.tap(find.text('Claro'));
       await tester.pumpAndSettle();
@@ -930,6 +931,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Directiva Nacional'), findsOneWidget);
       expect(find.text('directiva@ninaspro.cl'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Claro'), 300, scrollable: find.byType(Scrollable).last);
       await tester.tap(find.text('Claro'));
       await tester.pumpAndSettle();
       expect(themeNotifier.value, ThemeMode.light);
@@ -941,7 +943,9 @@ void main() {
 
       await tester.tap(find.byTooltip('Ajustes'));
       await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('Cerrar sesión'), 300, scrollable: find.byType(Scrollable).last);
       await tester.ensureVisible(find.text('Cerrar sesión'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Cerrar sesión'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, 'Cerrar sesión'));

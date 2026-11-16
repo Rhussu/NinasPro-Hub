@@ -8,6 +8,7 @@ import 'package:ninas_pro_hub/screens/auth/auth_gate.dart';
 import 'package:ninas_pro_hub/screens/auth/codigo_recuperacion_screen.dart';
 import 'package:ninas_pro_hub/screens/auth/verificacion_mfa_screen.dart';
 import 'package:ninas_pro_hub/screens/directorio/ajustes_directiva_screen.dart';
+import 'package:ninas_pro_hub/screens/directorio/directorio_widgets.dart';
 import 'package:ninas_pro_hub/screens/gestion/ajustes_gestion_screen.dart';
 import 'package:ninas_pro_hub/services/auth_service.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -224,7 +225,7 @@ void main() {
         accesosRepository: repo,
       )));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Accesos'));
+      await tester.tap(find.descendant(of: find.byType(DirectorioMenuLateral), matching: find.text('Accesos')));
       await tester.pumpAndSettle();
       expect(find.text('pendiente@ninaspro.cl'), findsOneWidget);
     });
@@ -235,7 +236,10 @@ void main() {
       addTearDown(tester.view.reset);
       await tester.pumpWidget(_app(AjustesDirectivaScreen(sesion: SesionesDemo.directiva)));
       await tester.pumpAndSettle();
-      expect(find.text('Accesos'), findsNothing);
+      expect(find.descendant(of: find.byType(DirectorioMenuLateral), matching: find.text('Accesos')), findsNothing);
+      // En el inicio la entrada se explica en vez de esconderse
+      final entrada = find.ancestor(of: find.text('Accesos'), matching: find.byType(ListTile));
+      expect(find.descendant(of: entrada, matching: find.text('Necesita la conexión con la base de datos.')), findsOneWidget);
     });
 
     testWidgets('Gestión no tiene Accesos: las alumnas las gestiona la Directiva', (tester) async {

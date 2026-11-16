@@ -3,9 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ninas_pro_hub/config/ninaspro_theme.dart';
 import 'package:ninas_pro_hub/models/hub_models.dart';
 import 'package:ninas_pro_hub/screens/calendario/calendario_screen.dart';
-import 'package:ninas_pro_hub/screens/gestion/ajustes_gestion_screen.dart';
 
-import 'fakes/fake_auth_service.dart';
 import 'fakes/fake_catalogo_repository.dart';
 
 /// Calendario de clases de la sede (US-03)
@@ -158,15 +156,15 @@ void main() {
     expect(find.text('0 sesiones'), findsOneWidget);
   });
 
-  testWidgets('Ajustes de Gestión abre el calendario de clases', (tester) async {
-    await abrir(
-      tester,
-      AjustesGestionScreen(sesion: SesionesDemo.gestion, catalogoRepository: repositorio()),
-    );
+  testWidgets('La tutora ve el cronograma de su curso en solo lectura', (tester) async {
+    final repo = repositorio();
+    await abrir(tester, CalendarioScreen(repository: repo, instanciaInicial: instancia(), hoy: hoy, soloLectura: true));
 
-    await tester.scrollUntilVisible(find.text('Calendario de clases'), 200);
-    await tester.tap(find.text('Calendario de clases'));
-    await tester.pumpAndSettle();
-    expect(find.widgetWithText(AppBar, 'Calendario de clases'), findsOneWidget);
+    expect(find.widgetWithText(AppBar, 'Cronograma'), findsOneWidget);
+    expect(find.text('3 sesiones'), findsOneWidget);
+    expect(find.text('Variables y tipos'), findsOneWidget);
+    // Sin suspender, reanudar ni agregar sesiones
+    expect(find.byTooltip('Acciones de la sesión 2'), findsNothing);
+    expect(find.text('Sesión especial'), findsNothing);
   });
 }

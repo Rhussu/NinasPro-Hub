@@ -44,6 +44,9 @@ class FakeClaseRepository implements ClaseRepository {
   final DateTime hoy;
 
   late final Curso curso;
+
+  /// Otros cursos que opera la usuaria (comparten las clases de [curso])
+  final List<Curso> otrosCursos;
   late final List<SesionClase> listaSesiones;
   final List<PersonaClase> alumnas;
   final List<PersonaClase> tutoras;
@@ -81,6 +84,7 @@ class FakeClaseRepository implements ClaseRepository {
     List<PersonaClase>? alumnas,
     List<PersonaClase>? tutoras,
     bool conPaseListaAnterior = true,
+    this.otrosCursos = const [],
   }) : hoy = hoy ?? DateTime.now(),
        alumnas =
            alumnas ??
@@ -223,7 +227,7 @@ class FakeClaseRepository implements ClaseRepository {
   Future<List<Curso>> instancias({String? tutoraId}) async {
     _exigirConexion();
     if (tutoraId != null && !tutoras.any((t) => t.id == tutoraId)) return const [];
-    return [curso];
+    return [curso, ...otrosCursos];
   }
 
   @override

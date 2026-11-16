@@ -263,6 +263,7 @@ void main() {
     );
 
     expect(find.text('Directiva Nacional'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Oscuro'), 300, scrollable: find.byType(Scrollable).last);
     await tester.tap(find.text('Oscuro'));
     await tester.pumpAndSettle();
     expect(themeNotifier.value, ThemeMode.dark);
