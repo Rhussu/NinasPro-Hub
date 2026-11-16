@@ -502,6 +502,40 @@ class SesionClase {
   }
 }
 
+/// Estado de un justificativo de inasistencia (US-35, US-37, US-38)
+enum EstadoJustificativo {
+  pendiente,
+  aceptado,
+  rechazado;
+
+  String get label => switch (this) {
+    EstadoJustificativo.pendiente => 'Pendiente',
+    EstadoJustificativo.aceptado => 'Aprobado',
+    EstadoJustificativo.rechazado => 'Rechazado',
+  };
+
+  static EstadoJustificativo? desdeDb(Object? valor) => EstadoJustificativo.values.where((e) => e.name == valor).firstOrNull;
+}
+
+/// Motivo tipificado del justificativo: sin diagnósticos (RB-8, US-35 escenario 2)
+enum MotivoJustificativo {
+  salud,
+  escolar,
+  familiar,
+  transporte,
+  otro;
+
+  String get label => switch (this) {
+    MotivoJustificativo.salud => 'Salud',
+    MotivoJustificativo.escolar => 'Académico / Pruebas',
+    MotivoJustificativo.familiar => 'Familiar / Personal',
+    MotivoJustificativo.transporte => 'Transporte / Clima',
+    MotivoJustificativo.otro => 'Otro',
+  };
+
+  static MotivoJustificativo? desdeDb(Object? valor) => MotivoJustificativo.values.where((e) => e.name == valor).firstOrNull;
+}
+
 /// Registro de asistencia de una alumna en una sesión (US-13).
 /// Con Supabase, [id] es la inscripción de la alumna en el curso: la clave con
 /// que se guardan su asistencia, su participación y su lugar en el podio.
@@ -519,6 +553,10 @@ class RegistroAsistencia {
   /// Quién hizo la última edición del registro (US-15)
   final String? editadoPor;
 
+  /// Justificativo de la alumna en esta clase: estado y motivo general, sin el detalle (US-38)
+  final EstadoJustificativo? justificativo;
+  final MotivoJustificativo? motivoJustificativo;
+
   const RegistroAsistencia({
     required this.id,
     required this.sesionId,
@@ -529,7 +567,12 @@ class RegistroAsistencia {
     this.horaMarcado,
     required this.autorizaImagen,
     this.editadoPor,
+    this.justificativo,
+    this.motivoJustificativo,
   });
+
+  /// Con un justificativo aprobado entra al pase de lista como justificada (US-16 escenario 2)
+  bool get justificadaPorAdelantado => justificativo == EstadoJustificativo.aceptado;
 
   RegistroAsistencia copyWith({
     String? id,
@@ -551,6 +594,8 @@ class RegistroAsistencia {
       horaMarcado: horaMarcado ?? this.horaMarcado,
       autorizaImagen: autorizaImagen ?? this.autorizaImagen,
       editadoPor: editadoPor,
+      justificativo: justificativo,
+      motivoJustificativo: motivoJustificativo,
     );
   }
 }

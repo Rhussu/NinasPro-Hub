@@ -114,6 +114,8 @@ class MapeoClase {
         horaMarcado: _fecha(f['actualizado_en']),
         autorizaImagen: f['autoriza_imagen'] == true,
         editadoPor: f['registrado_por_nombre'] as String?,
+        justificativo: EstadoJustificativo.desdeDb(f['justificativo_estado']),
+        motivoJustificativo: MotivoJustificativo.desdeDb(f['justificativo_motivo']),
       );
       registros.add(registro);
       if (f['ejercicios'] != null) {

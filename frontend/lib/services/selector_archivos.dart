@@ -12,3 +12,14 @@ Future<ArchivoAdjunto?> _elegirConFilePicker(List<String> extensiones) async {
   if (archivo == null) return null;
   return ArchivoAdjunto(nombre: archivo.name, bytes: await archivo.readAsBytes());
 }
+
+/// Abre la cámara o la galería del celular (en el navegador, `accept="image/*"`
+/// ofrece ambas sin apps externas, US-18 escenario 1) y devuelve la foto, o
+/// null si se canceló. Es una variable para que las pruebas la reemplacen.
+Future<ArchivoAdjunto?> Function() elegirFoto = _elegirFotoConFilePicker;
+
+Future<ArchivoAdjunto?> _elegirFotoConFilePicker() async {
+  final archivo = await FilePicker.pickFile(type: FileType.image);
+  if (archivo == null) return null;
+  return ArchivoAdjunto(nombre: archivo.name, bytes: await archivo.readAsBytes());
+}
