@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../config/ninaspro_colors.dart';
 import '../../config/ninaspro_theme.dart';
 
@@ -442,6 +443,7 @@ class CampoFormulario extends StatelessWidget {
   final String? Function(String?)? validator;
   final TextInputType? teclado;
   final int maxLineas;
+  final List<TextInputFormatter>? formateadores;
 
   const CampoFormulario({
     super.key,
@@ -451,6 +453,7 @@ class CampoFormulario extends StatelessWidget {
     this.validator,
     this.teclado,
     this.maxLineas = 1,
+    this.formateadores,
   });
 
   @override
@@ -462,6 +465,7 @@ class CampoFormulario extends StatelessWidget {
         keyboardType: teclado,
         maxLines: maxLineas,
         validator: validator,
+        inputFormatters: formateadores,
         decoration: InputDecoration(
           labelText: etiqueta,
           helperText: ayuda,

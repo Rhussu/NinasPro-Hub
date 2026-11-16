@@ -3,6 +3,7 @@ import '../../config/ninaspro_colors.dart';
 import '../../models/hub_models.dart';
 import '../../repositories/hub_repository.dart';
 import '../../utils/rut.dart';
+import '../../utils/rut_input_formatter.dart';
 import 'directorio_importacion_dialog.dart';
 import 'directorio_widgets.dart';
 
@@ -262,6 +263,7 @@ class _DialogoAltaVoluntariaState extends State<_DialogoAltaVoluntaria> {
                 CampoFormulario(controller: _nombre, etiqueta: 'Nombre completo', validator: obligatorio),
                 CampoFormulario(
                   controller: _rut,
+                  formateadores: const [RutInputFormatter()],
                   etiqueta: 'RUT',
                   validator: (v) => obligatorio(v) ?? (validarRut(v!) ? null : 'RUT inválido (revisa el dígito verificador)'),
                 ),

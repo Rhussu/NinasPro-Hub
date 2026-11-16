@@ -5,6 +5,7 @@ import '../../models/sesion_usuario.dart';
 import '../../repositories/accesos_repository.dart';
 import '../../services/auth_service.dart';
 import '../../utils/rut.dart';
+import '../../utils/rut_input_formatter.dart';
 import '../directorio/directorio_widgets.dart';
 
 /// Vista "Accesos" (US-04): correos habilitados para crear su cuenta.
@@ -416,6 +417,7 @@ class _DialogoAutorizarCorreoState extends State<DialogoAutorizarCorreo> {
       CampoFormulario(controller: _apellidos, etiqueta: 'Apellidos', validator: obligatorio),
       CampoFormulario(
         controller: _rut,
+        formateadores: const [RutInputFormatter()],
         etiqueta: 'RUT',
         ayuda: 'Ej. 12.345.678-5',
         validator: (v) => (v == null || v.trim().isEmpty)

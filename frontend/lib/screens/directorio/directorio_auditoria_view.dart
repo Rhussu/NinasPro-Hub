@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../config/ninaspro_colors.dart';
 import '../../models/hub_models.dart';
 import '../../repositories/hub_repository.dart';
+import '../../utils/rut_input_formatter.dart';
 import 'directorio_widgets.dart';
 
 /// Visor de la bitácora de auditoría para cumplimiento y derechos ARCO (US-24).
@@ -126,6 +127,7 @@ class _DirectorioAuditoriaViewState extends State<DirectorioAuditoriaView> {
                     width: 200,
                     child: TextField(
                       controller: _rut,
+                      inputFormatters: const [RutInputFormatter()],
                       onSubmitted: (_) => _buscar(),
                       decoration: const InputDecoration(
                         labelText: 'RUT de alumna',
