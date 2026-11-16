@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 import '../../../config/ninaspro_colors.dart';
 import '../../../models/hub_models.dart';
-import '../../../repositories/hub_repository.dart';
+import '../../../repositories/catalogo_repository.dart';
+import '../../../utils/calendario.dart';
+import '../../calendario/calendario_screen.dart';
 import '../directorio_widgets.dart';
 
 /// Instancias de curso (curso del catálogo + sede + período) y sus sesiones (US-02).
 ///
-/// El asistente genera automáticamente las sesiones semanales 'programada',
-/// valida las fechas y pide confirmación si la instancia ya existe.
+/// El asistente genera automáticamente las sesiones semanales 'programada' y
+/// valida las fechas. Si la instancia ya existe pide confirmación y la crea
+/// como sección paralela (A, B, …) con su propio cronograma.
 class AjustesInstanciasView extends StatefulWidget {
-  final HubRepository repository;
+  final CatalogoRepository repository;
 
   const AjustesInstanciasView({super.key, required this.repository});
 
@@ -30,9 +33,11 @@ class _AjustesInstanciasViewState extends State<AjustesInstanciasView> {
   }
 
   Future<void> _cargarDatos() async {
-    final instancias = await widget.repository.getCursos();
-    final sedes = await widget.repository.getSedes();
-    final catalogo = await widget.repository.getCatalogoCursos();
+    final (instancias, sedes, catalogo) = await (
+      widget.repository.instancias(),
+      widget.repository.sedes(),
+      widget.repository.cursos(),
+    ).wait;
     if (!mounted) return;
     setState(() {
       _instancias = instancias;
@@ -43,6 +48,10 @@ class _AjustesInstanciasViewState extends State<AjustesInstanciasView> {
   }
 
   Future<void> _nuevaInstancia() async {
+    if (_sedes.isEmpty || _catalogo.isEmpty) {
+      mostrarAviso(context, 'Primero registra al menos una sede activa y un curso del catálogo.', error: true);
+      return;
+    }
     final curso = await showDialog<Curso>(
       context: context,
       builder: (_) => _AsistenteInstancia(repository: widget.repository, sedes: _sedes, catalogo: _catalogo),
@@ -53,38 +62,12 @@ class _AjustesInstanciasViewState extends State<AjustesInstanciasView> {
   }
 
   Future<void> _verSesiones(Curso curso) async {
-    final sesiones = await widget.repository.getSesiones(cursoId: curso.id);
-    if (!mounted) return;
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('${curso.codigo} · ${sesiones.length} sesiones'),
-        content: SizedBox(
-          width: 620,
-          child: SingleChildScrollView(
-            child: DirectorioTabla(
-              columnas: const ['N°', 'Fecha', 'Tema', 'Estado'],
-              filas: [
-                for (final s in sesiones)
-                  DataRow(cells: [
-                    DataCell(Text('${s.numeroSesion}')),
-                    DataCell(Text(formatearFecha(s.fecha))),
-                    DataCell(ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 320),
-                      child: Text(s.tema, overflow: TextOverflow.ellipsis),
-                    )),
-                    DataCell(DirectorioChip(
-                      etiquetaEstado(s.estado),
-                      tono: s.estado == 'realizada' ? TonoChip.exito : TonoChip.info,
-                    )),
-                  ]),
-              ],
-            ),
-          ),
-        ),
-        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cerrar'))],
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CalendarioScreen(repository: widget.repository, instanciaInicial: curso),
       ),
     );
+    if (mounted) _cargarDatos();
   }
 
   @override
@@ -107,7 +90,8 @@ class _AjustesInstanciasViewState extends State<AjustesInstanciasView> {
         ),
         DirectorioPanel(
           child: DirectorioTabla(
-            columnas: const ['Código', 'Curso', 'Sede', 'Período', 'Día', 'Fechas', 'Sesiones'],
+            columnas: const ['Código', 'Curso', 'Sede', 'Período', 'Horario', 'Fechas', 'Sesiones'],
+            mensajeVacio: 'Aún no hay instancias programadas.',
             filas: [
               for (final c in _instancias)
                 DataRow(
@@ -116,8 +100,15 @@ class _AjustesInstanciasViewState extends State<AjustesInstanciasView> {
                     DataCell(Text(c.codigo, style: const TextStyle(fontWeight: FontWeight.w700))),
                     DataCell(Text(c.nombre)),
                     DataCell(Text(c.sedeNombre)),
-                    DataCell(Text('${c.anio} · ${c.semestre}° semestre')),
-                    DataCell(Text(nombresDiaSemana[c.diaSemana] ?? '')),
+                    DataCell(
+                      Text('${c.anio} · ${c.semestre}° semestre${c.seccion > 1 ? ' · Sección ${c.seccionLetra}' : ''}'),
+                    ),
+                    DataCell(
+                      Text(
+                        '${nombresDiaSemana[c.diaSemana] ?? ''}'
+                        '${c.horaInicio != null ? ' ${c.horaInicio}–${c.horaFin}' : ''}',
+                      ),
+                    ),
                     DataCell(Text('${formatearFecha(c.fechaInicio)} – ${formatearFecha(c.fechaTermino)}')),
                     DataCell(Text('${c.totalSesiones}')),
                   ],
@@ -130,9 +121,9 @@ class _AjustesInstanciasViewState extends State<AjustesInstanciasView> {
   }
 }
 
-/// Asistente de creación de instancia: sede, curso, rango de fechas y día de clases (US-02)
+/// Asistente de creación de instancia: sede, curso, rango de fechas, día y horario (US-02)
 class _AsistenteInstancia extends StatefulWidget {
-  final HubRepository repository;
+  final CatalogoRepository repository;
   final List<Sede> sedes;
   final List<CursoCatalogo> catalogo;
 
@@ -145,174 +136,233 @@ class _AsistenteInstancia extends StatefulWidget {
 class _AsistenteInstanciaState extends State<_AsistenteInstancia> {
   late String _sedeId = widget.sedes.first.id;
   late String _catalogoId = widget.catalogo.first.id;
-  DateTime _inicio = DateTime(2026, 8, 1);
-  DateTime _termino = DateTime(2026, 11, 28);
+  late DateTime _inicio = _proximoInicio();
+  late DateTime _termino = DateTime(_inicio.year, _inicio.month + 4, _inicio.day);
   int _diaSemana = DateTime.saturday;
+  TimeOfDay _horaInicio = const TimeOfDay(hour: 10, minute: 0);
+  TimeOfDay _horaFin = const TimeOfDay(hour: 13, minute: 0);
   bool _guardando = false;
+  String? _error;
 
-  bool get _fechasValidas => _termino.isAfter(_inicio);
-
-  /// Cuántas clases caen en el rango para el día elegido
-  int get _sesionesPrevistas {
-    if (!_fechasValidas) return 0;
-    var dia = _inicio;
-    while (dia.weekday != _diaSemana) {
-      dia = DateTime(dia.year, dia.month, dia.day + 1);
-    }
-    var total = 0;
-    while (!dia.isAfter(_termino)) {
-      total++;
-      dia = DateTime(dia.year, dia.month, dia.day + 7);
-    }
-    return total;
+  /// Inicio sugerido: el próximo semestre (marzo o agosto)
+  static DateTime _proximoInicio() {
+    final hoy = DateTime.now();
+    if (hoy.month < 3) return DateTime(hoy.year, 3, 1);
+    if (hoy.month < 8) return DateTime(hoy.year, 8, 1);
+    return DateTime(hoy.year + 1, 3, 1);
   }
 
-  Future<void> _crear() async {
-    final semestre = _inicio.month >= 7 ? 2 : 1;
-    final duplicada = await widget.repository.existeInstancia(
-      catalogoId: _catalogoId,
-      sedeId: _sedeId,
-      anio: _inicio.year,
-      semestre: semestre,
+  bool get _fechasValidas => _termino.isAfter(_inicio);
+  bool get _horarioValido => _minutos(_horaFin) > _minutos(_horaInicio);
+  int get _sesionesPrevistas => _fechasValidas ? fechasSesiones(_inicio, _termino, _diaSemana).length : 0;
+
+  static int _minutos(TimeOfDay t) => t.hour * 60 + t.minute;
+  static String _hora(TimeOfDay t) => '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+  Future<void> _crear({bool nuevaSeccion = false}) async {
+    setState(() {
+      _guardando = true;
+      _error = null;
+    });
+    final resultado = await widget.repository.crearInstancia(
+      SolicitudInstancia(
+        catalogoId: _catalogoId,
+        sedeId: _sedeId,
+        inicio: _inicio,
+        termino: _termino,
+        diaSemana: _diaSemana,
+        horaInicio: _hora(_horaInicio),
+        horaFin: _hora(_horaFin),
+      ),
+      nuevaSeccion: nuevaSeccion,
     );
     if (!mounted) return;
-    if (duplicada) {
+    if (resultado.ok) {
+      Navigator.pop(context, resultado.valor);
+      return;
+    }
+    setState(() => _guardando = false);
+    if (resultado.duplicada) {
       final confirmar = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('Esta instancia ya existe'),
           content: Text(
-            'Ya hay una instancia de este curso en esta sede para el $semestre° semestre de ${_inicio.year}. '
-            '¿Quieres crear otra igualmente? Se duplicará el cronograma.',
+            '${resultado.error}\n\n'
+            '¿Quieres crear una sección paralela? Tendrá su propio cronograma de sesiones '
+            'y no reemplaza a la existente.',
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Crear de todas formas')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Crear sección paralela')),
           ],
         ),
       );
-      if (confirmar != true || !mounted) return;
+      if (confirmar == true && mounted) await _crear(nuevaSeccion: true);
+      return;
     }
+    setState(() => _error = resultado.error);
+  }
 
-    setState(() => _guardando = true);
-    final curso = await widget.repository.crearInstanciaCurso(
-      catalogoId: _catalogoId,
-      sedeId: _sedeId,
-      inicio: _inicio,
-      termino: _termino,
-      diaSemana: _diaSemana,
+  Future<void> _elegirHora(bool inicio) async {
+    final elegida = await showTimePicker(
+      context: context,
+      initialTime: inicio ? _horaInicio : _horaFin,
+      helpText: inicio ? 'Hora de inicio' : 'Hora de término',
+      cancelText: 'Cancelar',
+      confirmText: 'Aceptar',
     );
-    if (!mounted) return;
-    Navigator.pop(context, curso);
+    if (elegida == null) return;
+    setState(() => inicio ? _horaInicio = elegida : _horaFin = elegida);
   }
 
   @override
   Widget build(BuildContext context) {
     final sesiones = _sesionesPrevistas;
+    final valido = _fechasValidas && _horarioValido && sesiones > 0;
 
     return AlertDialog(
       title: const Text('Nueva instancia de curso'),
       content: SizedBox(
         width: 520,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            DropdownButtonFormField<String>(
-              initialValue: _sedeId,
-              decoration: const InputDecoration(labelText: 'Sede', border: OutlineInputBorder()),
-              items: [for (final s in widget.sedes) DropdownMenuItem(value: s.id, child: Text(s.nombre))],
-              onChanged: (v) => setState(() => _sedeId = v ?? _sedeId),
-            ),
-            const SizedBox(height: 14),
-            DropdownButtonFormField<String>(
-              initialValue: _catalogoId,
-              isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Curso del catálogo', border: OutlineInputBorder()),
-              items: [
-                for (final c in widget.catalogo)
-                  DropdownMenuItem(value: c.id, child: Text('${c.codigo} · ${c.nombre}')),
-              ],
-              onChanged: (v) => setState(() => _catalogoId = v ?? _catalogoId),
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: _CampoFecha(
-                    etiqueta: 'Fecha de inicio',
-                    fecha: _inicio,
-                    onChanged: (f) => setState(() => _inicio = f),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _CampoFecha(
-                    etiqueta: 'Fecha de término',
-                    fecha: _termino,
-                    error: _fechasValidas ? null : 'Debe ser posterior al inicio',
-                    onChanged: (f) => setState(() => _termino = f),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            DropdownButtonFormField<int>(
-              initialValue: _diaSemana,
-              decoration: const InputDecoration(labelText: 'Día de clases', border: OutlineInputBorder()),
-              items: [
-                for (final e in nombresDiaSemana.entries) DropdownMenuItem(value: e.key, child: Text(e.value)),
-              ],
-              onChanged: (v) => setState(() => _diaSemana = v ?? _diaSemana),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              _fechasValidas
-                  ? 'Se generarán $sesiones sesiones con estado "programada", numeradas del 1 al $sesiones.'
-                  : 'Corrige las fechas para ver las sesiones que se generarán.',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: _fechasValidas ? NinasProColors.primary700 : NinasProColors.error700,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              DropdownButtonFormField<String>(
+                initialValue: _sedeId,
+                decoration: const InputDecoration(labelText: 'Sede', border: OutlineInputBorder()),
+                items: [for (final s in widget.sedes) DropdownMenuItem(value: s.id, child: Text(s.nombre))],
+                onChanged: (v) => setState(() => _sedeId = v ?? _sedeId),
               ),
-            ),
-          ],
+              const SizedBox(height: 14),
+              DropdownButtonFormField<String>(
+                initialValue: _catalogoId,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Curso del catálogo', border: OutlineInputBorder()),
+                items: [
+                  for (final c in widget.catalogo)
+                    DropdownMenuItem(value: c.id, child: Text('${c.codigo} · ${c.nombre}')),
+                ],
+                onChanged: (v) => setState(() => _catalogoId = v ?? _catalogoId),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: _CampoSelector(
+                      etiqueta: 'Fecha de inicio',
+                      valor: formatearFecha(_inicio),
+                      icono: Icons.event_rounded,
+                      onTap: () async {
+                        final f = await elegirFecha(context, inicial: _inicio);
+                        if (f != null) setState(() => _inicio = f);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _CampoSelector(
+                      etiqueta: 'Fecha de término',
+                      valor: formatearFecha(_termino),
+                      icono: Icons.event_rounded,
+                      error: _fechasValidas ? null : 'Debe ser posterior al inicio',
+                      onTap: () async {
+                        final f = await elegirFecha(context, inicial: _termino);
+                        if (f != null) setState(() => _termino = f);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              DropdownButtonFormField<int>(
+                initialValue: _diaSemana,
+                decoration: const InputDecoration(labelText: 'Día de clases', border: OutlineInputBorder()),
+                items: [for (final e in nombresDiaSemana.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
+                onChanged: (v) => setState(() => _diaSemana = v ?? _diaSemana),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: _CampoSelector(
+                      etiqueta: 'Hora de inicio',
+                      valor: _hora(_horaInicio),
+                      icono: Icons.schedule_rounded,
+                      onTap: () => _elegirHora(true),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _CampoSelector(
+                      etiqueta: 'Hora de término',
+                      valor: _hora(_horaFin),
+                      icono: Icons.schedule_rounded,
+                      error: _horarioValido ? null : 'Debe ser posterior al inicio',
+                      onTap: () => _elegirHora(false),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                !_fechasValidas
+                    ? 'Corrige las fechas para ver las sesiones que se generarán.'
+                    : sesiones == 0
+                    ? 'No hay ningún ${nombresDiaSemana[_diaSemana]!.toLowerCase()} entre esas fechas.'
+                    : 'Se generarán $sesiones sesiones con estado "programada", numeradas del 1 al $sesiones.',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: valido ? NinasProColors.primary700 : NinasProColors.error700,
+                ),
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: 10),
+                Text(_error!, style: const TextStyle(color: NinasProColors.error700)),
+              ],
+            ],
+          ),
         ),
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-        FilledButton(
-          onPressed: _guardando || !_fechasValidas || sesiones == 0 ? null : _crear,
-          child: const Text('Crear instancia'),
-        ),
+        FilledButton(onPressed: _guardando || !valido ? null : _crear, child: const Text('Crear instancia')),
       ],
     );
   }
 }
 
-class _CampoFecha extends StatelessWidget {
+/// Campo de solo lectura que abre un selector (fecha u hora) al tocarlo
+class _CampoSelector extends StatelessWidget {
   final String etiqueta;
-  final DateTime fecha;
+  final String valor;
+  final IconData icono;
   final String? error;
-  final ValueChanged<DateTime> onChanged;
+  final VoidCallback onTap;
 
-  const _CampoFecha({required this.etiqueta, required this.fecha, required this.onChanged, this.error});
+  const _CampoSelector({
+    required this.etiqueta,
+    required this.valor,
+    required this.icono,
+    required this.onTap,
+    this.error,
+  });
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       borderRadius: BorderRadius.circular(4),
-      onTap: () async {
-        final elegida = await elegirFecha(context, inicial: fecha);
-        if (elegida != null) onChanged(elegida);
-      },
+      onTap: onTap,
       child: InputDecorator(
         decoration: InputDecoration(
           labelText: etiqueta,
           errorText: error,
           border: const OutlineInputBorder(),
-          suffixIcon: const Icon(Icons.event_rounded),
+          suffixIcon: Icon(icono),
         ),
-        child: Text(formatearFecha(fecha)),
+        child: Text(valor),
       ),
     );
   }

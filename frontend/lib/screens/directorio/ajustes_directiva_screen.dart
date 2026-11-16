@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../config/ninaspro_colors.dart';
 import '../../repositories/accesos_repository.dart';
+import '../../repositories/catalogo_repository.dart';
 import '../../repositories/hub_repository.dart';
 import '../../models/sesion_usuario.dart';
 import '../../widgets/ninaspro_ajustes.dart';
@@ -14,7 +15,7 @@ import 'directorio_widgets.dart';
 /// Ajustes de la Directiva Nacional (vista Desktop), con su propio menú lateral:
 /// - Perfil: cabecera, Apariencia y Cuenta (los mismos bloques de [AjustesScreen])
 /// - Sedes y Cursos del catálogo (US-01)
-/// - Instancias y sesiones (US-02)
+/// - Instancias y sesiones, con su calendario (US-02, US-03)
 /// - Roles de tutoras: catálogo de roles semanales (US-43)
 /// - Accesos: correos autorizados para crear su cuenta (US-04)
 class AjustesDirectivaScreen extends StatefulWidget {
@@ -25,6 +26,7 @@ class AjustesDirectivaScreen extends StatefulWidget {
   final SesionUsuario? sesion;
   final VoidCallback? onCerrarSesion;
   final AccesosRepository? accesosRepository;
+  final CatalogoRepository? catalogoRepository;
 
   const AjustesDirectivaScreen({
     super.key,
@@ -33,6 +35,7 @@ class AjustesDirectivaScreen extends StatefulWidget {
     this.sesion,
     this.onCerrarSesion,
     this.accesosRepository,
+    this.catalogoRepository,
   });
 
   @override
@@ -45,25 +48,36 @@ class _AjustesDirectivaScreenState extends State<AjustesDirectivaScreen> {
   /// "Accesos" solo aparece con una sesión real (necesita la base de datos)
   bool get _conAccesos => widget.accesosRepository != null && widget.sesion != null;
 
-  List<OpcionMenuLateral> get _opciones => [
-        const OpcionMenuLateral(Icons.person_rounded, 'Perfil'),
-        const OpcionMenuLateral(Icons.location_city_rounded, 'Sedes'),
-        const OpcionMenuLateral(Icons.menu_book_rounded, 'Cursos'),
-        const OpcionMenuLateral(Icons.event_note_rounded, 'Instancias y sesiones'),
+  /// Secciones del menú lateral en orden. Sedes, Cursos e Instancias usan la
+  /// base de datos y aparecen solo si hay [CatalogoRepository].
+  List<(OpcionMenuLateral, Widget Function())> get _secciones {
+    final catalogo = widget.catalogoRepository;
+    return [
+      (const OpcionMenuLateral(Icons.person_rounded, 'Perfil'), _buildPerfil),
+      if (catalogo != null) ...[
+        (const OpcionMenuLateral(Icons.location_city_rounded, 'Sedes'), () => AjustesSedesView(repository: catalogo)),
+        (const OpcionMenuLateral(Icons.menu_book_rounded, 'Cursos'), () => AjustesCursosView(repository: catalogo)),
+        (
+          const OpcionMenuLateral(Icons.event_note_rounded, 'Instancias y sesiones'),
+          () => AjustesInstanciasView(repository: catalogo),
+        ),
+      ],
+      (
         const OpcionMenuLateral(Icons.assignment_ind_rounded, 'Roles de tutoras'),
-        if (_conAccesos) const OpcionMenuLateral(Icons.how_to_reg_rounded, 'Accesos'),
-      ];
+        () => AjustesRolesView(repository: widget.repository),
+      ),
+      if (_conAccesos)
+        (
+          const OpcionMenuLateral(Icons.how_to_reg_rounded, 'Accesos'),
+          () => AccesosView(repository: widget.accesosRepository!, sesion: widget.sesion!),
+        ),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
-    final contenido = switch (_seccion) {
-      1 => AjustesSedesView(repository: widget.repository),
-      2 => AjustesCursosView(repository: widget.repository),
-      3 => AjustesInstanciasView(repository: widget.repository),
-      4 => AjustesRolesView(repository: widget.repository),
-      5 when _conAccesos => AccesosView(repository: widget.accesosRepository!, sesion: widget.sesion!),
-      _ => _buildPerfil(),
-    };
+    final secciones = _secciones;
+    final contenido = secciones[_seccion.clamp(0, secciones.length - 1)].$2();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Ajustes')),
@@ -71,7 +85,7 @@ class _AjustesDirectivaScreenState extends State<AjustesDirectivaScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           DirectorioMenuLateral(
-            opciones: _opciones,
+            opciones: [for (final s in secciones) s.$1],
             seleccionada: _seccion,
             onSeleccionar: (i) => setState(() => _seccion = i),
           ),

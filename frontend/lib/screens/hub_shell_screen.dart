@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../config/ninaspro_colors.dart';
 import '../../models/sesion_usuario.dart';
 import '../../repositories/accesos_repository.dart';
+import '../../repositories/catalogo_repository.dart';
 import '../../repositories/hub_repository.dart';
 import '../../services/health_service.dart';
 import '../../widgets/db_health_checker.dart';
@@ -36,6 +37,9 @@ class HubShellScreen extends StatefulWidget {
   /// Autorización de correos (vista "Accesos" de Directiva y Gestión)
   final AccesosRepository? accesosRepository;
 
+  /// Catálogo de sedes y cursos, instancias y calendario de clases (US-01..03)
+  final CatalogoRepository? catalogoRepository;
+
   const HubShellScreen({
     super.key,
     required this.repository,
@@ -44,6 +48,7 @@ class HubShellScreen extends StatefulWidget {
     this.themeNotifier,
     this.onCerrarSesion,
     this.accesosRepository,
+    this.catalogoRepository,
   });
 
   @override
@@ -161,12 +166,14 @@ class _HubShellScreenState extends State<HubShellScreen> {
           themeNotifier: widget.themeNotifier,
           onCerrarSesion: widget.onCerrarSesion,
           accesosRepository: widget.accesosRepository,
+          catalogoRepository: widget.catalogoRepository,
         ),
       RolUsuario.equipoGestion => AjustesGestionScreen(
           repository: widget.repository,
           themeNotifier: widget.themeNotifier,
           onCerrarSesion: widget.onCerrarSesion,
           accesosRepository: widget.accesosRepository,
+          catalogoRepository: widget.catalogoRepository,
           sesion: widget.sesion,
         ),
       RolUsuario.tutora => AjustesTutoraScreen(

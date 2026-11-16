@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../../config/ninaspro_colors.dart';
 import '../../../models/hub_models.dart';
-import '../../../repositories/hub_repository.dart';
+import '../../../repositories/catalogo_repository.dart';
 import '../directorio_widgets.dart';
 
 /// Catálogo general de cursos (US-01): código institucional único y nombre obligatorio.
 /// Cada curso del catálogo se dicta en una sede mediante una instancia (US-02).
 class AjustesCursosView extends StatefulWidget {
-  final HubRepository repository;
+  final CatalogoRepository repository;
 
   const AjustesCursosView({super.key, required this.repository});
 
@@ -27,8 +27,8 @@ class _AjustesCursosViewState extends State<AjustesCursosView> {
   }
 
   Future<void> _cargarDatos() async {
-    final catalogo = await widget.repository.getCatalogoCursos();
-    final instancias = await widget.repository.getCursos();
+    final catalogo = await widget.repository.cursos();
+    final instancias = await widget.repository.instancias();
     if (!mounted) return;
     setState(() {
       _catalogo = catalogo;
@@ -93,7 +93,7 @@ class _AjustesCursosViewState extends State<AjustesCursosView> {
 }
 
 class _DialogoCurso extends StatefulWidget {
-  final HubRepository repository;
+  final CatalogoRepository repository;
   final CursoCatalogo? curso;
 
   const _DialogoCurso({required this.repository, this.curso});
@@ -108,6 +108,7 @@ class _DialogoCursoState extends State<_DialogoCurso> {
   late final _nombre = TextEditingController(text: widget.curso?.nombre);
   late final _descripcion = TextEditingController(text: widget.curso?.descripcion);
   String? _error;
+  bool _guardando = false;
 
   @override
   void dispose() {
@@ -119,21 +120,23 @@ class _DialogoCursoState extends State<_DialogoCurso> {
 
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
+    setState(() {
+      _guardando = true;
+      _error = null;
+    });
+    final datos = DatosCurso(codigo: _codigo.text, nombre: _nombre.text, descripcion: _descripcion.text);
     final curso = widget.curso;
-    final ok = curso == null
-        ? await widget.repository.crearCursoCatalogo(
-            codigo: _codigo.text,
-            nombre: _nombre.text,
-            descripcion: _descripcion.text,
-          )
-        : await widget.repository.actualizarCursoCatalogo(
-            curso.copyWith(codigo: _codigo.text, nombre: _nombre.text, descripcion: _descripcion.text.trim()),
-          );
+    final resultado = curso == null
+        ? await widget.repository.crearCurso(datos)
+        : await widget.repository.actualizarCurso(curso.id, datos);
     if (!mounted) return;
-    if (ok) {
+    if (resultado.ok) {
       Navigator.pop(context, true);
     } else {
-      setState(() => _error = 'El código "${_codigo.text.trim().toUpperCase()}" ya está en uso.');
+      setState(() {
+        _guardando = false;
+        _error = resultado.error;
+      });
     }
   }
 
@@ -163,7 +166,7 @@ class _DialogoCursoState extends State<_DialogoCurso> {
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-        FilledButton(onPressed: _guardar, child: const Text('Guardar')),
+        FilledButton(onPressed: _guardando ? null : _guardar, child: const Text('Guardar')),
       ],
     );
   }

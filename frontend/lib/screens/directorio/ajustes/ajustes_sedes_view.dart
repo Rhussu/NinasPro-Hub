@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../../config/ninaspro_colors.dart';
 import '../../../models/hub_models.dart';
-import '../../../repositories/hub_repository.dart';
+import '../../../repositories/catalogo_repository.dart';
 import '../directorio_widgets.dart';
 
 /// Administración de sedes e instituciones anfitrionas (US-01).
-/// El nombre de la sede es único.
+/// El nombre de la sede es único. La coordinadora es la líder de sede del
+/// Equipo de Gestión, que se asigna al autorizar su correo en "Accesos".
 class AjustesSedesView extends StatefulWidget {
-  final HubRepository repository;
+  final CatalogoRepository repository;
 
   const AjustesSedesView({super.key, required this.repository});
 
@@ -26,7 +27,7 @@ class _AjustesSedesViewState extends State<AjustesSedesView> {
   }
 
   Future<void> _cargarDatos() async {
-    final sedes = await widget.repository.getSedes();
+    final sedes = await widget.repository.sedes();
     if (!mounted) return;
     setState(() {
       _sedes = sedes;
@@ -72,7 +73,7 @@ class _AjustesSedesViewState extends State<AjustesSedesView> {
                   DataCell(Text(s.universidad)),
                   DataCell(Text(s.region)),
                   DataCell(Text(s.modalidad)),
-                  DataCell(Text(s.coordinadoraNombre)),
+                  DataCell(Text(s.coordinadoraNombre.isEmpty ? 'Sin líder asignada' : s.coordinadoraNombre)),
                   DataCell(DirectorioChip(etiquetaEstado(s.estado), tono: tonoEstado(s.estado))),
                   DataCell(IconButton(
                     tooltip: 'Editar ${s.nombre}',
@@ -89,7 +90,7 @@ class _AjustesSedesViewState extends State<AjustesSedesView> {
 }
 
 class _DialogoSede extends StatefulWidget {
-  final HubRepository repository;
+  final CatalogoRepository repository;
   final Sede? sede;
 
   const _DialogoSede({required this.repository, this.sede});
@@ -103,14 +104,14 @@ class _DialogoSedeState extends State<_DialogoSede> {
   late final _nombre = TextEditingController(text: widget.sede?.nombre);
   late final _universidad = TextEditingController(text: widget.sede?.universidad);
   late final _region = TextEditingController(text: widget.sede?.region);
-  late final _coordinadora = TextEditingController(text: widget.sede?.coordinadoraNombre);
   late String _modalidad = widget.sede?.modalidad ?? 'Presencial';
   late bool _activa = (widget.sede?.estado ?? 'activa') == 'activa';
   String? _error;
+  bool _guardando = false;
 
   @override
   void dispose() {
-    for (final c in [_nombre, _universidad, _region, _coordinadora]) {
+    for (final c in [_nombre, _universidad, _region]) {
       c.dispose();
     }
     super.dispose();
@@ -118,30 +119,29 @@ class _DialogoSedeState extends State<_DialogoSede> {
 
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
+    setState(() {
+      _guardando = true;
+      _error = null;
+    });
+    final datos = DatosSede(
+      nombre: _nombre.text,
+      institucion: _universidad.text,
+      region: _region.text,
+      modalidad: _modalidad,
+      activa: _activa,
+    );
     final sede = widget.sede;
-    final ok = sede == null
-        ? await widget.repository.crearSede(
-            nombre: _nombre.text,
-            universidad: _universidad.text,
-            region: _region.text,
-            modalidad: _modalidad,
-            coordinadoraNombre: _coordinadora.text,
-          )
-        : await widget.repository.actualizarSede(
-            sede.copyWith(
-              nombre: _nombre.text.trim(),
-              universidad: _universidad.text.trim(),
-              region: _region.text.trim(),
-              modalidad: _modalidad,
-              coordinadoraNombre: _coordinadora.text.trim(),
-              estado: _activa ? 'activa' : 'inactiva',
-            ),
-          );
+    final resultado = sede == null
+        ? await widget.repository.crearSede(datos)
+        : await widget.repository.actualizarSede(sede.id, datos);
     if (!mounted) return;
-    if (ok) {
+    if (resultado.ok) {
       Navigator.pop(context, true);
     } else {
-      setState(() => _error = 'Ya existe una sede llamada "${_nombre.text.trim()}".');
+      setState(() {
+        _guardando = false;
+        _error = resultado.error;
+      });
     }
   }
 
@@ -171,7 +171,6 @@ class _DialogoSedeState extends State<_DialogoSede> {
                     onSelectionChanged: (s) => setState(() => _modalidad = s.first),
                   ),
                 ),
-                CampoFormulario(controller: _coordinadora, etiqueta: 'Coordinadora', validator: obligatorio),
                 if (widget.sede != null)
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
@@ -187,7 +186,7 @@ class _DialogoSedeState extends State<_DialogoSede> {
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-        FilledButton(onPressed: _guardar, child: const Text('Guardar')),
+        FilledButton(onPressed: _guardando ? null : _guardar, child: const Text('Guardar')),
       ],
     );
   }
