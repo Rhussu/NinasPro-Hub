@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import '../../../config/ninaspro_colors.dart';
 import '../../../models/hub_models.dart';
 import '../../../repositories/catalogo_repository.dart';
+import '../../../utils/nombres.dart';
 import '../directorio_widgets.dart';
+import 'catalogo_acciones.dart';
 
 /// Administración de sedes e instituciones anfitrionas (US-01).
 /// El nombre de la sede es único. La coordinadora es la líder de sede del
 /// Equipo de Gestión, que se asigna al autorizar su correo en "Accesos".
+/// Los nombres no distinguen tildes ni mayúsculas, se avisa si uno nuevo se
+/// parece a otro y solo se eliminan las sedes que aún no se usan.
 class AjustesSedesView extends StatefulWidget {
   final CatalogoRepository repository;
 
@@ -38,11 +42,27 @@ class _AjustesSedesViewState extends State<AjustesSedesView> {
   Future<void> _abrirFormulario([Sede? sede]) async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => _DialogoSede(repository: widget.repository, sede: sede),
+      builder: (_) => _DialogoSede(
+        repository: widget.repository,
+        sede: sede,
+        otrasSedes: [for (final s in _sedes) if (s.id != sede?.id) s.nombre],
+      ),
     );
     if (ok != true || !mounted) return;
     mostrarAviso(context, sede == null ? '✅ Sede creada y activa.' : '✅ Sede actualizada.');
     _cargarDatos();
+  }
+
+  Future<void> _eliminar(Sede sede) async {
+    if (!await confirmarEliminacion(context, titulo: 'Eliminar sede', nombre: sede.nombre) || !mounted) return;
+    final resultado = await widget.repository.eliminarSede(sede.id);
+    if (!mounted) return;
+    if (resultado.ok) {
+      mostrarAviso(context, 'Sede "${sede.nombre}" eliminada.');
+      _cargarDatos();
+    } else {
+      mostrarAviso(context, resultado.error!, error: true);
+    }
   }
 
   @override
@@ -75,10 +95,16 @@ class _AjustesSedesViewState extends State<AjustesSedesView> {
                   DataCell(Text(s.modalidad)),
                   DataCell(Text(s.coordinadoraNombre.isEmpty ? 'Sin líder asignada' : s.coordinadoraNombre)),
                   DataCell(DirectorioChip(etiquetaEstado(s.estado), tono: tonoEstado(s.estado))),
-                  DataCell(IconButton(
-                    tooltip: 'Editar ${s.nombre}',
-                    icon: const Icon(Icons.edit_rounded, size: 18),
-                    onPressed: () => _abrirFormulario(s),
+                  DataCell(Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: 'Editar ${s.nombre}',
+                        icon: const Icon(Icons.edit_rounded, size: 18),
+                        onPressed: () => _abrirFormulario(s),
+                      ),
+                      BotonEliminarCatalogo(nombre: s.nombre, usos: s.usos, onEliminar: () => _eliminar(s)),
+                    ],
                   )),
                 ]),
             ],
@@ -93,7 +119,10 @@ class _DialogoSede extends StatefulWidget {
   final CatalogoRepository repository;
   final Sede? sede;
 
-  const _DialogoSede({required this.repository, this.sede});
+  /// Nombres de las demás sedes, para detectar repetidos y parecidos antes de guardar
+  final List<String> otrasSedes;
+
+  const _DialogoSede({required this.repository, this.sede, this.otrasSedes = const []});
 
   @override
   State<_DialogoSede> createState() => _DialogoSedeState();
@@ -119,6 +148,19 @@ class _DialogoSedeState extends State<_DialogoSede> {
 
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
+    final nombre = _nombre.text.trim();
+    final repetido = nombreRepetido(nombre, widget.otrasSedes);
+    if (repetido != null) {
+      setState(() => _error = 'Ya existe la sede "$repetido". Los nombres no distinguen tildes, mayúsculas ni signos.');
+      return;
+    }
+    // Solo se avisa si el nombre es nuevo o cambió (no al editar otros datos)
+    final cambioNombre = widget.sede == null || claveNombre(widget.sede!.nombre) != claveNombre(nombre);
+    final parecidos = cambioNombre ? nombresParecidos(nombre, widget.otrasSedes) : const <String>[];
+    if (parecidos.isNotEmpty) {
+      final guardar = await confirmarNombreParecido(context, nombre: nombre, parecidos: parecidos, tipo: 'sede');
+      if (!guardar || !mounted) return;
+    }
     setState(() {
       _guardando = true;
       _error = null;
