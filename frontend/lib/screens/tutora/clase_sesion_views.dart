@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../config/ninaspro_colors.dart';
 import '../../config/ninaspro_theme.dart';
 import '../../models/hub_models.dart';
+import '../../repositories/clase_repository.dart';
 import 'clase_sesion_controller.dart';
 
 /// Vistas de la clase en curso, compartidas entre Tutora y Equipo de Gestión.
@@ -11,7 +12,101 @@ import 'clase_sesion_controller.dart';
 /// - [FotosClaseView]: US-18 y US-19, evidencia fotográfica y consentimientos de imagen.
 /// - [mostrarModalRegistroKahoot]: US-29, podio Kahoot de la clase.
 
-// Pase de lista táctil rápido (US-13) con historial semana a semana del curso
+/// Muestra el resultado de un guardado de la clase: en la nube, pendiente de envío o rechazado
+void mostrarResultadoGuardado(ScaffoldMessengerState messenger, ResultadoGuardado resultado, {required String exito}) {
+  final (color, texto) = switch (resultado.estado) {
+    EstadoGuardado.guardado => (
+      NinasProColors.success700,
+      resultado.mensaje == null ? exito : '$exito ${resultado.mensaje}',
+    ),
+    EstadoGuardado.pendiente => (
+      NinasProColors.warning900,
+      '📴 Pendiente de envío por falta de conexión: quedó guardado en este dispositivo y se enviará solo al volver internet.',
+    ),
+    EstadoGuardado.rechazado => (NinasProColors.error700, '⚠️ ${resultado.mensaje ?? 'No se pudo guardar.'}'),
+  };
+  messenger
+    ..clearSnackBars()
+    ..showSnackBar(
+      SnackBar(
+        backgroundColor: color,
+        duration: Duration(seconds: resultado.guardado && resultado.mensaje == null ? 3 : 6),
+        content: Text(texto, style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white)),
+      ),
+    );
+}
+
+/// Aviso fijo mientras la lista sigue guardada solo en el dispositivo (US-14 escenario 1)
+class AvisoPendienteEnvio extends StatelessWidget {
+  const AvisoPendienteEnvio({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: NinasProColors.warning100,
+      child: const Row(
+        children: [
+          Icon(Icons.cloud_off_rounded, size: 16, color: NinasProColors.warning900),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Pendiente de envío por falta de conexión. Se enviará solo al volver internet.',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NinasProColors.warning900),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Quién hizo la última edición del pase de lista y a qué hora (US-15)
+class LineaUltimaEdicion extends StatelessWidget {
+  final String? autora;
+  final DateTime? hora;
+
+  const LineaUltimaEdicion({super.key, required this.autora, required this.hora});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final h = hora;
+    final cuando = h == null
+        ? ''
+        : ' · ${h.day.toString().padLeft(2, '0')}/${h.month.toString().padLeft(2, '0')} '
+              '${h.hour.toString().padLeft(2, '0')}:${h.minute.toString().padLeft(2, '0')}';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Row(
+        children: [
+          Icon(Icons.history_rounded, size: 14, color: isDark ? NinasProColors.neutral300 : NinasProColors.neutral500),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              'Última edición: ${autora ?? 'sin registro'}$cuando',
+              style: TextStyle(fontSize: 11.5, color: isDark ? NinasProColors.neutral300 : NinasProColors.neutral500),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Registro editado más recientemente de una lista (para [LineaUltimaEdicion])
+RegistroAsistencia? ultimaEdicion(List<RegistroAsistencia> registros) {
+  RegistroAsistencia? ultima;
+  for (final r in registros) {
+    final h = r.horaMarcado;
+    if (r.editadoPor == null || h == null) continue;
+    if (ultima == null || h.isAfter(ultima.horaMarcado!)) ultima = r;
+  }
+  return ultima;
+}
+
+// Pase de lista táctil rápido (US-13) con historial semana a semana del curso y corrección posterior (US-15)
 class AsistenciaClaseView extends StatefulWidget {
   final ClaseSesionController controller;
 
@@ -22,34 +117,58 @@ class AsistenciaClaseView extends StatefulWidget {
 }
 
 class _AsistenciaClaseViewState extends State<AsistenciaClaseView> {
-  // Clase que se está viendo; null = clase en curso (editable)
+  // Clase que se está viendo; null = clase en curso
   String? _sesionVistaId;
-  List<RegistroAsistencia> _historial = [];
+  ListaClase _historial = const ListaClase();
+  List<RegistroAsistencia> _registrosHistorial = [];
   bool _cargandoHistorial = false;
+  String? _errorHistorial;
+
+  // Corrección de una clase anterior (US-15 escenarios 1 y 3)
+  bool _corrigiendo = false;
+  bool _guardando = false;
 
   ClaseSesionController get controller => widget.controller;
 
   bool get _esClaseActual => _sesionVistaId == null || _sesionVistaId == controller.sesionId;
 
+  SesionClase? get _sesionVista {
+    final id = _sesionVistaId ?? controller.sesionId;
+    return controller.sesiones.where((s) => s.id == id).firstOrNull;
+  }
+
   Future<void> _verSesion(String id) async {
     if (id == controller.sesionId) {
-      setState(() => _sesionVistaId = null);
+      setState(() {
+        _sesionVistaId = null;
+        _corrigiendo = false;
+      });
       return;
     }
     setState(() {
       _sesionVistaId = id;
+      _corrigiendo = false;
       _cargandoHistorial = true;
+      _errorHistorial = null;
     });
-    final regs = await controller.registrosDeSesion(id);
-    if (!mounted || _sesionVistaId != id) return;
-    setState(() {
-      _historial = regs;
-      _cargandoHistorial = false;
-    });
+    try {
+      final lista = await controller.listaDeSesion(id);
+      if (!mounted || _sesionVistaId != id) return;
+      setState(() {
+        _historial = lista;
+        _registrosHistorial = List.of(lista.registros);
+        _cargandoHistorial = false;
+      });
+    } catch (_) {
+      if (!mounted || _sesionVistaId != id) return;
+      setState(() {
+        _cargandoHistorial = false;
+        _errorHistorial = 'No pudimos cargar esta clase. Revisa tu conexión.';
+      });
+    }
   }
 
-  void _ciclarEstado(BuildContext context, int index) {
-    if (controller.ciclarEstado(index)) return;
+  void _avisarJustificada(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         backgroundColor: NinasProColors.warning900,
@@ -59,19 +178,51 @@ class _AsistenciaClaseViewState extends State<AsistenciaClaseView> {
     );
   }
 
-  Future<void> _guardarAsistencia(BuildContext context) async {
+  void _ciclarEstado(BuildContext context, int index) {
+    if (_esClaseActual) {
+      if (!controller.ciclarEstado(index)) _avisarJustificada(context);
+      return;
+    }
+    final reg = _registrosHistorial[index];
+    final nuevo = alternarEstado(reg.estado);
+    if (nuevo == null) return _avisarJustificada(context);
+    setState(() => _registrosHistorial[index] = reg.copyWith(estado: nuevo));
+  }
+
+  // Corregir (o pasar por primera vez) la lista de una clase anterior
+  void _empezarCorreccion() {
+    setState(() {
+      _corrigiendo = true;
+      _registrosHistorial = [
+        for (final r in _historial.registros)
+          r.estado == EstadoAsistencia.pendiente ? r.copyWith(estado: EstadoAsistencia.presente) : r,
+      ];
+    });
+  }
+
+  Future<void> _guardar(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
-    final ms = await controller.guardarAsistencia();
-    messenger.showSnackBar(
-      SnackBar(
-        backgroundColor: NinasProColors.success700,
-        content: Text(
-          '✅ Asistencia guardada: ${controller.totalPresentes} presentes, ${controller.totalAusentes} ausentes, '
-          '${controller.totalJustificadas} justificadas ($ms ms).',
-          style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white),
-        ),
-      ),
+    final actual = _esClaseActual;
+    final claseId = actual ? controller.sesionId : _sesionVistaId!;
+    final registros = actual ? controller.registros : _registrosHistorial;
+    int contar(EstadoAsistencia e) => registros.where((r) => r.estado == e).length;
+
+    setState(() => _guardando = true);
+    final reloj = Stopwatch()..start();
+    final resultado = await controller.guardarAsistenciaDe(claseId, registros);
+    reloj.stop();
+    if (!mounted) return;
+    setState(() => _guardando = false);
+
+    mostrarResultadoGuardado(
+      messenger,
+      resultado,
+      exito:
+          '✅ Asistencia guardada: ${contar(EstadoAsistencia.presente)} presentes, '
+          '${contar(EstadoAsistencia.ausente)} ausentes, ${contar(EstadoAsistencia.justificada)} justificadas '
+          '(${reloj.elapsedMilliseconds} ms).',
     );
+    if (!actual && !resultado.rechazado) await _verSesion(claseId);
   }
 
   @override
@@ -84,27 +235,66 @@ class _AsistenciaClaseViewState extends State<AsistenciaClaseView> {
         if (controller.cargando) {
           return const Center(child: CircularProgressIndicator());
         }
+        if (controller.error != null) {
+          return EstadoSinPaseLista(icono: Icons.cloud_off_rounded, titulo: 'Sin datos', mensaje: controller.error!);
+        }
+        if (controller.sesiones.isEmpty) {
+          return const EstadoSinPaseLista(
+            titulo: 'Sin clases',
+            mensaje: 'Tu curso aún no tiene clases programadas.',
+          );
+        }
 
-        final editable = _esClaseActual;
-        final registros = editable ? controller.registros : _historial;
+        final actual = _esClaseActual;
+        final sesion = _sesionVista;
+        final hoy = controller.hoy();
+        final registrable = sesion != null && sesionRegistrable(sesion, hoy);
+        final registros = actual ? controller.registros : _registrosHistorial;
+        final tienePaseLista = actual ? controller.tienePaseLista : _historial.tienePaseLista;
+        final editable = registrable && (actual || _corrigiendo);
         int contar(EstadoAsistencia e) => registros.where((r) => r.estado == e).length;
-        final sinPaseLista = registros.every((r) => r.estado == EstadoAsistencia.pendiente);
+        final ultima = ultimaEdicion(registros);
 
-        return Column(
-          children: [
-            SelectorSemanaClase(
-              sesiones: controller.sesiones,
-              sesionVistaId: _sesionVistaId ?? controller.sesionId,
-              sesionActualId: controller.sesionId,
-              onCambiar: _verSesion,
+        final etiqueta = actual
+            ? 'Clase actual'
+            : sesion != null && !_dia(sesion.fecha).isAfter(_dia(hoy))
+            ? (_corrigiendo ? 'Historial · corrigiendo' : 'Historial · solo lectura')
+            : 'Próxima clase';
+
+        Widget contenido;
+        if (_cargandoHistorial && !actual) {
+          contenido = const Center(child: CircularProgressIndicator());
+        } else if (_errorHistorial != null && !actual) {
+          contenido = EstadoSinPaseLista(icono: Icons.cloud_off_rounded, titulo: 'Sin datos', mensaje: _errorHistorial!);
+        } else if (sesion?.suspendida ?? false) {
+          contenido = EstadoSinPaseLista(
+            icono: Icons.event_busy_rounded,
+            titulo: 'Clase suspendida',
+            mensaje: sesion?.motivoSuspension ?? 'Esta clase no se realiza.',
+          );
+        } else if (!registrable) {
+          contenido = const EstadoSinPaseLista(
+            titulo: 'Clase programada',
+            mensaje: 'Esta clase aún no se realiza: el pase de lista se abre el día de la clase.',
+          );
+        } else if (registros.isEmpty) {
+          contenido = const EstadoSinPaseLista(
+            icono: Icons.group_off_rounded,
+            titulo: 'Sin alumnas activas',
+            mensaje: 'El curso no tiene alumnas con la matrícula activa.',
+          );
+        } else if (!tienePaseLista && !editable) {
+          contenido = EstadoSinPaseLista(
+            mensaje: 'Esta clase aún no tiene pase de lista registrado.',
+            accion: TextButton.icon(
+              onPressed: _empezarCorreccion,
+              icon: const Icon(Icons.fact_check_rounded, size: 18),
+              label: const Text('Pasar lista'),
             ),
-
-            if (_cargandoHistorial)
-              const Expanded(child: Center(child: CircularProgressIndicator()))
-            else if (sinPaseLista)
-              const Expanded(child: EstadoSinPaseLista())
-            else ...[
-              // Barra resumen sticky con contadores
+          );
+        } else {
+          contenido = Column(
+            children: [
               BarraContadoresAsistencia(
                 contadores: [
                   ContadorAsistencia(label: 'Presentes', count: contar(EstadoAsistencia.presente), estado: EstadoAsistencia.presente),
@@ -112,6 +302,8 @@ class _AsistenciaClaseViewState extends State<AsistenciaClaseView> {
                   ContadorAsistencia(label: 'Justificadas', count: contar(EstadoAsistencia.justificada), estado: EstadoAsistencia.justificada),
                 ],
               ),
+              if (actual && controller.pendienteDeEnvio) const AvisoPendienteEnvio(),
+              if (tienePaseLista) LineaUltimaEdicion(autora: ultima?.editadoPor, hora: ultima?.horaMarcado),
 
               // Lista táctil de alumnas
               Expanded(
@@ -163,16 +355,37 @@ class _AsistenciaClaseViewState extends State<AsistenciaClaseView> {
 
               if (editable)
                 BarraGuardarAsistencia(
-                  label: 'Guardar Asistencia de la Clase',
-                  onGuardar: () => _guardarAsistencia(context),
+                  label: actual ? 'Guardar Asistencia de la Clase' : 'Guardar Corrección',
+                  onGuardar: _guardando ? null : () => _guardar(context),
+                )
+              else if (registrable && !actual)
+                BarraGuardarAsistencia(
+                  label: 'Corregir lista',
+                  icono: Icons.edit_rounded,
+                  onGuardar: _empezarCorreccion,
                 ),
             ],
+          );
+        }
+
+        return Column(
+          children: [
+            SelectorSemanaClase(
+              sesiones: controller.sesiones,
+              sesionVistaId: _sesionVistaId ?? controller.sesionId,
+              sesionActualId: controller.sesionId,
+              etiqueta: etiqueta,
+              onCambiar: _verSesion,
+            ),
+            Expanded(child: contenido),
           ],
         );
       },
     );
   }
 }
+
+DateTime _dia(DateTime d) => DateTime(d.year, d.month, d.day);
 
 /// Selector para recorrer semana a semana las clases del curso.
 /// La clase en curso es editable; las demás se muestran como historial de solo lectura.
@@ -182,12 +395,16 @@ class SelectorSemanaClase extends StatelessWidget {
   final String sesionActualId;
   final ValueChanged<String> onCambiar;
 
+  /// Texto bajo el tema (por defecto: clase actual o historial de solo lectura)
+  final String? etiqueta;
+
   const SelectorSemanaClase({
     super.key,
     required this.sesiones,
     required this.sesionVistaId,
     required this.sesionActualId,
     required this.onCambiar,
+    this.etiqueta,
   });
 
   @override
@@ -199,7 +416,7 @@ class SelectorSemanaClase extends StatelessWidget {
 
     final f = sesion?.fecha;
     final fechaStr = f == null ? '' : '${f.day.toString().padLeft(2, '0')}/${f.month.toString().padLeft(2, '0')}';
-    final etiqueta = esActual ? 'Clase actual' : 'Historial · solo lectura';
+    final etiqueta = this.etiqueta ?? (esActual ? 'Clase actual' : 'Historial · solo lectura');
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
@@ -265,9 +482,20 @@ class SelectorSemanaClase extends StatelessWidget {
   }
 }
 
-/// Estado vacío de una clase que todavía no tiene pase de lista.
+/// Estado vacío de una clase: sin pase de lista, programada, suspendida o sin datos.
 class EstadoSinPaseLista extends StatelessWidget {
-  const EstadoSinPaseLista({super.key});
+  final IconData icono;
+  final String titulo;
+  final String mensaje;
+  final Widget? accion;
+
+  const EstadoSinPaseLista({
+    super.key,
+    this.icono = Icons.event_available_rounded,
+    this.titulo = 'Clase programada',
+    this.mensaje = 'Esta clase aún no tiene pase de lista registrado.',
+    this.accion,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -279,21 +507,19 @@ class EstadoSinPaseLista extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.event_available_rounded, size: 40, color: NinasProColors.brandPink),
+            Icon(icono, size: 40, color: NinasProColors.brandPink),
             const SizedBox(height: 10),
-            const Text(
-              'Clase programada',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-            ),
+            Text(titulo, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
             const SizedBox(height: 4),
             Text(
-              'Esta clase aún no tiene pase de lista registrado.',
+              mensaje,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 12.5,
                 color: isDark ? NinasProColors.neutral300 : NinasProColors.neutral500,
               ),
             ),
+            if (accion != null) ...[const SizedBox(height: 10), accion!],
           ],
         ),
       ),
@@ -469,9 +695,17 @@ class TarjetaAsistencia extends StatelessWidget {
 /// Barra inferior fija con el botón de guardar asistencia.
 class BarraGuardarAsistencia extends StatelessWidget {
   final String label;
-  final VoidCallback onGuardar;
 
-  const BarraGuardarAsistencia({super.key, required this.label, required this.onGuardar});
+  /// null mientras se guarda (botón deshabilitado)
+  final VoidCallback? onGuardar;
+  final IconData icono;
+
+  const BarraGuardarAsistencia({
+    super.key,
+    required this.label,
+    required this.onGuardar,
+    this.icono = Icons.check_rounded,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -497,7 +731,7 @@ class BarraGuardarAsistencia extends StatelessWidget {
           child: FilledButton.icon(
             style: NinasProTheme.brandButton,
             onPressed: onGuardar,
-            icon: const Icon(Icons.check_rounded, size: 20),
+            icon: Icon(icono, size: 20),
             label: Text(label),
           ),
         ),
@@ -535,10 +769,28 @@ class _CounterChip extends StatelessWidget {
 }
 
 // Registro de Ejercicios y Participación Activa (US-28)
-class EjerciciosClaseView extends StatelessWidget {
+class EjerciciosClaseView extends StatefulWidget {
   final ClaseSesionController controller;
 
   const EjerciciosClaseView({super.key, required this.controller});
+
+  @override
+  State<EjerciciosClaseView> createState() => _EjerciciosClaseViewState();
+}
+
+class _EjerciciosClaseViewState extends State<EjerciciosClaseView> {
+  bool _guardando = false;
+
+  ClaseSesionController get controller => widget.controller;
+
+  Future<void> _guardar() async {
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _guardando = true);
+    final resultado = await controller.guardarParticipacion();
+    if (!mounted) return;
+    setState(() => _guardando = false);
+    mostrarResultadoGuardado(messenger, resultado, exito: '✅ Ejercicios y participación guardados.');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -554,135 +806,139 @@ class EjerciciosClaseView extends StatelessWidget {
         final alumnasPresentes = controller.alumnasPresentes;
 
         if (alumnasPresentes.isEmpty) {
-          return const Center(
+          return Center(
             child: Padding(
-              padding: EdgeInsets.all(24.0),
+              padding: const EdgeInsets.all(24.0),
               child: Text(
-                'No hay alumnas marcadas como Presentes en esta sesión. '
-                'Marca la asistencia primero.',
+                controller.tienePaseLista
+                    ? 'No hay alumnas marcadas como Presentes en esta sesión.'
+                    : 'Guarda primero el pase de lista: los ejercicios se registran solo a las alumnas Presentes.',
                 textAlign: TextAlign.center,
               ),
             ),
           );
         }
 
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 88),
+        return Column(
           children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: NinasProColors.accent700.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
+            Expanded(child: _buildLista(isDark, alumnasPresentes)),
+            BarraGuardarAsistencia(
+              label: 'Guardar Ejercicios y Participación',
+              onGuardar: _guardando ? null : _guardar,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildLista(bool isDark, List<RegistroAsistencia> alumnasPresentes) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 88),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: NinasProColors.accent700.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.info_outline_rounded, size: 18, color: NinasProColors.accent700),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Mostrando únicamente a las alumnas Presentes (US-28). '
+                  'Las alumnas ausentes tienen bloqueado el registro de ejercicios.',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
               ),
-              child: const Row(
-                children: [
-                  Icon(Icons.info_outline_rounded, size: 18, color: NinasProColors.accent700),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Mostrando únicamente a las alumnas Presentes (US-28). '
-                      'Las alumnas ausentes tienen bloqueado el registro de ejercicios.',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ],
+            ],
+          ),
+        ),
+        if (controller.pendienteDeEnvio) ...[const SizedBox(height: 10), const AvisoPendienteEnvio()],
+        const SizedBox(height: 14),
+        ...alumnasPresentes.map((reg) {
+          final part = controller.participacionDe(reg);
+
+          return Card(
+            elevation: 0,
+            margin: const EdgeInsets.only(bottom: 10),
+            color: isDark ? NinasProColors.dark800 : NinasProColors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: BorderSide(
+                color: isDark ? NinasProColors.dark700 : NinasProColors.neutral100,
               ),
             ),
-            const SizedBox(height: 14),
-            ...alumnasPresentes.map((reg) {
-              final partIndex = controller.participaciones.indexWhere((p) => p.alumnaId == reg.alumnaId);
-              final part = partIndex != -1
-                  ? controller.participaciones[partIndex]
-                  : ParticipacionClase(
-                      id: 'part-${reg.alumnaId}',
-                      sesionId: controller.sesionId,
-                      alumnaId: reg.alumnaId,
-                      alumnaNombre: reg.alumnaNombre,
-                      ejerciciosResueltos: 3,
-                      participacionActiva: true,
-                    );
-
-              return Card(
-                elevation: 0,
-                margin: const EdgeInsets.only(bottom: 10),
-                color: isDark ? NinasProColors.dark800 : NinasProColors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  side: BorderSide(
-                    color: isDark ? NinasProColors.dark700 : NinasProColors.neutral100,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    reg.alumnaNombre,
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                   ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  const SizedBox(height: 10),
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 4,
                     children: [
-                      Text(
-                        reg.alumnaNombre,
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(height: 10),
-                      Wrap(
-                        alignment: WrapAlignment.spaceBetween,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 8,
-                        runSpacing: 4,
+                      const Text('Ejercicios resueltos en aula:', style: TextStyle(fontSize: 12.5)),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Text('Ejercicios resueltos en aula:', style: TextStyle(fontSize: 12.5)),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.remove_circle_outline, size: 20),
-                                onPressed: () {
-                                  if (part.ejerciciosResueltos > 0) {
-                                    controller.actualizarParticipacion(
-                                      part.copyWith(ejerciciosResueltos: part.ejerciciosResueltos - 1),
-                                    );
-                                  }
-                                },
-                              ),
-                              Text(
-                                '${part.ejerciciosResueltos}',
-                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.add_circle_outline, size: 20),
-                                onPressed: () {
-                                  controller.actualizarParticipacion(
-                                    part.copyWith(ejerciciosResueltos: part.ejerciciosResueltos + 1),
-                                  );
-                                },
-                              ),
-                            ],
+                          IconButton(
+                            icon: const Icon(Icons.remove_circle_outline, size: 20),
+                            onPressed: () {
+                              if (part.ejerciciosResueltos > 0) {
+                                controller.actualizarParticipacion(
+                                  part.copyWith(ejerciciosResueltos: part.ejerciciosResueltos - 1),
+                                );
+                              }
+                            },
                           ),
-                        ],
-                      ),
-                      Wrap(
-                        alignment: WrapAlignment.spaceBetween,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 8,
-                        runSpacing: 4,
-                        children: [
-                          const Text('Participación activa en aula:', style: TextStyle(fontSize: 12.5)),
-                          Switch(
-                            value: part.participacionActiva,
-                            activeThumbColor: NinasProColors.brandPink,
-                            onChanged: (val) {
-                              controller.actualizarParticipacion(part.copyWith(participacionActiva: val));
+                          Text(
+                            '${part.ejerciciosResueltos}',
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.add_circle_outline, size: 20),
+                            onPressed: () {
+                              controller.actualizarParticipacion(
+                                part.copyWith(ejerciciosResueltos: part.ejerciciosResueltos + 1),
+                              );
                             },
                           ),
                         ],
                       ),
                     ],
                   ),
-                ),
-              );
-            }),
-          ],
-        );
-      },
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      const Text('Participación activa en aula:', style: TextStyle(fontSize: 12.5)),
+                      Switch(
+                        value: part.participacionActiva,
+                        activeThumbColor: NinasProColors.brandPink,
+                        onChanged: (val) {
+                          controller.actualizarParticipacion(part.copyWith(participacionActiva: val));
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        }),
+      ],
     );
   }
 }
@@ -704,9 +960,7 @@ class FotosClaseView extends StatelessWidget {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final alumnasSinFoto = controller.registros
-            .where((r) => r.estado == EstadoAsistencia.presente && !r.autorizaImagen)
-            .toList();
+        final alumnasSinFoto = controller.alumnasPresentes.where((r) => !r.autorizaImagen).toList();
 
         final todasConFoto = alumnasSinFoto.isEmpty;
         final fotoSubida = controller.fotoSubida;
@@ -849,15 +1103,19 @@ void mostrarModalRegistroKahoot(BuildContext context, ClaseSesionController cont
   if (presentes.length < 3) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Se necesitan al menos 3 alumnas presentes para registrar el podio Kahoot.'),
+        content: Text('Se necesitan al menos 3 alumnas presentes en el pase de lista guardado para registrar el podio Kahoot.'),
       ),
     );
     return;
   }
 
-  String primerId = controller.primerLugarId ?? presentes[0].alumnaId;
-  String segundoId = controller.segundoLugarId ?? presentes[1].alumnaId;
-  String tercerId = controller.tercerLugarId ?? presentes[2].alumnaId;
+  // El podio guardado, si sus alumnas siguen presentes; si no, las tres primeras
+  String inicial(String? id, int i) =>
+      id != null && presentes.any((p) => p.alumnaId == id) ? id : presentes[i].alumnaId;
+  String primerId = inicial(controller.primerLugarId, 0);
+  String segundoId = inicial(controller.segundoLugarId, 1);
+  String tercerId = inicial(controller.tercerLugarId, 2);
+  String? error;
 
   showModalBottomSheet(
     context: context,
@@ -926,7 +1184,7 @@ void mostrarModalRegistroKahoot(BuildContext context, ClaseSesionController cont
                   selectedValue: primerId,
                   presentes: presentes,
                   onChanged: (val) {
-                    if (val != null) setModalState(() => primerId = val);
+                    if (val != null) setModalState(() => (primerId, error) = (val, null));
                   },
                 ),
                 const SizedBox(height: 12),
@@ -937,7 +1195,7 @@ void mostrarModalRegistroKahoot(BuildContext context, ClaseSesionController cont
                   selectedValue: segundoId,
                   presentes: presentes,
                   onChanged: (val) {
-                    if (val != null) setModalState(() => segundoId = val);
+                    if (val != null) setModalState(() => (segundoId, error) = (val, null));
                   },
                 ),
                 const SizedBox(height: 12),
@@ -948,9 +1206,16 @@ void mostrarModalRegistroKahoot(BuildContext context, ClaseSesionController cont
                   selectedValue: tercerId,
                   presentes: presentes,
                   onChanged: (val) {
-                    if (val != null) setModalState(() => tercerId = val);
+                    if (val != null) setModalState(() => (tercerId, error) = (val, null));
                   },
                 ),
+                if (error != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    error!,
+                    style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: NinasProColors.error700),
+                  ),
+                ],
                 const SizedBox(height: 20),
 
                 SizedBox(
@@ -959,19 +1224,19 @@ void mostrarModalRegistroKahoot(BuildContext context, ClaseSesionController cont
                   child: FilledButton.icon(
                     style: NinasProTheme.brandButton,
                     onPressed: () async {
+                      // US-29 escenario 2: tres alumnas distintas
+                      if ({primerId, segundoId, tercerId}.length < 3) {
+                        setModalState(() => error = 'Elige tres alumnas distintas para el podio.');
+                        return;
+                      }
                       final messenger = ScaffoldMessenger.of(context);
                       Navigator.pop(ctx);
-                      await controller.guardarPodioKahoot(
+                      final resultado = await controller.guardarPodioKahoot(
                         primerId: primerId,
                         segundoId: segundoId,
                         tercerId: tercerId,
                       );
-                      messenger.showSnackBar(
-                        const SnackBar(
-                          backgroundColor: NinasProColors.success700,
-                          content: Text('🏆 Podio Kahoot registrado con éxito.'),
-                        ),
-                      );
+                      mostrarResultadoGuardado(messenger, resultado, exito: '🏆 Podio Kahoot registrado con éxito.');
                     },
                     icon: const Icon(Icons.check_rounded, size: 20),
                     label: const Text('Guardar Podio de la Sesión'),

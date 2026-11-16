@@ -2,26 +2,22 @@ import 'package:flutter/material.dart';
 import '../../config/ninaspro_colors.dart';
 import '../../config/ninaspro_theme.dart';
 import '../../models/hub_models.dart';
+import '../../repositories/clase_repository.dart';
 import '../../repositories/hub_repository.dart';
+import '../tutora/clase_sesion_controller.dart';
 import '../tutora/clase_sesion_views.dart';
 
 /// Vistas exclusivas del Equipo de Gestión sobre las tutoras de la sede.
 ///
-/// - [AsistenciaTutorasView]: US-33, pase de lista de tutoras con su rol semanal e historial por semana.
+/// - [AsistenciaTutorasView]: US-33 y US-34, pase de lista de tutoras con historial y corrección por semana.
 /// - [RolesSemanalesView]: US-43, asignación de roles a tutoras para una semana elegida.
 
-// Pase de lista de Tutoras (US-33) con su rol semanal (US-43) e historial semana a semana
+// Pase de lista de Tutoras (US-33, US-34) con historial semana a semana y corrección posterior
 class AsistenciaTutorasView extends StatefulWidget {
-  final HubRepository repository;
-  final String sesionActualId;
-  final String cursoId;
+  /// Clase en curso: el curso, sus sesiones y la de hoy
+  final ClaseSesionController controller;
 
-  const AsistenciaTutorasView({
-    super.key,
-    required this.repository,
-    this.sesionActualId = 'sesion-4',
-    this.cursoId = 'curso-pcb-stgo',
-  });
+  const AsistenciaTutorasView({super.key, required this.controller});
 
   @override
   State<AsistenciaTutorasView> createState() => _AsistenciaTutorasViewState();
@@ -29,46 +25,73 @@ class AsistenciaTutorasView extends StatefulWidget {
 
 class _AsistenciaTutorasViewState extends State<AsistenciaTutorasView> {
   bool _cargando = true;
-  List<SesionClase> _sesiones = [];
-  List<RolTutorConfig> _roles = [];
+  String? _error;
 
-  // Clase que se está viendo, su pase de lista y los roles asignados esa semana
+  // Clase que se está viendo y su pase de lista
   late String _sesionVistaId;
   List<RegistroAsistenciaTutora> _registros = [];
-  List<AsignacionSemanalTutora> _asignaciones = [];
+  bool _tienePaseLista = false;
+  bool _corrigiendo = false;
+  bool _guardando = false;
+  bool _pendiente = false;
 
-  bool get _esClaseActual => _sesionVistaId == widget.sesionActualId;
+  ClaseSesionController get controller => widget.controller;
+  ClaseRepository get repository => controller.repository;
+
+  bool get _esClaseActual => _sesionVistaId == controller.sesionId;
+
+  SesionClase? get _sesionVista => controller.sesiones.where((s) => s.id == _sesionVistaId).firstOrNull;
 
   @override
   void initState() {
     super.initState();
-    _sesionVistaId = widget.sesionActualId;
-    _cargarInicial();
-  }
-
-  Future<void> _cargarInicial() async {
-    final sesiones = await widget.repository.getSesiones(cursoId: widget.cursoId);
-    final roles = await widget.repository.getRolesTutora();
-    _sesiones = sesiones;
-    _roles = roles;
-    await _verSesion(widget.sesionActualId);
+    _sesionVistaId = controller.sesionId;
+    if (_sesionVistaId.isEmpty) {
+      _cargando = false;
+    } else {
+      _verSesion(_sesionVistaId);
+    }
   }
 
   Future<void> _verSesion(String id) async {
     setState(() {
       _sesionVistaId = id;
       _cargando = true;
+      _corrigiendo = false;
+      _error = null;
     });
-    final semana = _sesiones.where((s) => s.id == id).firstOrNull?.numeroSesion;
-    final registros = await widget.repository.getAsistenciaTutoras(sesionId: id);
-    final asignaciones = semana == null
-        ? const <AsignacionSemanalTutora>[]
-        : await widget.repository.getAsignacionesSemanales(semanaNumero: semana);
-    if (!mounted || _sesionVistaId != id) return;
+    try {
+      final registros = await repository.asistenciaTutoras(id);
+      if (!mounted || _sesionVistaId != id) return;
+      final tiene = registros.any((r) => r.estado != EstadoAsistencia.pendiente);
+      final sesion = _sesionVista;
+      final registrable = sesion != null && sesionRegistrable(sesion, controller.hoy());
+      setState(() {
+        _tienePaseLista = tiene;
+        // En la clase de hoy sin pase de lista, todo el equipo parte presente (US-33 escenario 1)
+        _registros = [
+          for (final r in registros)
+            r.estado == EstadoAsistencia.pendiente && registrable && id == controller.sesionId
+                ? r.copyWith(estado: EstadoAsistencia.presente)
+                : r,
+        ];
+        _cargando = false;
+      });
+    } catch (_) {
+      if (!mounted || _sesionVistaId != id) return;
+      setState(() {
+        _cargando = false;
+        _error = 'No pudimos cargar la asistencia de tutoras. Revisa tu conexión.';
+      });
+    }
+  }
+
+  void _empezarCorreccion() {
     setState(() {
-      _registros = registros;
-      _asignaciones = asignaciones;
-      _cargando = false;
+      _corrigiendo = true;
+      _registros = [
+        for (final r in _registros) r.estado == EstadoAsistencia.pendiente ? r.copyWith(estado: EstadoAsistencia.presente) : r,
+      ];
     });
   }
 
@@ -77,66 +100,106 @@ class _AsistenciaTutorasViewState extends State<AsistenciaTutorasView> {
     final reg = _registros[index];
     setState(() {
       _registros[index] = reg.copyWith(
-        estado: reg.estado == EstadoAsistencia.presente
-            ? EstadoAsistencia.ausente
-            : EstadoAsistencia.presente,
+        estado: reg.estado == EstadoAsistencia.presente ? EstadoAsistencia.ausente : EstadoAsistencia.presente,
       );
     });
   }
 
   Future<void> _guardar() async {
     final messenger = ScaffoldMessenger.of(context);
-    await widget.repository.guardarAsistenciaTutoras(
-      sesionId: _sesionVistaId,
-      registros: _registros,
-    );
+    final id = _sesionVistaId;
+    setState(() => _guardando = true);
+    final resultado = await repository.guardarAsistenciaTutoras(id, _registros);
+    if (!mounted) return;
+    setState(() => _guardando = false);
     final presentes = _registros.where((r) => r.estado == EstadoAsistencia.presente).length;
-    messenger.showSnackBar(
-      SnackBar(
-        backgroundColor: NinasProColors.success700,
-        content: Text('✅ Asistencia de tutoras guardada: $presentes de ${_registros.length} presentes.'),
-      ),
+    mostrarResultadoGuardado(
+      messenger,
+      resultado,
+      exito: '✅ Asistencia de tutoras guardada: $presentes de ${_registros.length} presentes.',
     );
-  }
-
-  RolTutorConfig? _rolDe(String tutoraId) {
-    final codigo = _asignaciones.where((a) => a.tutoraId == tutoraId).firstOrNull?.rolCodigo;
-    return _roles.where((r) => r.codigo == codigo).firstOrNull;
+    if (resultado.rechazado) return;
+    if (resultado.pendiente) {
+      setState(() {
+        _pendiente = true;
+        _tienePaseLista = true;
+        _corrigiendo = false;
+      });
+    } else {
+      _pendiente = false;
+      await _verSesion(id);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    if (_sesiones.isEmpty && _cargando) {
-      return const Center(child: CircularProgressIndicator());
+    if (controller.sesiones.isEmpty) {
+      return const EstadoSinPaseLista(titulo: 'Sin clases', mensaje: 'El curso aún no tiene clases programadas.');
     }
 
-    final editable = _esClaseActual;
+    final hoy = controller.hoy();
+    final sesion = _sesionVista;
+    final registrable = sesion != null && sesionRegistrable(sesion, hoy);
+    final actual = _esClaseActual;
+    final editable = registrable && (actual || _corrigiendo);
     int contar(EstadoAsistencia e) => _registros.where((r) => r.estado == e).length;
-    final sinPaseLista = _registros.every((r) => r.estado == EstadoAsistencia.pendiente);
 
-    return Column(
-      children: [
-        SelectorSemanaClase(
-          sesiones: _sesiones,
-          sesionVistaId: _sesionVistaId,
-          sesionActualId: widget.sesionActualId,
-          onCambiar: _verSesion,
+    final ultima = _registros
+        .where((r) => r.editadoPor != null && r.editadoEn != null)
+        .fold<RegistroAsistenciaTutora?>(null, (a, r) => a == null || r.editadoEn!.isAfter(a.editadoEn!) ? r : a);
+
+    final etiqueta = actual
+        ? 'Clase actual'
+        : registrable
+        ? (_corrigiendo ? 'Historial · corrigiendo' : 'Historial · solo lectura')
+        : (sesion?.suspendida ?? false)
+        ? 'Clase suspendida'
+        : 'Próxima clase';
+
+    Widget contenido;
+    if (_cargando) {
+      contenido = const Center(child: CircularProgressIndicator());
+    } else if (_error != null) {
+      contenido = EstadoSinPaseLista(icono: Icons.cloud_off_rounded, titulo: 'Sin datos', mensaje: _error!);
+    } else if (sesion?.suspendida ?? false) {
+      contenido = EstadoSinPaseLista(
+        icono: Icons.event_busy_rounded,
+        titulo: 'Clase suspendida',
+        mensaje: sesion?.motivoSuspension ?? 'Esta clase no se realiza.',
+      );
+    } else if (!registrable) {
+      contenido = const EstadoSinPaseLista(
+        titulo: 'Clase programada',
+        mensaje: 'Esta clase aún no se realiza: el pase de lista se abre el día de la clase.',
+      );
+    } else if (_registros.isEmpty) {
+      contenido = const EstadoSinPaseLista(
+        icono: Icons.group_off_rounded,
+        titulo: 'Sin tutoras asignadas',
+        mensaje: 'Nadie está asignada a este curso todavía.',
+      );
+    } else if (!_tienePaseLista && !editable) {
+      contenido = EstadoSinPaseLista(
+        mensaje: 'Esta clase aún no tiene la asistencia de tutoras registrada.',
+        accion: TextButton.icon(
+          onPressed: _empezarCorreccion,
+          icon: const Icon(Icons.fact_check_rounded, size: 18),
+          label: const Text('Pasar lista'),
         ),
-
-        if (_cargando)
-          const Expanded(child: Center(child: CircularProgressIndicator()))
-        else if (sinPaseLista)
-          const Expanded(child: EstadoSinPaseLista())
-        else ...[
+      );
+    } else {
+      contenido = Column(
+        children: [
           BarraContadoresAsistencia(
             contadores: [
               ContadorAsistencia(label: 'Presentes', count: contar(EstadoAsistencia.presente), estado: EstadoAsistencia.presente),
               ContadorAsistencia(label: 'Ausentes', count: contar(EstadoAsistencia.ausente), estado: EstadoAsistencia.ausente),
             ],
           ),
-
+          if (_pendiente) const AvisoPendienteEnvio(),
+          if (_tienePaseLista) LineaUltimaEdicion(autora: ultima?.editadoPor, hora: ultima?.editadoEn),
           Expanded(
             child: ListView.separated(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -144,7 +207,6 @@ class _AsistenciaTutorasViewState extends State<AsistenciaTutorasView> {
               separatorBuilder: (context, index) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
                 final reg = _registros[index];
-                final rol = _rolDe(reg.tutoraId);
 
                 return TarjetaAsistencia(
                   nombre: reg.tutoraNombre,
@@ -163,39 +225,38 @@ class _AsistenciaTutorasViewState extends State<AsistenciaTutorasView> {
                           ),
                         )
                       : null,
-                  // Rol que tuvo (o tiene) la tutora esa semana
-                  detalle: Row(
-                    children: [
-                      Icon(
-                        Icons.assignment_ind_rounded,
-                        size: 13,
-                        color: rol?.color ?? (isDark ? NinasProColors.neutral300 : NinasProColors.neutral500),
-                      ),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          rol?.nombre ?? 'Sin rol asignado',
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: rol != null ? FontWeight.w700 : FontWeight.w400,
-                            color: rol?.color ?? (isDark ? NinasProColors.neutral300 : NinasProColors.neutral500),
-                          ),
-                        ),
-                      ),
-                    ],
+                  detalle: Text(
+                    reg.esEquipoGestion ? 'Equipo de Gestión' : 'Tutora',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: isDark ? NinasProColors.neutral300 : NinasProColors.neutral500,
+                    ),
                   ),
                 );
               },
             ),
           ),
-
           if (editable)
             BarraGuardarAsistencia(
-              label: 'Guardar Asistencia de Tutoras',
-              onGuardar: _guardar,
-            ),
+              label: actual ? 'Guardar Asistencia de Tutoras' : 'Guardar Corrección',
+              onGuardar: _guardando ? null : _guardar,
+            )
+          else if (registrable)
+            BarraGuardarAsistencia(label: 'Corregir lista', icono: Icons.edit_rounded, onGuardar: _empezarCorreccion),
         ],
+      );
+    }
+
+    return Column(
+      children: [
+        SelectorSemanaClase(
+          sesiones: controller.sesiones,
+          sesionVistaId: _sesionVistaId,
+          sesionActualId: controller.sesionId,
+          etiqueta: etiqueta,
+          onCambiar: _verSesion,
+        ),
+        Expanded(child: contenido),
       ],
     );
   }

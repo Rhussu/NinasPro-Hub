@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import '../../config/ninaspro_colors.dart';
 import '../../config/ninaspro_theme.dart';
 import '../../models/hub_models.dart';
+import '../../models/sesion_usuario.dart';
+import '../../repositories/clase_repository.dart';
 import '../../repositories/hub_repository.dart';
 import '../../widgets/ninaspro_recursos_curso.dart';
 import '../../widgets/ninaspro_skeleton.dart';
 import '../../widgets/ninaspro_speed_dial.dart';
-import '../../widgets/ninaspro_stat_card.dart';
 import '../tutora/clase_sesion_controller.dart';
 import '../tutora/clase_sesion_views.dart';
 import '../tutora/inicio_tutora_widgets.dart';
@@ -22,15 +23,24 @@ import 'gestion_tutoras_views.dart';
 /// - US-37: Aprobación y resolución exclusiva de justificativos de inasistencia de alumnas.
 /// - US-37/US-39: Alertas tempranas de deserción e inasistencias en la sede.
 class GestionMobileScreen extends StatefulWidget {
+  /// Repositorio del mockup: justificativos, alertas y roles semanales (se conectan en sus PR)
   final HubRepository repository;
 
-  /// Tutora del Equipo de Gestión que usa la app
-  final String tutoraId;
+  /// La clase real: cursos de la sede, pase de lista de alumnas y de tutoras
+  final ClaseRepository clase;
+
+  /// Integrante del Equipo de Gestión autenticada
+  final SesionUsuario sesion;
+
+  /// Id de la tutora en el mockup, para mostrar su rol semanal mientras tanto
+  final String tutoraIdRoles;
 
   const GestionMobileScreen({
     super.key,
     required this.repository,
-    this.tutoraId = 'tutora-1', // Camila Sepúlveda Rivas por defecto
+    required this.clase,
+    required this.sesion,
+    this.tutoraIdRoles = 'tutora-1', // Camila Sepúlveda Rivas en el mockup
   });
 
   @override
@@ -41,21 +51,20 @@ class _GestionMobileScreenState extends State<GestionMobileScreen> {
   bool _cargando = true;
   bool _recargando = false;
 
+  // Datos del mockup hasta conectar justificativos (PR 5), roles (PR 6) y alertas (PR 7)
   List<Justificativo> _justificativos = [];
-  List<Tutora> _tutoras = [];
   List<AlertaDesercion> _alertas = [];
   List<Alumna> _alumnas = [];
-  List<SesionClase> _sesiones = [];
-  Curso? _curso;
+  List<SesionClase> _sesionesMockup = [];
   List<RolTutorConfig> _rolesConfig = [];
   List<AsignacionSemanalTutora> _asignaciones = [];
 
   // Mi registro como tutora: asistencia y rol de cada clase del curso
   List<ClaseTutoraResumen> _miHistorial = [];
 
-  // Curso de la sede (mockup: un único curso por sede)
-  static const _cursoId = 'curso-pcb-stgo';
-  static const _sedeId = 'sede-beauchef';
+  // Curso y sede del mockup para los datos que aún no se conectan
+  static const _cursoIdMockup = 'curso-pcb-stgo';
+  static const _sedeIdMockup = 'sede-beauchef';
 
   // Clase en curso, compartida con las pantallas de Tutora
   late final ClaseSesionController _clase;
@@ -63,7 +72,7 @@ class _GestionMobileScreenState extends State<GestionMobileScreen> {
   @override
   void initState() {
     super.initState();
-    _clase = ClaseSesionController(repository: widget.repository);
+    _clase = ClaseSesionController(repository: widget.clase);
     _cargarDatos();
   }
 
@@ -74,36 +83,38 @@ class _GestionMobileScreenState extends State<GestionMobileScreen> {
   }
 
   Future<void> _cargarDatos() async {
-    final justs = await widget.repository.getJustificativos(sedeId: _sedeId);
-    final tuts = await widget.repository.getTutoras(sedeId: _sedeId);
-    final alerts = await widget.repository.getAlertasDesercion(sedeId: _sedeId);
-    final alumnas = await widget.repository.getAlumnas(cursoId: _cursoId);
-    final sesiones = await widget.repository.getSesiones(cursoId: _cursoId);
-    final cursos = await widget.repository.getCursos();
-    final roles = await widget.repository.getRolesTutora();
     await _clase.cargar();
-    final semana = sesiones.where((s) => s.id == _clase.sesionId).firstOrNull?.numeroSesion ?? 1;
-    final asigs = await widget.repository.getAsignacionesSemanales(semanaNumero: semana);
-    await _cargarMiAsistencia(sesiones, roles);
+    final justs = await widget.repository.getJustificativos(sedeId: _sedeIdMockup);
+    final alerts = await widget.repository.getAlertasDesercion(sedeId: _sedeIdMockup);
+    final alumnas = await widget.repository.getAlumnas(cursoId: _cursoIdMockup);
+    final sesiones = await widget.repository.getSesiones(cursoId: _cursoIdMockup);
+    final roles = await widget.repository.getRolesTutora();
+    final asigs = await widget.repository.getAsignacionesSemanales(semanaNumero: _semanaActual);
+    await _cargarMiAsistencia();
 
     if (!mounted) return;
     setState(() {
       _justificativos = justs;
-      _tutoras = tuts;
       _alertas = alerts;
       _alumnas = alumnas;
-      _sesiones = sesiones;
-      _curso = cursos.where((c) => c.id == _cursoId).firstOrNull;
+      _sesionesMockup = sesiones;
       _rolesConfig = roles;
       _asignaciones = asigs;
       _cargando = false;
     });
   }
 
+  Future<void> _elegirCurso(String instanciaId) async {
+    await _clase.elegirCurso(instanciaId);
+    await _cargarMiAsistencia();
+    if (!mounted) return;
+    setState(() {});
+  }
+
   // Recarga deslizando hacia abajo: descarga los datos de la nube (~1 s simulado) mostrando el esqueleto
   Future<void> _recargar() async {
     setState(() => _recargando = true);
-    await widget.repository.recargar();
+    await widget.clase.sincronizar();
     await _cargarDatos();
     if (!mounted) return;
     setState(() => _recargando = false);
@@ -116,13 +127,18 @@ class _GestionMobileScreenState extends State<GestionMobileScreen> {
       _alertas.where((a) => a.estado == 'activa').toList();
 
   // Carga mi registro individual como tutora: asistencia y rol por clase (US-33)
-  Future<void> _cargarMiAsistencia(List<SesionClase> sesiones, List<RolTutorConfig> roles) async {
-    _miHistorial = await cargarHistorialTutora(
-      repository: widget.repository,
-      tutoraId: widget.tutoraId,
-      sesiones: sesiones,
-      roles: roles,
-    );
+  Future<void> _cargarMiAsistencia() async {
+    try {
+      _miHistorial = await cargarHistorialTutora(
+        clase: widget.clase,
+        instanciaId: _clase.curso?.id,
+        tutoraId: widget.sesion.perfilId,
+        sesiones: _clase.sesiones,
+        rolDeSemana: rolesDelMockup(widget.repository, widget.tutoraIdRoles),
+      );
+    } catch (_) {
+      // Sin conexión se mantiene el historial anterior
+    }
   }
 
   Iterable<ClaseTutoraResumen> get _misClasesRegistradas =>
@@ -131,27 +147,19 @@ class _GestionMobileScreenState extends State<GestionMobileScreen> {
   Future<void> _abrirAsistenciaTutoras() async {
     await _abrirPantallaClase(
       'Asistencia de Tutoras',
-      AsistenciaTutorasView(
-        repository: widget.repository,
-        sesionActualId: _clase.sesionId,
-        cursoId: _cursoId,
-      ),
+      AsistenciaTutorasView(controller: _clase),
     );
     // Refresca mi asistencia y mis roles al volver
-    await _cargarMiAsistencia(_sesiones, _rolesConfig);
+    await _cargarMiAsistencia();
     if (!mounted) return;
     setState(() {});
   }
 
-  // Tutora del Equipo de Gestión que usa la app
-  Tutora? get _tutoraActual => _tutoras.where((t) => t.id == widget.tutoraId).firstOrNull;
-
   // Semana de la clase en curso (una sesión por semana)
-  int get _semanaActual =>
-      _sesiones.where((s) => s.id == _clase.sesionId).firstOrNull?.numeroSesion ?? 1;
+  int get _semanaActual => _clase.sesionActual?.numeroSesion ?? 1;
 
   RolTutorConfig? get _miRolSemana {
-    final asignacion = _asignaciones.where((a) => a.tutoraId == widget.tutoraId).firstOrNull;
+    final asignacion = _asignaciones.where((a) => a.tutoraId == widget.tutoraIdRoles).firstOrNull;
     return _rolesConfig.where((r) => r.codigo == asignacion?.rolCodigo).firstOrNull;
   }
 
@@ -160,9 +168,9 @@ class _GestionMobileScreenState extends State<GestionMobileScreen> {
       'Roles de Tutoras',
       RolesSemanalesView(
         repository: widget.repository,
-        sedeId: _sedeId,
+        sedeId: _sedeIdMockup,
         semanaInicial: _semanaActual,
-        totalSemanas: _curso?.totalSesiones ?? 10,
+        totalSemanas: _clase.sesiones.isEmpty ? 10 : _clase.sesiones.length,
       ),
     );
     // Refresca "Tu rol esta semana" al volver
@@ -180,13 +188,13 @@ class _GestionMobileScreenState extends State<GestionMobileScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final detalleCtrl = TextEditingController();
 
-    if (_alumnas.isEmpty || _sesiones.isEmpty) return;
+    if (_alumnas.isEmpty || _sesionesMockup.isEmpty) return;
 
-    String sesionId = _sesiones
-            .where((s) => s.id == _clase.sesionId)
+    String sesionId = _sesionesMockup
+            .where((s) => s.numeroSesion == _semanaActual)
             .firstOrNull
             ?.id ??
-        _sesiones.first.id;
+        _sesionesMockup.first.id;
     String alumnaId = _alumnas.first.id;
     String? errorDetalle;
 
@@ -267,7 +275,7 @@ class _GestionMobileScreenState extends State<GestionMobileScreen> {
                           isExpanded: true,
                           value: sesionId,
                           dropdownColor: isDark ? NinasProColors.dark800 : NinasProColors.white,
-                          items: _sesiones.map((s) {
+                          items: _sesionesMockup.map((s) {
                             final f = s.fecha;
                             final fechaStr = '${f.day.toString().padLeft(2, '0')}/${f.month.toString().padLeft(2, '0')}';
                             return DropdownMenuItem(
@@ -625,17 +633,27 @@ class _GestionMobileScreenState extends State<GestionMobileScreen> {
   Widget _buildPantallaPrincipal(bool isDark) {
     final pendientes = _pendientes;
     final alertas = _alertasActivas;
+    final curso = _clase.curso;
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 96),
       children: [
+        if (_clase.error != null) ...[
+          AvisoErrorClase(mensaje: _clase.error!),
+          const SizedBox(height: 14),
+        ],
+        if (_clase.cursos.length > 1) ...[
+          SelectorCursoClase(cursos: _clase.cursos, cursoId: curso?.id, onCambiar: _elegirCurso),
+          const SizedBox(height: 10),
+        ],
+
         // Planificación de la clase de hoy, curso y sede
         BannerBienvenidaTutora(
-          nombre: _tutoraActual?.nombre,
+          nombre: widget.sesion.nombres,
           sesion: _clase.sesionActual,
-          cursoNombre: _curso?.nombre,
-          sedeNombre: _tutoraActual?.sedeNombre,
+          cursoNombre: curso?.nombre,
+          sedeNombre: curso?.sedeNombre ?? widget.sesion.sedePrincipal?.nombre,
         ),
         const SizedBox(height: 14),
 
@@ -645,12 +663,8 @@ class _GestionMobileScreenState extends State<GestionMobileScreen> {
             Expanded(
               child: ListenableBuilder(
                 listenable: _clase,
-                builder: (context, _) => NinasProStatCard(
-                  title: 'Alumnas presentes',
-                  value: '${_clase.totalPresentes}/${_clase.registros.length}',
-                  subtitle: 'Esta semana',
-                  icon: Icons.fact_check_rounded,
-                  accentColor: NinasProColors.primary700,
+                builder: (context, _) => TarjetaPresentesClase(
+                  controller: _clase,
                   onTap: () => _abrirPantallaClase('Asistencia', AsistenciaClaseView(controller: _clase)),
                 ),
               ),
@@ -678,10 +692,10 @@ class _GestionMobileScreenState extends State<GestionMobileScreen> {
         ),
 
         const SizedBox(height: 10),
-                // Recursos del curso de la sede (Classroom y Juez Virtual, US-26)
-        if (_curso != null && (_curso!.classroomUrl != null || _curso!.juezVirtualUrl != null)) ...[
-          NinasProRecursosCursoCard(curso: _curso!),
-          const SizedBox(height: 20),
+        // Recursos del curso de la sede (Classroom y Juez Virtual, US-26)
+        if (curso != null && (curso.classroomUrl != null || curso.juezVirtualUrl != null)) ...[
+          NinasProRecursosCursoCard(curso: curso),
+          const SizedBox(height: 10),
         ],
         const SizedBox(height: 20),
 

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../config/ninaspro_colors.dart';
 import '../../config/ninaspro_theme.dart';
-import '../../models/hub_models.dart';
+import '../../models/sesion_usuario.dart';
+import '../../repositories/clase_repository.dart';
 import '../../repositories/hub_repository.dart';
 import '../../widgets/ninaspro_recursos_curso.dart';
 import '../../widgets/ninaspro_skeleton.dart';
 import '../../widgets/ninaspro_speed_dial.dart';
-import '../../widgets/ninaspro_stat_card.dart';
 import 'clase_sesion_controller.dart';
 import 'clase_sesion_views.dart';
 import 'inicio_tutora_widgets.dart';
@@ -20,15 +20,24 @@ import 'inicio_tutora_widgets.dart';
 /// - Speed Dial con la operación de la clase: US-13 asistencia, US-28 ejercicios,
 ///   US-18/US-19 fotos y US-29 podio Kahoot (vistas en [clase_sesion_views.dart]).
 class TutoraMobileScreen extends StatefulWidget {
+  /// Repositorio del mockup: solo para los roles semanales (US-43, se conectan en su PR)
   final HubRepository repository;
 
-  /// Tutora que usa la app
-  final String tutoraId;
+  /// La clase real: cursos, pase de lista, participación y podio
+  final ClaseRepository clase;
+
+  /// Tutora autenticada
+  final SesionUsuario sesion;
+
+  /// Id de la tutora en el mockup, para mostrar su rol semanal mientras tanto
+  final String tutoraIdRoles;
 
   const TutoraMobileScreen({
     super.key,
     required this.repository,
-    this.tutoraId = 'tutora-3', // Daniela Valenzuela Castro por defecto
+    required this.clase,
+    required this.sesion,
+    this.tutoraIdRoles = 'tutora-3', // Daniela Valenzuela Castro en el mockup
   });
 
   @override
@@ -39,12 +48,7 @@ class _TutoraMobileScreenState extends State<TutoraMobileScreen> {
   bool _cargando = true;
   bool _recargando = false;
 
-  Tutora? _tutora;
-  Curso? _curso;
   List<ClaseTutoraResumen> _historial = [];
-
-  // Curso de la sede (mockup: un único curso por sede)
-  static const _cursoId = 'curso-pcb-stgo';
 
   // Clase en curso, compartida con las pantallas de Gestión
   late final ClaseSesionController _clase;
@@ -52,7 +56,7 @@ class _TutoraMobileScreenState extends State<TutoraMobileScreen> {
   @override
   void initState() {
     super.initState();
-    _clase = ClaseSesionController(repository: widget.repository, cursoId: _cursoId);
+    _clase = ClaseSesionController(repository: widget.clase, tutoraId: widget.sesion.perfilId);
     _cargarDatos();
   }
 
@@ -63,30 +67,37 @@ class _TutoraMobileScreenState extends State<TutoraMobileScreen> {
   }
 
   Future<void> _cargarDatos() async {
-    final tutoras = await widget.repository.getTutoras();
-    final cursos = await widget.repository.getCursos();
-    final roles = await widget.repository.getRolesTutora();
     await _clase.cargar();
-    final historial = await cargarHistorialTutora(
-      repository: widget.repository,
-      tutoraId: widget.tutoraId,
-      sesiones: _clase.sesiones,
-      roles: roles,
-    );
-
+    await _cargarHistorial();
     if (!mounted) return;
-    setState(() {
-      _tutora = tutoras.where((t) => t.id == widget.tutoraId).firstOrNull;
-      _curso = cursos.where((c) => c.id == _cursoId).firstOrNull;
-      _historial = historial;
-      _cargando = false;
-    });
+    setState(() => _cargando = false);
   }
 
-  // Recarga deslizando hacia abajo: descarga los datos de la nube (~1 s simulado) mostrando el esqueleto
+  Future<void> _cargarHistorial() async {
+    try {
+      _historial = await cargarHistorialTutora(
+        clase: widget.clase,
+        instanciaId: _clase.curso?.id,
+        tutoraId: widget.sesion.perfilId,
+        sesiones: _clase.sesiones,
+        rolDeSemana: rolesDelMockup(widget.repository, widget.tutoraIdRoles),
+      );
+    } catch (_) {
+      // Sin conexión se mantiene el historial anterior
+    }
+  }
+
+  Future<void> _elegirCurso(String instanciaId) async {
+    await _clase.elegirCurso(instanciaId);
+    await _cargarHistorial();
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  // Recarga deslizando hacia abajo: sube lo pendiente y descarga los datos de la nube con el esqueleto
   Future<void> _recargar() async {
     setState(() => _recargando = true);
-    await widget.repository.recargar();
+    await widget.clase.sincronizar();
     await _cargarDatos();
     if (!mounted) return;
     setState(() => _recargando = false);
@@ -149,31 +160,42 @@ class _TutoraMobileScreenState extends State<TutoraMobileScreen> {
   Widget _buildPantallaPrincipal() {
     final miRol = _claseActual?.rol;
     final registradas = _clasesRegistradas;
+    final curso = _clase.curso;
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 96),
       children: [
+        if (_clase.error != null) ...[
+          AvisoErrorClase(mensaje: _clase.error!),
+          const SizedBox(height: 14),
+        ],
+        if (_clase.cursos.length > 1) ...[
+          SelectorCursoClase(cursos: _clase.cursos, cursoId: curso?.id, onCambiar: _elegirCurso),
+          const SizedBox(height: 10),
+        ],
+
         // Planificación de la clase de hoy, curso y sede
         BannerBienvenidaTutora(
-          nombre: _tutora?.nombre,
+          nombre: widget.sesion.nombres,
           sesion: _clase.sesionActual,
-          cursoNombre: _curso?.nombre,
-          sedeNombre: _tutora?.sedeNombre,
+          cursoNombre: curso?.nombre,
+          sedeNombre: curso?.sedeNombre ?? widget.sesion.sedePrincipal?.nombre,
         ),
         const SizedBox(height: 14),
+
+        if (curso == null && _clase.error == null) ...[
+          const TarjetaConsejo(texto: 'Aún no tienes cursos asignados. El Equipo de Gestión te asigna a un curso de tu sede.'),
+          const SizedBox(height: 10),
+        ],
 
         Row(
           children: [
             Expanded(
               child: ListenableBuilder(
                 listenable: _clase,
-                builder: (context, _) => NinasProStatCard(
-                  title: 'Alumnas presentes',
-                  value: '${_clase.totalPresentes}/${_clase.registros.length}',
-                  subtitle: 'Esta semana',
-                  icon: Icons.fact_check_rounded,
-                  accentColor: NinasProColors.primary700,
+                builder: (context, _) => TarjetaPresentesClase(
+                  controller: _clase,
                   onTap: () => _abrirPantallaClase('Asistencia', AsistenciaClaseView(controller: _clase)),
                 ),
               ),
@@ -203,8 +225,8 @@ class _TutoraMobileScreenState extends State<TutoraMobileScreen> {
         const SizedBox(height: 10),
 
         // Recursos del curso (Classroom y Juez Virtual, US-26)
-        if (_curso != null && (_curso!.classroomUrl != null || _curso!.juezVirtualUrl != null)) ...[
-          NinasProRecursosCursoCard(curso: _curso!),
+        if (curso != null && (curso.classroomUrl != null || curso.juezVirtualUrl != null)) ...[
+          NinasProRecursosCursoCard(curso: curso),
           const SizedBox(height: 20),
         ],
 

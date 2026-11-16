@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import '../../config/ninaspro_colors.dart';
 import '../../config/ninaspro_theme.dart';
 import '../../models/hub_models.dart';
+import '../../repositories/clase_repository.dart';
 import '../../repositories/hub_repository.dart';
+import 'clase_sesion_controller.dart';
 import '../../widgets/ninaspro_mascot.dart';
+import '../../widgets/ninaspro_stat_card.dart';
 import '../../widgets/ninaspro_vista_centrada.dart';
 import '../../widgets/ninaspro_planificacion_hoy.dart';
 
@@ -32,24 +35,131 @@ class ClaseTutoraResumen {
 }
 
 /// Historial de asistencia y roles de una tutora en todas las clases del curso.
+///
+/// La asistencia viene de la clase real; el rol de cada semana lo entrega
+/// [rolDeSemana] (por ahora del mockup, hasta conectar los roles semanales).
 Future<List<ClaseTutoraResumen>> cargarHistorialTutora({
-  required HubRepository repository,
+  required ClaseRepository clase,
+  required String? instanciaId,
   required String tutoraId,
   required List<SesionClase> sesiones,
-  required List<RolTutorConfig> roles,
+  Future<RolTutorConfig?> Function(int semana)? rolDeSemana,
 }) async {
-  final historial = <ClaseTutoraResumen>[];
-  for (final sesion in sesiones) {
-    final registros = await repository.getAsistenciaTutoras(sesionId: sesion.id);
-    final asignaciones = await repository.getAsignacionesSemanales(semanaNumero: sesion.numeroSesion);
+  final asistencia = instanciaId == null
+      ? const <String, EstadoAsistencia>{}
+      : await clase.miAsistencia(instanciaId: instanciaId, tutoraId: tutoraId);
+  return [
+    for (final sesion in sesiones)
+      ClaseTutoraResumen(
+        sesion: sesion,
+        estado: asistencia[sesion.id] ?? EstadoAsistencia.pendiente,
+        rol: await rolDeSemana?.call(sesion.numeroSesion),
+      ),
+  ];
+}
+
+/// Rol de [tutoraId] en una semana según las asignaciones del mockup (US-43, se conecta en el PR de roles)
+Future<RolTutorConfig?> Function(int semana) rolesDelMockup(HubRepository repository, String tutoraId) {
+  List<RolTutorConfig>? roles;
+  return (semana) async {
+    roles ??= await repository.getRolesTutora();
+    final asignaciones = await repository.getAsignacionesSemanales(semanaNumero: semana);
     final codigo = asignaciones.where((a) => a.tutoraId == tutoraId).firstOrNull?.rolCodigo;
-    historial.add(ClaseTutoraResumen(
-      sesion: sesion,
-      estado: registros.where((r) => r.tutoraId == tutoraId).firstOrNull?.estado ?? EstadoAsistencia.pendiente,
-      rol: roles.where((r) => r.codigo == codigo).firstOrNull,
-    ));
+    return roles!.where((r) => r.codigo == codigo).firstOrNull;
+  };
+}
+
+/// Aviso cuando no se pudo cargar la clase (ej. sin conexión al abrir la app)
+class AvisoErrorClase extends StatelessWidget {
+  final String mensaje;
+
+  const AvisoErrorClase({super.key, required this.mensaje});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: NinasProColors.warning100, borderRadius: BorderRadius.circular(12)),
+      child: Row(
+        children: [
+          const Icon(Icons.cloud_off_rounded, color: NinasProColors.warning900, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              mensaje,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NinasProColors.warning900),
+            ),
+          ),
+        ],
+      ),
+    );
   }
-  return historial;
+}
+
+/// Selector del curso cuando la usuaria opera más de uno
+class SelectorCursoClase extends StatelessWidget {
+  final List<Curso> cursos;
+  final String? cursoId;
+  final ValueChanged<String> onCambiar;
+
+  const SelectorCursoClase({super.key, required this.cursos, required this.cursoId, required this.onCambiar});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      decoration: BoxDecoration(
+        color: isDark ? NinasProColors.dark800 : NinasProColors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: isDark ? NinasProColors.dark700 : NinasProColors.neutral100),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          isExpanded: true,
+          value: cursoId,
+          hint: const Text('Elige el curso'),
+          items: [
+            for (final c in cursos)
+              DropdownMenuItem(
+                value: c.id,
+                child: Text(
+                  '${c.nombre} · ${c.sedeNombre}${c.seccion > 1 ? ' · Sección ${String.fromCharCode(64 + c.seccion)}' : ''}',
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+              ),
+          ],
+          onChanged: (id) {
+            if (id != null) onCambiar(id);
+          },
+        ),
+      ),
+    );
+  }
+}
+
+/// Alumnas presentes según el último pase de lista guardado (US-13)
+class TarjetaPresentesClase extends StatelessWidget {
+  final ClaseSesionController controller;
+  final VoidCallback? onTap;
+
+  const TarjetaPresentesClase({super.key, required this.controller, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final total = controller.registros.length;
+    return NinasProStatCard(
+      title: 'Alumnas presentes',
+      value: controller.tienePaseLista ? '${controller.presentesGuardadas}/$total' : '—/$total',
+      subtitle: controller.pendienteDeEnvio
+          ? 'Pendiente de envío'
+          : (controller.tienePaseLista ? 'Esta semana' : 'Sin pase de lista'),
+      icon: Icons.fact_check_rounded,
+      accentColor: NinasProColors.primary700,
+      onTap: onTap,
+    );
+  }
 }
 
 /// Banner de bienvenida con la mascota, el nombre de la tutora y la planificación de la clase de hoy.

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../config/ninaspro_colors.dart';
+import '../../models/hub_models.dart';
 import '../../models/sesion_usuario.dart';
 import '../../repositories/accesos_repository.dart';
 import '../../repositories/alumnas_repository.dart';
 import '../../repositories/catalogo_repository.dart';
+import '../../repositories/clase_repository.dart';
 import '../../repositories/hub_repository.dart';
 import '../../services/health_service.dart';
 import '../../widgets/db_health_checker.dart';
@@ -44,6 +46,9 @@ class HubShellScreen extends StatefulWidget {
   /// Nómina, fichas, cargas masivas y autorizaciones de alumnas (US-07..12)
   final AlumnasRepository? alumnasRepository;
 
+  /// La clase en el aula con su cola sin conexión (US-13..15, US-28, US-29, US-33, US-34)
+  final ClaseRepository? claseRepository;
+
   const HubShellScreen({
     super.key,
     required this.repository,
@@ -54,6 +59,7 @@ class HubShellScreen extends StatefulWidget {
     this.accesosRepository,
     this.catalogoRepository,
     this.alumnasRepository,
+    this.claseRepository,
   });
 
   @override
@@ -64,6 +70,9 @@ class _HubShellScreenState extends State<HubShellScreen> {
   bool _mostrarHealthChecker = false;
 
   RolUsuario get _rol => widget.sesion.rol;
+
+  // La nubecita muestra la cola de la clase; sin ella, la simulación del mockup
+  FuenteSincronizacion get _sincronizacion => widget.claseRepository ?? widget.repository;
 
   @override
   Widget build(BuildContext context) {
@@ -98,7 +107,7 @@ class _HubShellScreenState extends State<HubShellScreen> {
             _ChipUsuaria(sesion: widget.sesion),
             const SizedBox(width: 8),
             // Estado de sincronización con la nube
-            NinasProIndicadorSync(repository: widget.repository),
+            NinasProIndicadorSync(repository: _sincronizacion),
             // Estado de la conexión con Supabase (diagnóstico)
             IconButton(
               tooltip: 'Estado de conexión Supabase',
@@ -139,7 +148,7 @@ class _HubShellScreenState extends State<HubShellScreen> {
         actions: [
           _ChipUsuaria(sesion: widget.sesion),
           // Estado de sincronización con la nube
-          NinasProIndicadorSync(repository: widget.repository),
+          NinasProIndicadorSync(repository: _sincronizacion),
           if (_buildAjustesRol() != null)
             IconButton(
               visualDensity: VisualDensity.compact,
@@ -155,9 +164,13 @@ class _HubShellScreenState extends State<HubShellScreen> {
   }
 
   Widget _buildVistaMovil() {
+    final clase = widget.claseRepository;
+    if (clase == null && (_rol == RolUsuario.equipoGestion || _rol == RolUsuario.tutora)) {
+      return const Center(child: Text('La clase necesita la conexión con la base de datos.'));
+    }
     return switch (_rol) {
-RolUsuario.equipoGestion => GestionMobileScreen(repository: widget.repository),
-      RolUsuario.tutora => TutoraMobileScreen(repository: widget.repository),
+      RolUsuario.equipoGestion => GestionMobileScreen(repository: widget.repository, clase: clase!, sesion: widget.sesion),
+      RolUsuario.tutora => TutoraMobileScreen(repository: widget.repository, clase: clase!, sesion: widget.sesion),
       RolUsuario.alumna => PortalAlumnaScreen(repository: widget.repository),
       _ => _RolSinVista(sesion: widget.sesion, onCerrarSesion: widget.onCerrarSesion),
     };
