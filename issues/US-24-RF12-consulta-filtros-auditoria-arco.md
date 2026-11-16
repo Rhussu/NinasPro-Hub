@@ -25,7 +25,7 @@ assignees: ""
 > *Condiciones necesarias para validar que la historia está lista.*
 - [ ] **Escenario 1 (Filtrado de bitácora por alumna para derecho de acceso):** Dado un apoderado que ejerce formalmente su derecho de acceso sobre los datos de su hija, cuando el Directorio filtra la auditoría por el RUT de la alumna, entonces el sistema despliega el historial completo de accesos, modificaciones y consultas vinculadas a esa menor.
 - [ ] **Escenario 2 (Filtro por usuaria o voluntaria):** Dado un caso de sospecha de fuga de información o auditoría interna, cuando el Directorio filtra por el ID o correo de una voluntaria, entonces se listan todas las acciones ejecutadas por dicha cuenta en un rango de fechas.
-- [ ] **Escenario 3 (Alcance restringido para Equipo de Gestión):** Dado un usuario del Equipo de Gestión de una sede específica, cuando ingresa al visor de auditoría, entonces el sistema limita los resultados exclusivamente a las operaciones realizadas dentro de su sede territorial.
+- [ ] **Escenario 3 (Auditoría reservada a la Directiva):** Dado un usuario del Equipo de Gestión, Tutora o Alumna, cuando abre su pantalla o sus Ajustes, entonces no encuentra el visor de auditoría; si una tutora o alumna lo invoca por la API, el sistema responde 403 y registra el intento como *acceso denegado*.
 
 ---
 
@@ -33,3 +33,9 @@ assignees: ""
 - [ ] Frontend / UI: Panel de visor de auditoría con filtros por fecha, usuario, tipo de acción y RUT de alumna.
 - [ ] Backend / Lógica: Políticas RLS y consultas optimizadas sobre `auditoria_cambios_datos` y `auditoria_accesos_descargas`.
 - [ ] Pruebas mínimas: TC-16 (Verificación de consulta de auditoría filtrada por alumna para responder a solicitud de derecho de acceso).
+
+---
+
+### 📝 Ajustes del MVP
+- En la app, la auditoría es **solo de la Directiva**; Gestión no la tiene en Ajustes (decidido el 2026-11-16, PR 8). La base (`consultar_auditoria`) acotaría a su sede una consulta de Gestión, pero la app no le da esa vista.
+- La auditoría registra cambios, descargas y accesos denegados; no registra cada apertura de ficha (las "consultas" del escenario 1) (decidido el 2026-11-16).

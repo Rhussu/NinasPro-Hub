@@ -25,7 +25,7 @@ assignees: ""
 > *Condiciones necesarias para validar que la historia está lista.*
 - [ ] **Escenario 1 (Reutilización de ficha existente multi-sede/multi-año):** Dada una alumna que cursó en la sede A en 2025, cuando se inscribe en la sede B en 2026 mediante su RUT, entonces el sistema no crea una nueva ficha en `alumnas`, sino que asocia una nueva tupla en `inscripciones` vinculada a la misma entidad.
 - [ ] **Escenario 2 (Inscripción individual vía formulario):** Dado que se requiere matricular a una alumna fuera de la carga masiva, cuando el Directorio completa el formulario individual con su RUT, datos personales y apoderado, entonces se crea su registro de forma exitosa.
-- [ ] **Escenario 3 (Gestión de retiro de alumna):** Dada una alumna con inscripción activa que decide abandonar el curso, cuando la persona encargada marca su inscripción como "retirada" indicando fecha y motivo formal, entonces se actualiza el estado de la matrícula preservando su historial previo de asistencia.
+- [ ] **Escenario 3 (Gestión de retiro de alumna):** Dada una alumna con inscripción activa que decide abandonar el curso, cuando la Directiva marca su inscripción como "retirada" indicando fecha y motivo formal, entonces se actualiza el estado de la matrícula preservando su historial previo de asistencia.
 
 ---
 
@@ -33,3 +33,8 @@ assignees: ""
 - [ ] Frontend / UI: Formulario de inscripción manual individual y acción de registrar retiro en la ficha de inscripción.
 - [ ] Backend / Lógica: Lógica de upsert en base de datos para la entidad `alumnas` con restricción de unicidad en campo `rut`.
 - [ ] Pruebas mínimas: TC-05 (Prueba con alumna de otra sede/año verificando una sola ficha y dos inscripciones independientes).
+
+---
+
+### 📝 Ajustes del MVP
+- Las fichas, inscripciones, cargas masivas y retiros de alumnas son solo de la Directiva; Gestión no los edita (decidido el 2026-11-16).

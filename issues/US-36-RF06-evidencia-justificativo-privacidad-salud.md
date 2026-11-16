@@ -2,7 +2,7 @@
 name: "Historia de Usuario"
 about: "Plantilla ágil y directa para historias de usuario con trazabilidad a RF/RNF"
 title: "US-36: Adjuntar Evidencia Documental con Minimización de Datos Sensibles de Salud"
-labels: ["user-story", "Should", "RF-06", "Seguridad"]
+labels: ["user-story", "Should", "RF-06", "Seguridad", "fuera-del-MVP"]
 assignees: ""
 ---
 
@@ -33,3 +33,8 @@ assignees: ""
 - [ ] Frontend / UI: Campo de subida con filtro MIME, barra de progreso y cartel institucional de privacidad.
 - [ ] Backend / Lógica: Validación de formato y almacenamiento en Supabase Storage con políticas privadas.
 - [ ] Pruebas mínimas: TC-19 / TC-34 (Verificación de subida cifrada y cumplimiento de directrices de minimización de salud).
+
+---
+
+### 📝 Ajustes del MVP
+- **Fuera del MVP por ahora:** los justificativos son solo texto, sin archivos adjuntos; no hay bucket `justificativos` (decidido el 2026-11-16). El aviso de privacidad del escenario 2 sí está, en el formulario de US-35.

@@ -23,9 +23,9 @@ assignees: ""
 
 ### ✅ Criterios de Aceptación
 > *Condiciones necesarias para validar que la historia está lista.*
-- [ ] **Escenario 1 (Bloqueo de asignación sin declaración firmada):** Dada una voluntaria registrada cuya ficha tiene `declaracion_adhesion_firmada = false`, cuando el Directorio o Equipo de Gestión intenta asignarla como tutora a una instancia de curso presencial, entonces el sistema bloquea la asignación y notifica que debe contar con la declaración firmada.
+- [ ] **Escenario 1 (Bloqueo de asignación sin declaración firmada):** Dada una voluntaria registrada cuya ficha tiene `declaracion_adhesion_firmada = false`, cuando la Directiva intenta asignarla como tutora a una instancia de curso presencial, entonces el sistema bloquea la asignación y notifica que debe contar con la declaración firmada.
 - [ ] **Escenario 2 (Habilitación tras registro de la adhesión):** Dada la ficha de la voluntaria, cuando el Directorio marca que suscribió la Declaración de Conocimiento y Adhesión vigente (Anexo A de REF-5/REF-6) registrando la fecha de firma, entonces el sistema habilita su asignación a instancias de cursos.
-- [ ] **Escenario 3 (Asignación docente a instancia de curso):** Dada una tutora habilitada, cuando se la asigna a una instancia de curso en una sede, entonces se crea el registro correspondiente en `tutores_instancia` quedando disponible para el pase de lista docente.
+- [ ] **Escenario 3 (Asignación docente a instancia de curso):** Dada una tutora habilitada, cuando la Directiva la asigna a una instancia de curso en una sede, entonces se crea el registro correspondiente en `tutores_instancia` quedando disponible para el pase de lista docente.
 
 ---
 
@@ -33,3 +33,8 @@ assignees: ""
 - [ ] Frontend / UI: Campo y switch de estado de declaración firmada en la ficha del voluntario con indicador visual de aptitud docente.
 - [ ] Backend / Lógica: Constraint / validación en API antes de insertar en `tutores_instancia` verificando `declaracion_adhesion_firmada = true`.
 - [ ] Pruebas mínimas: Verificación de rechazo de asignación docente si no existe constancia de declaración firmada (RB-11).
+
+---
+
+### 📝 Ajustes del MVP
+- La asignación de tutoras a cursos (`tutores_instancia`) es solo de la Directiva, aunque el escenario 1 original nombraba a Gestión (decidido el 2026-11-16, PR 6).

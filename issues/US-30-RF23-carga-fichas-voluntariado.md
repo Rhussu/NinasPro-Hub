@@ -33,3 +33,8 @@ assignees: ""
 - [ ] Frontend / UI: Módulo de carga masiva de voluntariado con previsualización y formulario de alta manual.
 - [ ] Backend / Lógica: Validación de formato de RUT chileno (módulo 11) e inserción en tablas `perfiles` y `voluntarios_detalle`.
 - [ ] Pruebas mínimas: TC-18 (Prueba con planilla de 8 filas con 2 RUTs inválidos verificando 6 creadas y 2 rechazadas).
+
+---
+
+### 📝 Ajustes del MVP
+- Las fichas del voluntariado (carga, alta, adhesión, cambio de rol, salida) son solo de la Directiva; Gestión ve el voluntariado de su sede en solo lectura (decidido el 2026-11-16, PR 6).

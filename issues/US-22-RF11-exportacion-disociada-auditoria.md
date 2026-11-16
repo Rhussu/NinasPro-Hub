@@ -33,3 +33,8 @@ assignees: ""
 - [ ] Frontend / UI: Checkbox "Exportar con datos disociados (anonimizado)" en el diálogo de exportación.
 - [ ] Backend / Lógica: Transformador de datos disociados y trigger/servicio de registro en tabla `auditoria_accesos_descargas`.
 - [ ] Pruebas mínimas: TC-14 (Verificación de generación de evento en auditoría con filtros y cantidad de filas tras descarga).
+
+---
+
+### 📝 Ajustes del MVP
+- La vista previa no queda en la auditoría; la descarga se registra en la misma llamada a `exportar_reporte` (PR 7).

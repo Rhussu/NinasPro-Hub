@@ -33,3 +33,8 @@ assignees: ""
 - [ ] Frontend / UI: Vista de directorio de voluntarias con filtros facetados por sede, rol, período y estado.
 - [ ] Backend / Lógica: Endpoint de consulta con agregación de cursos cursados y soporte de exportación a CSV/XLSX.
 - [ ] Pruebas mínimas: TC-18 (Prueba de exportación de listado de voluntariado por sede, rol y período).
+
+---
+
+### 📝 Ajustes del MVP
+- La exportación del voluntariado es solo de la Directiva; Gestión ve el voluntariado de su sede en solo lectura, sin exportar (decidido el 2026-11-16, PR 8).

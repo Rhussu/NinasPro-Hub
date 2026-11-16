@@ -15,7 +15,7 @@ assignees: ""
 ---
 
 ### 👤 Historia de Usuario
-> **Como** integrante del Directorio o Equipo de Gestión,  
+> **Como** integrante de la Directiva,  
 > **quiero** registrar las autorizaciones firmadas por el apoderado (tratamiento de datos y uso de imagen desglosado por canal) adjuntando el respaldo digital,  
 > **para** respaldar legalmente la participación de las menores de edad conforme a la Ley N° 19.628 y su reforma Ley N° 21.719.
 
@@ -33,3 +33,8 @@ assignees: ""
 - [ ] Frontend / UI: Formulario de autorizaciones con carga de documento firmado y lista de verificación por canal de imagen.
 - [ ] Backend / Lógica: Tablas `autorizaciones_apoderado` y `autorizaciones_imagen_canales` con campos de auditoría y almacenamiento de URL segura.
 - [ ] Pruebas mínimas: Verificación de estado no autorizado por defecto para canales sin selección explícita.
+
+---
+
+### 📝 Ajustes del MVP
+- Las autorizaciones del apoderado y sus revocaciones son solo de la Directiva; Gestión no las edita (decidido el 2026-11-16).

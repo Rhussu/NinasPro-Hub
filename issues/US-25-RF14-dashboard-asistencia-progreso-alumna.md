@@ -23,9 +23,9 @@ assignees: ""
 
 ### ✅ Criterios de Aceptación
 > *Condiciones necesarias para validar que la historia está lista.*
-- [ ] **Escenario 1 (Visualización de asistencia y umbral dinámico):** Dada una alumna autenticada, cuando ingresa a su portal, entonces visualiza su porcentaje acumulado de asistencia, la cantidad de sesiones asistidas sobre el total realizadas (ej. 7 de 8) y el umbral exigido: 80% por defecto, o 70% si cuenta con al menos un justificativo formalmente aprobado por el Equipo de Gestión.
+- [ ] **Escenario 1 (Visualización de asistencia y umbral dinámico):** Dada una alumna autenticada, cuando ingresa a su portal, entonces visualiza su porcentaje acumulado de asistencia, la cantidad de sesiones asistidas sobre el total realizadas (ej. 7 de 8) y el umbral exigido: el de la instancia (80% por defecto), o 70% si cuenta con al menos un justificativo aceptado por el Equipo de Gestión (baja una sola vez, aunque tenga varios). Una clase justificada **cuenta como ausente**.
 - [ ] **Escenario 2 (Indicador visual de estado de certificación):** Dado el porcentaje calculado, si la alumna supera o iguala el umbral (≥ 80% o ≥ 70%), el sistema muestra una insignia verde de "Cumple meta para certificar". Si está por debajo, muestra una advertencia preventiva amigable indicando cuántas clases requiere asistir.
-- [ ] **Escenario 3 (Mecanismo de recuperación por ejercicios):** Dada una alumna con inasistencias justificadas y ejercicios resueltos, cuando acumula 25 ejercicios, el sistema convalida automáticamente +1 clase justificada a su cómputo presencial; con 50 ejercicios convalida +2 clases (tope máximo institucional de 2 clases). El portal despliega una barra de progreso que indica cuántos ejercicios faltan para el siguiente hito de recuperación.
+- [ ] **Escenario 3 (Mecanismo de recuperación por ejercicios):** Dada una alumna con inasistencias justificadas y ejercicios resueltos, cuando acumula 25 ejercicios, el sistema convalida automáticamente +1 clase justificada como presente; con 50 ejercicios convalida +2 clases (tope máximo institucional de 2 clases y nunca más que las justificadas). Es la única forma de que una justificada cuente como presente. El portal despliega una barra de progreso que indica cuántos ejercicios faltan para el siguiente hito de recuperación.
 - [ ] **Escenario 4 (Cronograma y desglose por sesión de sábado):** Dada la lista de sesiones de sábados del semestre, la alumna visualiza el estado de cada una: "Presente" (verde), "Ausente" (rojo), "Justificada" (amarillo/naranja) o "Pendiente" (futuras clases programadas).
 
 ---
@@ -34,3 +34,9 @@ assignees: ""
 - [ ] Frontend / UI: Tarjeta de asistencia con porcentaje grande, barra de progreso con gradiente y umbral visible (80% / 70%), sección de recuperación por ejercicios (25 ej. / 50 ej.) y lista de sábados.
 - [ ] Backend / Lógica: Función SQL / RPC que calcula asistencia ponderando clases justificadas aprobadas para aplicar umbral del 70% y suma de ejercicios resueltos para bonificación (máx +2).
 - [ ] Pruebas mínimas: TC-17 (Validación de cálculo con 80% base, 70% con justificación y bonificación por 25/50 ejercicios resueltos).
+
+---
+
+### 📝 Ajustes del MVP
+- Una clase justificada **sigue contando como ausente** en todo (portal, nómina y dashboard). El justificativo aceptado solo baja la meta al 70 %, una vez. En el portal, asistidas = presentes + justificadas recuperadas con ejercicios (decidido el 2026-11-16, migración 21).
+- El umbral base es configurable por instancia (`porcentaje_asistencia_minimo`, 80 por defecto).

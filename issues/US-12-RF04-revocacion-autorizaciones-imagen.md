@@ -33,3 +33,8 @@ assignees: ""
 - [ ] Frontend / UI: Opción de "Revocar Autorización" con registro de fecha y motivo en la ficha de la alumna.
 - [ ] Backend / Lógica: Actualización de estado en `autorizaciones_apoderado` y reclasificación de aptitud en `evidencias_fotograficas`.
 - [ ] Pruebas mínimas: TC-06 / TC-12 (Verificación de revocación y cambio de aptitud de evidencias posteriores).
+
+---
+
+### 📝 Ajustes del MVP
+- Las revocaciones son solo de la Directiva; Gestión no las edita (decidido el 2026-11-16).

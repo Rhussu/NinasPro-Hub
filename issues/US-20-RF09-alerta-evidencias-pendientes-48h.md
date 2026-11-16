@@ -30,6 +30,11 @@ assignees: ""
 ---
 
 ### 🛠️ Tareas
-- [ ] Frontend / UI: Tarjeta y filtro de "Evidencias pendientes (> 48 hrs)" en el panel del Equipo de Gestión.
+- [ ] Frontend / UI: Tarjeta y vista "Evidencias pendientes (> 48 hrs)" (`evidencias_pendientes_view.dart`) en la pantalla y en Ajustes del Equipo de Gestión.
 - [ ] Backend / Lógica: Consulta SQL optimizada que filtra clases realizadas con fecha anterior a `NOW() - INTERVAL '48 HOURS'` sin registros en `evidencias_fotograficas`.
 - [ ] Pruebas mínimas: TC-12 (Prueba de clase realizada hace más de 48h verificando que figure como pendiente hasta que se sube una foto).
+
+---
+
+### 📝 Ajustes del MVP
+- La **Directiva puede hacer todo** lo de Gestión en cualquier sede, como entrada secundaria en *Ajustes → Gestión en todas las sedes* (decidido el 2026-11-16).

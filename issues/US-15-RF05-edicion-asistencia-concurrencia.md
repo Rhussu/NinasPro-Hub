@@ -33,3 +33,8 @@ assignees: ""
 - [ ] Frontend / UI: Vista de reapertura y modificación de asistencia con visualización de última persona que editó.
 - [ ] Backend / Lógica: Operación transaccional con trigger que registra el valor anterior en `auditoria_cambios_datos`.
 - [ ] Pruebas mínimas: TC-09 (Simulación de dos guardados concurrentes verificando persistencia del último guardado e inserción en auditoría).
+
+---
+
+### 📝 Ajustes del MVP
+- La **Directiva puede hacer todo** lo de Gestión en cualquier sede, como entrada secundaria en *Ajustes → Gestión en todas las sedes* (decidido el 2026-11-16).

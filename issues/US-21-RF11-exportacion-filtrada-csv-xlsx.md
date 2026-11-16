@@ -15,7 +15,7 @@ assignees: ""
 ---
 
 ### 👤 Historia de Usuario
-> **Como** integrante del Directorio o del Equipo de Gestión,  
+> **Como** integrante de la Directiva,  
 > **quiero** seleccionar el tipo de reporte (asistencia, nómina o participación) y aplicar filtros por sede, curso y período para descargarlo en formato CSV (UTF-8) o XLSX,  
 > **para** analizar la información sin intermediarios y consolidar planillas oficiales sin inconsistencias de conteo.
 
@@ -25,7 +25,7 @@ assignees: ""
 > *Condiciones necesarias para validar que la historia está lista.*
 - [ ] **Escenario 1 (Generación de reporte filtrado en CSV/XLSX):** Dado el filtro seleccionado (ej. Sede Concepción, segundo semestre 2026, Asistencia), cuando el usuario pulsa descargar en XLSX o CSV, entonces el sistema genera el archivo en menos de 3 segundos con exactamente una fila por alumna y clase.
 - [ ] **Escenario 2 (Integridad de caracteres especiales y RUT):** Dado un archivo exportado abierto en Microsoft Excel o Google Sheets, cuando se revisa su contenido, entonces los caracteres con tildes, diéresis, letra 'ñ' y los formatos de RUT chileno se muestran de manera íntegra y legible sin fallas de codificación.
-- [ ] **Escenario 3 (Delimitación por sede para Equipo de Gestión):** Dado un usuario con rol Equipo de Gestión de la sede A, cuando ingresa al módulo de exportación, entonces el selector de sede queda fijado en la sede A sin opción de exportar datos de otras sedes regionales.
+- [ ] **Escenario 3 (Exportación reservada a la Directiva):** Dado un usuario con rol Equipo de Gestión o Tutora, cuando abre su pantalla o sus Ajustes, entonces no encuentra la opción de exportar; si la invoca por la API para otra sede, el sistema responde 403 y registra el intento en la auditoría.
 
 ---
 
@@ -33,3 +33,9 @@ assignees: ""
 - [ ] Frontend / UI: Formulario de exportación con selectores de tipo de reporte, sede, curso, rango de fechas y formato (CSV/XLSX).
 - [ ] Backend / Lógica: Generador de archivos estructurados en CSV con codificación UTF-8 con BOM y XLSX mediante librerías estándar.
 - [ ] Pruebas mínimas: TC-14 (Exportación con filtros) y TC-15 (Apertura y validación de tildes, 'ñ' y formato de RUT en Excel y Google Sheets).
+
+---
+
+### 📝 Ajustes del MVP
+- En la app, exportar es **solo de la Directiva**; Gestión no tiene exportar en Ajustes ni exporta el voluntariado (decidido el 2026-11-16, PR 8).
+- La nómina la exporta solo la Directiva. La base (`exportar_reporte`) acota a su sede una exportación de asistencia o participación pedida por Gestión, pero la app no le da esa vista.

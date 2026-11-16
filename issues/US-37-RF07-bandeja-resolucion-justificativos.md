@@ -23,14 +23,20 @@ assignees: ""
 
 ### ✅ Criterios de Aceptación
 > *Condiciones necesarias para validar que la historia está lista.*
-- [ ] **Escenario 1 (Exclusividad de rol para Equipo de Gestión):** La bandeja de resolución es accesible exclusivamente para usuarias con rol de Equipo de Gestión (`es_equipo_gestion = true`). Las tutoras regulares de aula no tienen acceso a resolver justificativos.
-- [ ] **Escenario 2 (Aprobación con impacto en asistencia y umbral):** Dado un justificativo en estado "pendiente" en la sede, cuando la coordinadora de Gestión presiona "Aprobar", el justificativo pasa a estado "aprobado", la asistencia de la alumna en esa sesión cambia automáticamente a "justificada" (bloqueada para edición de tutoras de aula) y el umbral de aprobación de la alumna se ajusta al 70%.
+- [ ] **Escenario 1 (Bandeja reservada a Gestión y Directiva):** La bandeja de resolución es del Equipo de Gestión de la sede; la Directiva también la tiene, para todas las sedes, como entrada secundaria con filtro por sede. Las tutoras regulares de aula no tienen acceso a resolver justificativos.
+- [ ] **Escenario 2 (Aprobación con impacto en asistencia y umbral):** Dado un justificativo en estado "pendiente" en la sede, cuando la coordinadora de Gestión presiona "Aprobar", el justificativo pasa a estado "aprobado", la asistencia de la alumna en esa sesión cambia automáticamente a "justificada" (bloqueada para edición de tutoras de aula; sigue contando como ausente) y el umbral de aprobación de la alumna se ajusta al 70% (una sola vez, aunque tenga varios).
 - [ ] **Escenario 3 (Rechazo con motivo informado):** Dado un justificativo no admisible, cuando Gestión presiona "Rechazar" e ingresa una observación aclaratoria, el justificativo pasa a "rechazado", la inasistencia se mantiene en "ausente" y se registra la explicación para retroalimentación de la alumna.
 - [ ] **Escenario 4 (Filtros móviles y trazabilidad inmutable):** La interfaz móvil de Gestión permite filtrar entre Pendientes, Aprobados y Rechazados, registrando en bitácora de auditoría la responsable, fecha, hora y comentarios.
 
 ---
 
 ### 🛠️ Tareas
-- [ ] Frontend / UI: Pestaña "Justificativos" en `GestionMobileScreen` con chips de estado, tarjeta de detalle de alumna/sábado y acciones táctiles de Aprobar/Rechazar.
+- [ ] Frontend / UI: Bandeja de justificativos (`justificativos_gestion.dart`) con chips de estado, tarjeta de detalle de alumna/sábado y acciones de Aprobar/Rechazar; se abre desde la pantalla y los Ajustes de Gestión, y desde *Ajustes → Gestión en todas las sedes* de la Directiva (cada justificativo muestra su sede).
 - [ ] Backend / Lógica: Función transaccional que actualiza `justificativos.estado`, sincroniza `asistencia_alumnas.estado = 'justificada'` y activa la regla de umbral de aprobación al 70%.
 - [ ] Pruebas mínimas: TC-20 (Prueba de resolución por Equipo de Gestión en vista móvil y verificación de sincronización de asistencia).
+
+---
+
+### 📝 Ajustes del MVP
+- La **Directiva puede hacer todo** lo de Gestión en cualquier sede, como entrada secundaria en *Ajustes → Gestión en todas las sedes* (decidido el 2026-11-16).
+- La pantalla principal de cada rol es un resumen con accesos rápidos (tarjetas y Speed Dial); **Ajustes** llega a todo lo que el rol puede ver o hacer, con las mismas vistas (decidido el 2026-11-16, PR 8).

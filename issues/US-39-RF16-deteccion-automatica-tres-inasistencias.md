@@ -33,3 +33,8 @@ assignees: ""
 - [ ] Backend / Lógica: Trigger / función en PostgreSQL ejecutada tras inserción/actualización en `asistencia_alumnas` que calcula inasistencias consecutivas no justificadas ordenadas por fecha.
 - [ ] Backend / Lógica: Inserción en tabla `alertas_desercion` con campos `(inscripcion_id, clase_id, atendida = false)`.
 - [ ] Pruebas mínimas: TC-21 (Simulación de 3 inasistencias seguidas sin justificar verificando generación automática de la alerta).
+
+---
+
+### 📝 Ajustes del MVP
+- Una sola alerta sin atender por inscripción; si la racha se corta (se justifica o corrige una falta), la alerta sin atender se elimina, y una contactada no se repite para la misma racha (PR 7).

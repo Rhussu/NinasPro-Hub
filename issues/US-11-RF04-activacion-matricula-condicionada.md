@@ -15,7 +15,7 @@ assignees: ""
 ---
 
 ### 👤 Historia de Usuario
-> **Como** integrante del Equipo de Gestión de sede,  
+> **Como** integrante de la Directiva,  
 > **quiero** que el sistema active la matrícula de la alumna únicamente tras registrar el consentimiento de datos y me alerte sobre autorizaciones pendientes tras dos sesiones,  
 > **para** asegurar que ninguna menor participe sin respaldo legal y realizar gestiones de regularización a tiempo.
 
@@ -25,11 +25,16 @@ assignees: ""
 > *Condiciones necesarias para validar que la historia está lista.*
 - [ ] **Escenario 1 (Transición automática a activa):** Dada una alumna en estado "preinscrita", cuando se registra su autorización de tratamiento de datos como "otorgada", entonces su inscripción transiciona automáticamente a estado "activa", permitiendo su inclusión en las listas de asistencia.
 - [ ] **Escenario 2 (Bloqueo de pase de lista sin consentimiento):** Dada una alumna cuya autorización de tratamiento de datos sigue en estado "pendiente" o "no otorgada", cuando una tutora abre la lista de asistencia del curso, entonces la alumna no aparece como activa para ser evaluada ni listada para asistencia ordinaria (RB-1).
-- [ ] **Escenario 3 (Alerta por consentimiento pendiente tras 2 sesiones):** Dada una alumna preinscrita cuya autorización permanece pendiente luego de transcurridas 2 sesiones del curso, cuando el Equipo de Gestión abre el panel de sede, entonces la alumna figura destacada en la lista de pendientes de regularización.
+- [ ] **Escenario 3 (Alerta por consentimiento pendiente tras 2 sesiones):** Dada una alumna preinscrita cuya autorización permanece pendiente luego de transcurridas 2 sesiones del curso, cuando la Directiva abre la nómina de alumnas, entonces la alumna figura destacada como regularización urgente (filtro *preinscritas*).
 
 ---
 
 ### 🛠️ Tareas
 - [ ] Backend / Lógica: Trigger / función en base de datos para actualizar `estado` de la tabla `inscripciones` a `activa` cuando `autoriza_tratamiento_datos = true`.
-- [ ] Frontend / UI: Vista de resumen de autorizaciones pendientes en el panel del Equipo de Gestión de sede.
+- [ ] Frontend / UI: Aviso de regularización urgente y filtro de preinscritas en la nómina de la Directiva (`directorio_alumnas_view.dart`).
 - [ ] Pruebas mínimas: TC-06 (Caso de prueba que verifica que la inscripción no pasa a activa sin autorización previa de datos).
+
+---
+
+### 📝 Ajustes del MVP
+- Como las autorizaciones son de la Directiva (US-10), la alerta de consentimiento pendiente se muestra en su nómina y no en el panel de Gestión (decidido el 2026-11-16).

@@ -34,3 +34,10 @@ assignees: ""
 - [ ] Backend / Lógica: Actualización de estado en tabla `clases` (`programada`, `realizada`, `suspendida`).
 - [ ] Backend / Lógica: Regla de exclusión de clases suspendidas en el cálculo agregado de asistencia y reportes.
 - [ ] Pruebas mínimas: Prueba de integración comprobando que clases con estado `suspendida` tienen denominador 0 en asistencia de alumnas.
+
+---
+
+### 📝 Ajustes del MVP
+- El calendario, las suspensiones y las sesiones especiales son trabajo del Equipo de Gestión de la sede.
+- La **Directiva puede hacer todo** lo de Gestión en cualquier sede, como entrada secundaria en *Ajustes → Gestión en todas las sedes* (decidido el 2026-11-16).
+- La tutora ve el cronograma en solo lectura (sin suspender ni agregar sesiones).
