@@ -18,7 +18,9 @@ export '../data/offline/cola_sincronizacion.dart' show EstadoGuardado, Resultado
 class ListaClase {
   final List<RegistroAsistencia> registros;
   final List<ParticipacionClase> participaciones;
-  final PodioKahootSesion? podio;
+
+  /// Podio Kahoot en orden, del 1° lugar en adelante (1 a 3 alumnas, según las presentes)
+  final List<RegistroAsistencia> podio;
 
   /// Algún cambio de esta lista está guardado solo en el dispositivo
   final bool conPendientes;
@@ -26,12 +28,15 @@ class ListaClase {
   const ListaClase({
     this.registros = const [],
     this.participaciones = const [],
-    this.podio,
+    this.podio = const [],
     this.conPendientes = false,
   });
 
   /// La clase ya tiene pase de lista (en la nube o pendiente de subir)
   bool get tienePaseLista => registros.any((r) => r.estado != EstadoAsistencia.pendiente);
+
+  /// Ids de alumna del podio, del 1° lugar en adelante
+  List<String> get podioAlumnas => [for (final r in podio) r.alumnaId];
 }
 
 /// Tipos de operación que pasan por la cola sin conexión
@@ -70,13 +75,9 @@ abstract class ClaseRepository implements FuenteSincronizacion {
   Future<ResultadoGuardado> guardarAsistencia(String claseId, List<RegistroAsistencia> registros);
   Future<ResultadoGuardado> guardarParticipacion(String claseId, List<ParticipacionClase> participaciones);
 
-  /// Ids de inscripción de las alumnas en 1°, 2° y 3° lugar
-  Future<ResultadoGuardado> guardarPodio(
-    String claseId, {
-    required String primero,
-    required String segundo,
-    required String tercero,
-  });
+  /// Ids de inscripción del podio en orden (1° lugar primero). Lleva tantos
+  /// lugares como presentes haya, hasta 3: con una sola alumna, queda primera.
+  Future<ResultadoGuardado> guardarPodio(String claseId, List<String> inscripciones);
 
   Future<ResultadoGuardado> guardarAsistenciaTutoras(String claseId, List<RegistroAsistenciaTutora> registros);
 
@@ -133,18 +134,22 @@ class MapeoClase {
     return ListaClase(registros: registros, participaciones: participaciones, podio: _podio(podio));
   }
 
-  static PodioKahootSesion? _podio(Map<int, RegistroAsistencia> lugares) {
-    final [primero, segundo, tercero] = [lugares[1], lugares[2], lugares[3]];
-    if (primero == null || segundo == null || tercero == null) return null;
-    return PodioKahootSesion(
-      primerLugarAlumnaId: primero.alumnaId,
-      primerLugarNombre: primero.alumnaNombre,
-      segundoLugarAlumnaId: segundo.alumnaId,
-      segundoLugarNombre: segundo.alumnaNombre,
-      tercerLugarAlumnaId: tercero.alumnaId,
-      tercerLugarNombre: tercero.alumnaNombre,
-    );
+  // Lugares ocupados en orden (1°, 2°, 3°); se corta en el primer lugar vacío
+  static List<RegistroAsistencia> _podio(Map<int, RegistroAsistencia> lugares) {
+    final podio = <RegistroAsistencia>[];
+    for (var lugar = 1; lugar <= 3 && lugares[lugar] != null; lugar++) {
+      podio.add(lugares[lugar]!);
+    }
+    return podio;
   }
+
+  /// Datos de la operación del podio: los ids de inscripción en orden (los lugares sin alumna van nulos)
+  static Map<String, dynamic> datosPodio(String claseId, List<String> inscripciones) => {
+    'clase_id': claseId,
+    'primero': inscripciones.isNotEmpty ? inscripciones[0] : null,
+    'segundo': inscripciones.length > 1 ? inscripciones[1] : null,
+    'tercero': inscripciones.length > 2 ? inscripciones[2] : null,
+  };
 
   /// Filas de `lista_asistencia_tutores`
   static RegistroAsistenciaTutora tutora(String claseId, Map<String, dynamic> f) => RegistroAsistenciaTutora(
@@ -224,12 +229,10 @@ class MapeoClase {
     if (podio != null) {
       RegistroAsistencia? de(String clave) => registros.where((r) => r.id == podio.datos[clave]).firstOrNull;
       final lugares = {1: de('primero'), 2: de('segundo'), 3: de('tercero')};
-      podioLista =
-          _podio({
-            for (final e in lugares.entries)
-              if (e.value != null) e.key: e.value!,
-          }) ??
-          podioLista;
+      podioLista = _podio({
+        for (final e in lugares.entries)
+          if (e.value != null) e.key: e.value!,
+      });
     }
 
     return ListaClase(registros: registros, participaciones: participaciones, podio: podioLista, conPendientes: true);
@@ -408,17 +411,8 @@ class SupabaseClaseRepository implements ClaseRepository {
   );
 
   @override
-  Future<ResultadoGuardado> guardarPodio(
-    String claseId, {
-    required String primero,
-    required String segundo,
-    required String tercero,
-  }) => _guardar(OperacionesClase.podio, claseId, {
-    'clase_id': claseId,
-    'primero': primero,
-    'segundo': segundo,
-    'tercero': tercero,
-  }, prioridad: 2);
+  Future<ResultadoGuardado> guardarPodio(String claseId, List<String> inscripciones) =>
+      _guardar(OperacionesClase.podio, claseId, MapeoClase.datosPodio(claseId, inscripciones), prioridad: 2);
 
   @override
   Future<ResultadoGuardado> guardarAsistenciaTutoras(String claseId, List<RegistroAsistenciaTutora> registros) =>

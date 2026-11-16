@@ -1100,22 +1100,32 @@ void mostrarModalRegistroKahoot(BuildContext context, ClaseSesionController cont
   final isDark = Theme.of(context).brightness == Brightness.dark;
   final presentes = controller.alumnasPresentes;
 
-  if (presentes.length < 3) {
+  if (presentes.isEmpty) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Se necesitan al menos 3 alumnas presentes en el pase de lista guardado para registrar el podio Kahoot.'),
+        content: Text('Guarda primero el pase de lista: el podio Kahoot se arma con las alumnas presentes.'),
       ),
     );
     return;
   }
 
-  // El podio guardado, si sus alumnas siguen presentes; si no, las tres primeras
-  String inicial(String? id, int i) =>
-      id != null && presentes.any((p) => p.alumnaId == id) ? id : presentes[i].alumnaId;
-  String primerId = inicial(controller.primerLugarId, 0);
-  String segundoId = inicial(controller.segundoLugarId, 1);
-  String tercerId = inicial(controller.tercerLugarId, 2);
+  // Tantos lugares como presentes, hasta 3: con una sola, queda primera
+  final cantidad = lugaresPodio(presentes.length);
+  final guardado = controller.podioAlumnas;
+  final lugares = <String>[];
+  final ids = [for (final p in presentes) p.alumnaId];
+  for (var i = 0; i < cantidad; i++) {
+    // El podio guardado, si su alumna sigue presente; si no, la primera presente libre
+    final previa = i < guardado.length ? guardado[i] : null;
+    final valida = previa != null && ids.contains(previa) && !lugares.contains(previa);
+    lugares.add(valida ? previa : ids.firstWhere((id) => !lugares.contains(id)));
+  }
   String? error;
+  const etiquetas = [
+    '🥇 1° Lugar (Medalla de Oro):',
+    '🥈 2° Lugar (Medalla de Plata):',
+    '🥉 3° Lugar (Medalla de Bronce):',
+  ];
 
   showModalBottomSheet(
     context: context,
@@ -1170,7 +1180,9 @@ void mostrarModalRegistroKahoot(BuildContext context, ClaseSesionController cont
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Asigna las 3 alumnas ganadoras del desafío de hoy. Se actualizará su historial.',
+                  cantidad == 1
+                      ? 'Hoy hay una sola alumna presente: queda en el 1° lugar. Se actualizará su historial.'
+                      : 'Asigna las $cantidad alumnas ganadoras del desafío de hoy. Se actualizará su historial.',
                   style: TextStyle(
                     fontSize: 12,
                     color: isDark ? NinasProColors.neutral300 : NinasProColors.neutral500,
@@ -1178,37 +1190,22 @@ void mostrarModalRegistroKahoot(BuildContext context, ClaseSesionController cont
                 ),
                 const SizedBox(height: 16),
 
-                // 1° Lugar
-                _DropdownKahoot(
-                  label: '🥇 1° Lugar (Medalla de Oro):',
-                  selectedValue: primerId,
-                  presentes: presentes,
-                  onChanged: (val) {
-                    if (val != null) setModalState(() => (primerId, error) = (val, null));
-                  },
-                ),
-                const SizedBox(height: 12),
-
-                // 2° Lugar
-                _DropdownKahoot(
-                  label: '🥈 2° Lugar (Medalla de Plata):',
-                  selectedValue: segundoId,
-                  presentes: presentes,
-                  onChanged: (val) {
-                    if (val != null) setModalState(() => (segundoId, error) = (val, null));
-                  },
-                ),
-                const SizedBox(height: 12),
-
-                // 3° Lugar
-                _DropdownKahoot(
-                  label: '🥉 3° Lugar (Medalla de Bronce):',
-                  selectedValue: tercerId,
-                  presentes: presentes,
-                  onChanged: (val) {
-                    if (val != null) setModalState(() => (tercerId, error) = (val, null));
-                  },
-                ),
+                // Un selector por lugar (1°, 2° y 3°, según las presentes)
+                for (var i = 0; i < cantidad; i++) ...[
+                  if (i > 0) const SizedBox(height: 12),
+                  _DropdownKahoot(
+                    label: etiquetas[i],
+                    selectedValue: lugares[i],
+                    presentes: presentes,
+                    onChanged: (val) {
+                      if (val == null) return;
+                      setModalState(() {
+                        lugares[i] = val;
+                        error = null;
+                      });
+                    },
+                  ),
+                ],
                 if (error != null) ...[
                   const SizedBox(height: 12),
                   Text(
@@ -1224,18 +1221,14 @@ void mostrarModalRegistroKahoot(BuildContext context, ClaseSesionController cont
                   child: FilledButton.icon(
                     style: NinasProTheme.brandButton,
                     onPressed: () async {
-                      // US-29 escenario 2: tres alumnas distintas
-                      if ({primerId, segundoId, tercerId}.length < 3) {
-                        setModalState(() => error = 'Elige tres alumnas distintas para el podio.');
+                      // US-29 escenario 2: una alumna distinta en cada lugar
+                      if (lugares.toSet().length < lugares.length) {
+                        setModalState(() => error = 'Elige una alumna distinta para cada lugar del podio.');
                         return;
                       }
                       final messenger = ScaffoldMessenger.of(context);
                       Navigator.pop(ctx);
-                      final resultado = await controller.guardarPodioKahoot(
-                        primerId: primerId,
-                        segundoId: segundoId,
-                        tercerId: tercerId,
-                      );
+                      final resultado = await controller.guardarPodioKahoot(lugares);
                       mostrarResultadoGuardado(messenger, resultado, exito: '🏆 Podio Kahoot registrado con éxito.');
                     },
                     icon: const Icon(Icons.check_rounded, size: 20),

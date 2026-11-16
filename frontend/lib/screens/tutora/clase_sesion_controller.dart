@@ -16,6 +16,9 @@ SesionClase? elegirSesionActual(List<SesionClase> sesiones, DateTime hoy) {
   return activas.where((s) => sesionRegistrable(s, hoy)).lastOrNull ?? activas.firstOrNull ?? sesiones.firstOrNull;
 }
 
+/// Lugares del podio Kahoot según las presentes: hasta 3 (con una sola, queda primera)
+int lugaresPodio(int presentes) => presentes.clamp(0, 3);
+
 /// Regla US-13: la tutora solo alterna Presente ↔ Ausente.
 /// Devuelve null si la alumna está Justificada (la gestiona el Equipo de Gestión).
 EstadoAsistencia? alternarEstado(EstadoAsistencia estado) => switch (estado) {
@@ -64,10 +67,8 @@ class ClaseSesionController extends ChangeNotifier {
   List<ParticipacionClase> participaciones = [];
   bool fotoSubida = false;
 
-  // Podio Kahoot de la sesión (ids de alumna)
-  String? primerLugarId;
-  String? segundoLugarId;
-  String? tercerLugarId;
+  /// Podio Kahoot de la sesión: ids de alumna del 1° lugar en adelante (1 a 3)
+  List<String> podioAlumnas = const [];
 
   SesionClase? get sesionActual => _sesionActual;
   String get sesionId => _sesionActual?.id ?? '';
@@ -154,9 +155,7 @@ class ClaseSesionController extends ChangeNotifier {
         r.estado == EstadoAsistencia.pendiente && puedeRegistrar ? r.copyWith(estado: EstadoAsistencia.presente) : r,
     ];
     participaciones = List.of(lista.participaciones);
-    primerLugarId = lista.podio?.primerLugarAlumnaId;
-    segundoLugarId = lista.podio?.segundoLugarAlumnaId;
-    tercerLugarId = lista.podio?.tercerLugarAlumnaId;
+    podioAlumnas = lista.podioAlumnas;
   }
 
   /// Pase de lista de otra clase del curso (historial)
@@ -251,26 +250,21 @@ class ClaseSesionController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Guarda el podio con los ids de alumna de las tres presentes (US-29)
-  Future<ResultadoGuardado> guardarPodioKahoot({
-    required String primerId,
-    required String segundoId,
-    required String tercerId,
-  }) async {
-    if ({primerId, segundoId, tercerId}.length < 3) {
-      return const ResultadoGuardado(EstadoGuardado.rechazado, 'Elige tres alumnas distintas para el podio.');
+  /// Guarda el podio con los ids de alumna en orden, del 1° lugar en adelante (US-29).
+  /// Lleva tantos lugares como presentes haya, hasta 3: con una sola, queda primera.
+  Future<ResultadoGuardado> guardarPodioKahoot(List<String> alumnaIds) async {
+    final esperados = lugaresPodio(alumnasPresentes.length);
+    if (esperados == 0) {
+      return const ResultadoGuardado(EstadoGuardado.rechazado, 'No hay alumnas presentes para el podio.');
+    }
+    if (alumnaIds.length != esperados || alumnaIds.toSet().length != alumnaIds.length) {
+      return const ResultadoGuardado(EstadoGuardado.rechazado, 'Elige una alumna distinta para cada lugar del podio.');
     }
     String inscripcion(String alumnaId) => alumnasPresentes.firstWhere((r) => r.alumnaId == alumnaId).id;
-    final resultado = await repository.guardarPodio(
-      sesionId,
-      primero: inscripcion(primerId),
-      segundo: inscripcion(segundoId),
-      tercero: inscripcion(tercerId),
-    );
+    final inscripciones = [for (final id in alumnaIds) inscripcion(id)];
+    final resultado = await repository.guardarPodio(sesionId, inscripciones);
     if (!resultado.rechazado) {
-      primerLugarId = primerId;
-      segundoLugarId = segundoId;
-      tercerLugarId = tercerId;
+      podioAlumnas = List.unmodifiable(alumnaIds);
       if (resultado.pendiente) pendienteDeEnvio = true;
     }
     notifyListeners();
