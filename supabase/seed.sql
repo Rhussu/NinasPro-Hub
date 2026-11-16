@@ -399,6 +399,16 @@ INSERT INTO public.asistencia_alumnas (clase_id, inscripcion_id, estado, registr
 INSERT INTO public.asistencia_alumnas (clase_id, inscripcion_id, estado, registrado_por) VALUES ('912ac8a2-5329-58e8-9fc2-af3d814552bd', 'e8e6ba68-8e6e-55ff-8948-999e2242cace', 'ausente', '1aac4ad1-394b-509a-9fba-411b193bcc7c');
 INSERT INTO public.asistencia_alumnas (clase_id, inscripcion_id, estado, registrado_por) VALUES ('e5b6223f-c279-5c54-945b-dc044408d947', 'e8e6ba68-8e6e-55ff-8948-999e2242cace', 'ausente', '1aac4ad1-394b-509a-9fba-411b193bcc7c');
 
+-- Asistencia de tutoras de las clases realizadas: casi siempre presentes (US-33)
+INSERT INTO public.asistencia_tutores (clase_id, tutor_id, estado, registrado_por)
+SELECT c.id, ti.tutor_id,
+  CASE WHEN abs(hashtext(ti.tutor_id::text || c.numero_sesion::text)) % 6 = 0 THEN 'ausente' ELSE 'presente' END::public.estado_asistencia,
+  ti.tutor_id
+FROM public.clases c
+JOIN public.tutores_instancia ti ON ti.instancia_curso_id = c.instancia_curso_id
+WHERE c.estado = 'realizada'
+ON CONFLICT (clase_id, tutor_id) DO NOTHING;
+
 -- Cuenta de alumna demo (autorizada por Gestión de su sede)
 INSERT INTO public.correos_autorizados (correo, rol, sede_id, alumna_id, autorizado_por) VALUES ('valentina.soto@correo.cl', 'alumna', '86e8126c-4085-5643-8d87-3ee4ed689f96', '62791f53-841e-506c-bd78-17df2de237b4', '9fc64a9c-583f-5ea3-b88c-abdcd2b255fa');
 INSERT INTO auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change_token_new, email_change, email_change_token_current, reauthentication_token) VALUES ('00000000-0000-0000-0000-000000000000', '4a27e42e-c5be-56a3-8312-e7402686bf11', 'authenticated', 'authenticated', 'valentina.soto@correo.cl', extensions.crypt('NinasPro2026', extensions.gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', '', '');
