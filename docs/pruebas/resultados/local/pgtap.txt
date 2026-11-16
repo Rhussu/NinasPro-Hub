@@ -1,0 +1,41 @@
+WARN: auth.email.enable_signup is deprecated and will be removed in v4, use auth.email.enabled instead.
+WARN: auth.sms.enable_signup is deprecated and will be removed in v4, use auth.sms.enabled instead.
+Target: local stack (127.0.0.1:54322) · default; pass --remote for Niñas Pro Hub (sqnttkadlvqxdeyzhvaa)
+3.36: Pulling from supabase/pg_prove
+4f4fb700ef54: Pulling fs layer
+a22cb17b3b93: Pulling fs layer
+06d62d0de6d7: Pulling fs layer
+dcccee43ad5d: Pulling fs layer
+4f4fb700ef54: Already exists
+4f4fb700ef54: Pull complete
+a22cb17b3b93: Download complete
+dcccee43ad5d: Download complete
+a008cf086da5: Download complete
+06d62d0de6d7: Download complete
+dcccee43ad5d: Pull complete
+06d62d0de6d7: Pull complete
+a22cb17b3b93: Pull complete
+Digest: sha256:eda7c5e68719e9c8287e78c017118407b48df904a51c935f5ab6098b8c0bc6bc
+Status: Downloaded newer image for public.ecr.aws/supabase/pg_prove:3.36
+public.ecr.aws/supabase/pg_prove:3.36
+/Users/Walter/Desktop/NinasPro-Hub/supabase/tests/database/01_schema_and_constraints.test.sql ........ ok
+/Users/Walter/Desktop/NinasPro-Hub/supabase/tests/database/02_relational_integrity.test.sql .......... ok
+/Users/Walter/Desktop/NinasPro-Hub/supabase/tests/database/03_rol_tarea_tutor.test.sql ............... ok
+/Users/Walter/Desktop/NinasPro-Hub/supabase/tests/database/04_auth_rls.test.sql ...................... ok
+/Users/Walter/Desktop/NinasPro-Hub/supabase/tests/database/05_sesion_recuperacion.test.sql ........... ok
+/Users/Walter/Desktop/NinasPro-Hub/supabase/tests/database/06_accesos_mfa_auditoria.test.sql ......... ok
+/Users/Walter/Desktop/NinasPro-Hub/supabase/tests/database/07_catalogo_calendario.test.sql ........... ok
+/Users/Walter/Desktop/NinasPro-Hub/supabase/tests/database/08_catalogo_nombres_eliminacion.test.sql .. ok
+/Users/Walter/Desktop/NinasPro-Hub/supabase/tests/database/09_alumnas_autorizaciones.test.sql ........ ok
+/Users/Walter/Desktop/NinasPro-Hub/supabase/tests/database/10_conflictos_importacion.test.sql ........ ok
+/Users/Walter/Desktop/NinasPro-Hub/supabase/tests/database/11_reglas_clase.test.sql .................. ok
+/Users/Walter/Desktop/NinasPro-Hub/supabase/tests/database/12_auditoria.test.sql ..................... ok
+/Users/Walter/Desktop/NinasPro-Hub/supabase/tests/database/13_podio_segun_presentes.test.sql ......... ok
+/Users/Walter/Desktop/NinasPro-Hub/supabase/tests/database/14_justificativos_evidencias.test.sql ..... ok
+/Users/Walter/Desktop/NinasPro-Hub/supabase/tests/database/15_voluntariado_roles.test.sql ............ ok
+/Users/Walter/Desktop/NinasPro-Hub/supabase/tests/database/16_reportes_portal_alertas.test.sql ....... ok
+/Users/Walter/Desktop/NinasPro-Hub/supabase/tests/database/17_justificada_cuenta_ausente.test.sql .... ok
+/Users/Walter/Desktop/NinasPro-Hub/supabase/tests/database/18_accesos_por_rol.test.sql ............... ok
+All tests successful.
+Files=18, Tests=547,  4 wallclock secs ( 0.15 usr  0.05 sys +  0.15 cusr  0.17 csys =  0.52 CPU)
+Result: PASS

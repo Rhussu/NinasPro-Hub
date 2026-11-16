@@ -1,0 +1,9 @@
+{
+  "tiempos": {
+    "login_tutora_ms": 5118,
+    "abrir_lista_ms": 1745,
+    "guardar_asistencia_ms": 672,
+    "tarea_tutora_total_ms": 8633,
+    "portal_alumna_ms": 1780
+  }
+}

@@ -1,0 +1,98 @@
+name: Medición de RNF (beta)
+
+# Mide los RNF críticos contra la BETA (premain + proyecto Supabase de prueba).
+# Nunca contra producción. Corre a mano: Actions → "Medición de RNF (beta)" → Run.
+# Guarda los resultados en docs/pruebas/resultados/beta/ (rama premain) y
+# vuelve a publicar el informe en /beta/pruebas/.
+on:
+  # GitHub solo permite "Run workflow" si el archivo ya existe en main. Mientras
+  # tanto (y también después), se pide una medición editando este archivo en premain.
+  push:
+    branches: [ premain ]
+    paths:
+      - 'docs/pruebas/solicitar-medicion.txt'
+  workflow_dispatch:
+    inputs:
+      duracion:
+        description: 'Duración de la carga (TC-27 pide 10m)'
+        default: '10m'
+      vus:
+        description: 'Tutoras concurrentes (TC-27 pide 30)'
+        default: '30'
+      latencia:
+        description: 'Latencia de red simulada (netem)'
+        default: '100ms'
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: medicion-rnf
+  cancel-in-progress: false
+
+jobs:
+  medir:
+    if: github.ref_name == 'premain'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      SUPABASE_URL: ${{ secrets.BETA_SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.BETA_SUPABASE_ANON_KEY }}
+      CLAVE: ${{ secrets.BETA_CLAVE_CUENTAS }}
+      # La beta no tiene datos sintéticos: las cuentas de prueba las crea el equipo
+      # y se declaran como variables del repositorio (Settings → Variables).
+      CUENTAS: ${{ vars.BETA_CUENTAS_CARGA }}
+      CUENTAS_ACCESO: ${{ vars.BETA_CUENTAS_ACCESO }}
+      GH_TOKEN: ${{ github.token }}
+      SALIDA: docs/pruebas/resultados/beta
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verificar secretos
+        run: |
+          for v in SUPABASE_URL SUPABASE_ANON_KEY CLAVE; do
+            [ -n "${!v}" ] || { echo "❌ Falta el secreto de $v (BETA_SUPABASE_URL, BETA_SUPABASE_ANON_KEY, BETA_CLAVE_CUENTAS)"; exit 1; }
+          done
+          [ -n "$CUENTAS" ] || { echo "❌ Falta la variable BETA_CUENTAS_CARGA: correos de tutoras o Gestión con un curso y una clase con pase de lista, separados por comas"; exit 1; }
+          [ -n "$CUENTAS_ACCESO" ] || { echo "❌ Falta la variable BETA_CUENTAS_ACCESO: gestion_sede_B,gestion_sede_A,tutora_sede_A,alumna_sede_A,directiva"; exit 1; }
+          mkdir -p "$SALIDA"
+
+      - name: RNF-R-1 / R-2 · carga con 30 tutoras (TC-27)
+        continue-on-error: true
+        env:
+          VUS: ${{ inputs.vus || '30' }}
+          DURACION: ${{ inputs.duracion || '10m' }}
+          LATENCIA: ${{ inputs.latencia || '100ms' }}
+        run: bash pruebas-rnf/k6/correr.sh "$SALIDA/k6-carga.json" 2>&1 | tee "$SALIDA/k6-carga.txt"
+
+      - name: RNF-S-2 / S-1 · acceso cruzado (TC-02, 17, 31, 32)
+        continue-on-error: true
+        run: |
+          docker run --rm -v "$PWD/pruebas-rnf/seguridad:/scripts:ro" -v "$PWD/$SALIDA:/out" \
+            -e SUPABASE_URL -e SUPABASE_ANON_KEY -e CLAVE -e CUENTAS_ACCESO grafana/k6:0.57.0 \
+            run --quiet /scripts/acceso_cruzado.js 2>&1 | tee "$SALIDA/acceso-cruzado.txt"
+
+      - name: RNF-S-3 · TLS (TC-33)
+        continue-on-error: true
+        run: |
+          HOST_BD=$(echo "$SUPABASE_URL" | sed -E 's#^https?://##; s#/.*##')
+          bash pruebas-rnf/seguridad/tls.sh "${{ github.repository_owner }}.github.io" "$HOST_BD" > "$SALIDA/tls.json"
+          cat "$SALIDA/tls.json"
+
+      - name: RNF-P-3 · tiempos de despliegue y rollback (TC-42)
+        continue-on-error: true
+        run: bash pruebas-rnf/p3_tiempos.sh premain cd-frontend.yml > "$SALIDA/p3.json" && cat "$SALIDA/p3.json"
+
+      - name: Guardar resultados en premain
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$SALIDA"
+          git commit -m "test(rnf): medición en la beta del $(date -u +%Y-%m-%d)" || echo "Sin cambios"
+          git push
+
+      # Un push hecho con GITHUB_TOKEN no dispara otros workflows: se pide a mano
+      - name: Volver a publicar el informe
+        run: gh workflow run cd-frontend.yml --ref premain

@@ -1,0 +1,65 @@
+name: CI - E2E (Flutter Web + Supabase local)
+
+# Pruebas extremo a extremo: la app compilada para web en Chrome headless contra
+# un Supabase efímero con migraciones + supabase/seed.sql (datos sintéticos).
+on:
+  pull_request:
+    branches: [ main, premain ]
+    paths:
+      - 'frontend/**'
+      - 'supabase/**'
+      - '.github/workflows/ci-e2e.yml'
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    name: flutter drive (Chrome) sobre Supabase local
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 3.2.0
+
+      - name: Levantar Supabase local con el seed
+        run: supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Dependencias
+        working-directory: frontend
+        run: flutter pub get
+
+      # ubuntu-latest trae Chrome y su chromedriver ($CHROMEWEBDRIVER)
+      - name: E2E en Chrome headless
+        working-directory: frontend
+        run: |
+          "$CHROMEWEBDRIVER/chromedriver" --port=4444 --silent &
+          sleep 1
+          ANON=$(supabase status -o env | grep '^ANON_KEY=' | cut -d= -f2- | tr -d '"')
+          flutter drive --driver=test_driver/integration_test.dart \
+            --target=integration_test/app_e2e_test.dart \
+            -d web-server --browser-name=chrome --headless \
+            --web-browser-flag=--no-sandbox --web-browser-flag=--disable-dev-shm-usage \
+            --dart-define=SUPABASE_URL=http://127.0.0.1:54321 \
+            --dart-define=SUPABASE_ANON_KEY="$ANON" \
+            --dart-define=E2E_CLAVE=NinasPro2026 2>&1 | tee e2e.txt
+
+      - name: Publicar evidencia
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e
+          path: |
+            frontend/e2e.txt
+            frontend/build/integration_response_data.json
+
+      - name: Apagar Supabase
+        if: always()
+        run: supabase stop

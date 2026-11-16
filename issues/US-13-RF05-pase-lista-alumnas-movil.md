@@ -9,7 +9,7 @@ assignees: ""
 ### 📌 Trazabilidad
 - **Prioridad / Tipo:** Must (MVP)
 - **Requisito funcional (Base):** RF-5 · Registro de asistencia de alumnas por clase
-- **Requisitos no funcionales (Indirectos):** RNF-R-1 (Tiempo de respuesta ≤ 1.5s), RNF-U-1 (Touch targets ≥ 48x48px), RNF-U-2 (Completado en ≤ 3 min), RNF-U-3 (Móvil desde 360px)
+- **Requisitos no funcionales (Indirectos):** RNF-R-1 (Tiempo de respuesta ≤ 1.5s), RNF-U-1 (Touch targets ≥ 44x44 px, WCAG 2.1 AA, SRS §4.4), RNF-U-2 (Completado en ≤ 3 min), RNF-U-3 (Móvil desde 360px)
 - **Reglas de negocio asociadas:** RB-1 (Solo alumnas activas), RB-7 (Trazabilidad de cambios), RB-Separación-Roles (Tutora solo conmuta Presente ↔ Ausente; Justificada es gestionada exclusivamente por Equipo de Gestión)
 
 ---
@@ -31,6 +31,6 @@ assignees: ""
 ---
 
 ### 🛠️ Tareas
-- [ ] Frontend / UI: Vista móvil vertical táctil adaptada a pantallas móviles (≥ 48px touch targets, paleta oficial `NinasProColors`) con interacción rápida Presente ↔ Ausente y badge bloqueado para Justificada.
+- [ ] Frontend / UI: Vista móvil vertical táctil adaptada a pantallas móviles (≥ 44×44 px touch targets según el SRS §4.4, paleta oficial `NinasProColors`) con interacción rápida Presente ↔ Ausente y badge bloqueado para Justificada.
 - [ ] Backend / Lógica: Inserción por lotes en tabla `asistencia_alumnas` validando que las tutoras de aula no puedan sobreescribir estados 'justificada' gestionados por Gestión.
 - [ ] Pruebas mínimas: TC-07 (Lista con conmutación P ↔ A y verificación de bloqueo en justificadas) y RNF-U-2 (Pase de lista en ≤ 3 min).

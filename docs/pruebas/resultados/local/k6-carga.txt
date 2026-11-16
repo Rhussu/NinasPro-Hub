@@ -1,0 +1,31 @@
+Latencia simulada: 100ms ± 20ms, pérdida 0%
+round-trip min/avg/max = 98.892/116.177/124.923 ms
+time="2026-11-16T21:39:57Z" level=warning msg="francisca.herrera@ninaspro.cl no tiene cursos" source=console
+time="2026-11-16T21:39:58Z" level=warning msg="constanza.vidal@ninaspro.cl no tiene cursos" source=console
+time="2026-11-16T21:39:58Z" level=info msg="Cuentas listas: 8/10" source=console
+
+     ✓ instancias 200
+     ✓ sesiones 200
+     ✓ lista 200
+     ✓ guardar 200
+
+     checks...............................: 100.00% 16040 out of 16040
+     data_received........................: 33 MB   54 kB/s
+     data_sent............................: 22 MB   36 kB/s
+     http_req_blocked.....................: avg=1.12ms   min=1.84µs  med=5.39µs   p(90)=8.06µs   p(95)=9.45µs   p(99)=77.77ms  max=140.6ms 
+     http_req_connecting..................: avg=1.12ms   min=0s      med=0s       p(90)=0s       p(95)=0s       p(99)=77.67ms  max=140.49ms
+     http_req_duration....................: avg=126ms    min=28.89ms med=120.28ms p(90)=163.36ms p(95)=179.25ms p(99)=269.61ms max=1.19s   
+       { expected_response:true }.........: avg=126ms    min=28.89ms med=120.28ms p(90)=163.36ms p(95)=179.25ms p(99)=269.61ms max=1.19s   
+     ✓ { operacion:cargar_sesion }........: avg=130.13ms min=28.89ms med=125.38ms p(90)=168.61ms p(95)=185.17ms p(99)=271.7ms  max=469.39ms
+     ✓ { operacion:guardar_asistencia }...: avg=113.7ms  min=39.34ms med=109.14ms p(90)=137.05ms p(95)=145.82ms p(99)=175.32ms max=1.19s   
+   ✓ http_req_failed......................: 0.00%   0 out of 16068
+     http_req_receiving...................: avg=1.78ms   min=16.46µs med=95.93µs  p(90)=143.54µs p(95)=169.71µs p(99)=90.63ms  max=134.78ms
+     http_req_sending.....................: avg=36.43µs  min=7.69µs  med=35.17µs  p(90)=53.58µs  p(95)=62.26µs  p(99)=94.94µs  max=529.1µs 
+     http_req_tls_handshaking.............: avg=0s       min=0s      med=0s       p(90)=0s       p(95)=0s       p(99)=0s       max=0s      
+     http_req_waiting.....................: avg=124.18ms min=28.8ms  med=120.15ms p(90)=161.77ms p(95)=174.4ms  p(99)=201.75ms max=1.19s   
+   ✓ http_reqs............................: 16068   26.429478/s
+     iteration_duration...................: avg=4.5s     min=2.47s   med=4.51s    p(90)=5.62s    p(95)=5.87s    p(99)=6.26s    max=6.74s   
+     iterations...........................: 4010    6.595856/s
+     vus..................................: 5       min=0              max=30
+     vus_max..............................: 30      min=30             max=30
+

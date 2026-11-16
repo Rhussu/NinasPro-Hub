@@ -1,0 +1,247 @@
+{
+    "root_group": {
+        "checks": {
+            "instancias 200": {
+                "name": "instancias 200",
+                "path": "::instancias 200",
+                "id": "d4708be507d5d118a6ca0c77c2dbcdc7",
+                "passes": 4010,
+                "fails": 0
+            },
+            "sesiones 200": {
+                "fails": 0,
+                "name": "sesiones 200",
+                "path": "::sesiones 200",
+                "id": "26fd14da8b234b0e3355666d5471f02b",
+                "passes": 4010
+            },
+            "lista 200": {
+                "fails": 0,
+                "name": "lista 200",
+                "path": "::lista 200",
+                "id": "676e89ed7559244cc3204a7eecff987f",
+                "passes": 4010
+            },
+            "guardar 200": {
+                "fails": 0,
+                "name": "guardar 200",
+                "path": "::guardar 200",
+                "id": "08f6ff1d12f07a6bdb6f64cd727e39e4",
+                "passes": 4010
+            }
+        },
+        "name": "",
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {}
+    },
+    "metrics": {
+        "http_req_duration{expected_response:true}": {
+            "avg": 126.00178216517324,
+            "min": 28.896022,
+            "med": 120.28991350000001,
+            "p(90)": 163.3668422,
+            "p(95)": 179.25062179999998,
+            "p(99)": 269.61590545,
+            "max": 1198.734055
+        },
+        "http_req_receiving": {
+            "p(95)": 0.16971449999999993,
+            "p(99)": 90.63486784999999,
+            "max": 134.783829,
+            "avg": 1.7823778476475098,
+            "min": 0.016462,
+            "med": 0.095937,
+            "p(90)": 0.1435493000000001
+        },
+        "http_req_duration{operacion:cargar_sesion}": {
+            "avg": 130.13465149127208,
+            "min": 28.896022,
+            "med": 125.380203,
+            "p(90)": 168.6191378,
+            "p(95)": 185.1782389,
+            "p(99)": 271.70257133999996,
+            "max": 469.394807,
+            "thresholds": {
+                "p(95)<1500": false
+            }
+        },
+        "http_req_blocked": {
+            "min": 0.00184,
+            "med": 0.00539,
+            "p(90)": 0.008061,
+            "p(95)": 0.00946,
+            "p(99)": 77.77285668999995,
+            "max": 140.604582,
+            "avg": 1.1290240611152542
+        },
+        "http_req_waiting": {
+            "p(99)": 201.75003175999998,
+            "max": 1198.578012,
+            "avg": 124.18296592861603,
+            "min": 28.803565,
+            "med": 120.15915749999999,
+            "p(90)": 161.77690270000002,
+            "p(95)": 174.40098095
+        },
+        "http_req_duration{operacion:guardar_asistencia}": {
+            "p(90)": 137.059702,
+            "p(95)": 145.82676805,
+            "p(99)": 175.32681101999933,
+            "max": 1198.734055,
+            "avg": 113.70349258802976,
+            "min": 39.342662,
+            "med": 109.141814,
+            "thresholds": {
+                "p(95)<1500": false
+            }
+        },
+        "data_sent": {
+            "count": 22064726,
+            "rate": 36293.20382992813
+        },
+        "checks": {
+            "passes": 16040,
+            "fails": 0,
+            "value": 1
+        },
+        "iteration_duration": {
+            "med": 4510.574402,
+            "p(90)": 5623.8289693,
+            "p(95)": 5872.790591149998,
+            "p(99)": 6267.00927505,
+            "max": 6747.927798,
+            "avg": 4505.746631715466,
+            "min": 2475.870811
+        },
+        "vus_max": {
+            "value": 30,
+            "min": 30,
+            "max": 30
+        },
+        "http_req_sending": {
+            "med": 0.035173,
+            "p(90)": 0.053584,
+            "p(95)": 0.06226799999999999,
+            "p(99)": 0.09494412999999996,
+            "max": 0.529103,
+            "avg": 0.03643838890963395,
+            "min": 0.007691
+        },
+        "http_req_failed": {
+            "passes": 0,
+            "fails": 16068,
+            "thresholds": {
+                "rate<0.01": false
+            },
+            "value": 0
+        },
+        "http_req_duration": {
+            "p(95)": 179.25062179999998,
+            "p(99)": 269.61590545,
+            "max": 1198.734055,
+            "avg": 126.00178216517324,
+            "min": 28.896022,
+            "med": 120.28991350000001,
+            "p(90)": 163.3668422
+        },
+        "data_received": {
+            "rate": 54077.55181318761,
+            "count": 32876854
+        },
+        "http_reqs": {
+            "count": 16068,
+            "rate": 26.429478396390923,
+            "thresholds": {
+                "rate>=15": false
+            }
+        },
+        "vus": {
+            "value": 5,
+            "min": 0,
+            "max": 30
+        },
+        "http_req_tls_handshaking": {
+            "p(99)": 0,
+            "max": 0,
+            "avg": 0,
+            "min": 0,
+            "med": 0,
+            "p(90)": 0,
+            "p(95)": 0
+        },
+        "iterations": {
+            "count": 4010,
+            "rate": 6.595855636639756
+        },
+        "http_req_connecting": {
+            "max": 140.493163,
+            "avg": 1.1221397776947968,
+            "min": 0,
+            "med": 0,
+            "p(90)": 0,
+            "p(95)": 0,
+            "p(99)": 77.67258271999995
+        }
+    },
+    "setup_data": {
+        "tutoras": [
+            {
+                "clase": "6ad7b605-0cb1-599b-90fb-d64d23b85464",
+                "correo": "camila.sepulveda@ninaspro.cl",
+                "id": "9fc64a9c-583f-5ea3-b88c-abdcd2b255fa",
+                "instancia": "f58950d7-e247-5afd-9f19-835cb908e9ec",
+                "token": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImI4MTI2OWYxLTIxZDgtNGYyZS1iNzE5LWMyMjQwYTg0MGQ5MCIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwOi8vMTI3LjAuMC4xOjU0MzIxL2F1dGgvdjEiLCJzdWIiOiI5ZmM2NGE5Yy01ODNmLTVlYTMtYjg4Yy1hYmRjZDJiMjU1ZmEiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzk0ODY4Nzk1LCJpYXQiOjE3OTQ4NjUxOTUsImVtYWlsIjoiY2FtaWxhLnNlcHVsdmVkYUBuaW5hc3Byby5jbCIsInBob25lIjoiIiwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiZW1haWwiLCJwcm92aWRlcnMiOlsiZW1haWwiXX0sInVzZXJfbWV0YWRhdGEiOnt9LCJyb2xlIjoiYXV0aGVudGljYXRlZCIsImFhbCI6ImFhbDEiLCJhbXIiOlt7Im1ldGhvZCI6InBhc3N3b3JkIiwidGltZXN0YW1wIjoxNzk0ODY1MTk1fV0sInNlc3Npb25faWQiOiI0NjJkNDAyNi1iMjE4LTQwNDItYWJjZC1jZmM2YTU1NmJiNjciLCJpc19hbm9ueW1vdXMiOmZhbHNlfQ.7P6ffYqp01LgrR3rqlrAhlm6Gl5_gGEn6lOGn3Eek8E6kC88F_bNzkW9F0YH8S-0w6TzuYL1kWAMf3RqJf1RcQ"
+            },
+            {
+                "clase": "6ad7b605-0cb1-599b-90fb-d64d23b85464",
+                "correo": "valeria.troncoso@ninaspro.cl",
+                "id": "ae6f6860-9f29-5d72-bdfe-e1104526da18",
+                "instancia": "f58950d7-e247-5afd-9f19-835cb908e9ec",
+                "token": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImI4MTI2OWYxLTIxZDgtNGYyZS1iNzE5LWMyMjQwYTg0MGQ5MCIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwOi8vMTI3LjAuMC4xOjU0MzIxL2F1dGgvdjEiLCJzdWIiOiJhZTZmNjg2MC05ZjI5LTVkNzItYmRmZS1lMTEwNDUyNmRhMTgiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzk0ODY4Nzk2LCJpYXQiOjE3OTQ4NjUxOTYsImVtYWlsIjoidmFsZXJpYS50cm9uY29zb0BuaW5hc3Byby5jbCIsInBob25lIjoiIiwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiZW1haWwiLCJwcm92aWRlcnMiOlsiZW1haWwiXX0sInVzZXJfbWV0YWRhdGEiOnt9LCJyb2xlIjoiYXV0aGVudGljYXRlZCIsImFhbCI6ImFhbDEiLCJhbXIiOlt7Im1ldGhvZCI6InBhc3N3b3JkIiwidGltZXN0YW1wIjoxNzk0ODY1MTk2fV0sInNlc3Npb25faWQiOiI3NjVjY2U2Yy1iNmYxLTRiYjktOGI2YS0xZGE2YjhlMGYyMzIiLCJpc19hbm9ueW1vdXMiOmZhbHNlfQ.hvbb9f7bNCAUXvrL1ZxUe4PJonk5CrQfpgP7ipQIx9El4-0gTXkmrIKQ7lljJj7cfezpecdF07qtRncMgEixlQ"
+            },
+            {
+                "clase": "6ad7b605-0cb1-599b-90fb-d64d23b85464",
+                "correo": "daniela.valenzuela@ninaspro.cl",
+                "id": "0d1e4929-00dc-5acf-b9c4-62627fc4fe1b",
+                "instancia": "f58950d7-e247-5afd-9f19-835cb908e9ec",
+                "token": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImI4MTI2OWYxLTIxZDgtNGYyZS1iNzE5LWMyMjQwYTg0MGQ5MCIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwOi8vMTI3LjAuMC4xOjU0MzIxL2F1dGgvdjEiLCJzdWIiOiIwZDFlNDkyOS0wMGRjLTVhY2YtYjljNC02MjYyN2ZjNGZlMWIiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzk0ODY4Nzk2LCJpYXQiOjE3OTQ4NjUxOTYsImVtYWlsIjoiZGFuaWVsYS52YWxlbnp1ZWxhQG5pbmFzcHJvLmNsIiwicGhvbmUiOiIiLCJhcHBfbWV0YWRhdGEiOnsicHJvdmlkZXIiOiJlbWFpbCIsInByb3ZpZGVycyI6WyJlbWFpbCJdfSwidXNlcl9tZXRhZGF0YSI6e30sInJvbGUiOiJhdXRoZW50aWNhdGVkIiwiYWFsIjoiYWFsMSIsImFtciI6W3sibWV0aG9kIjoicGFzc3dvcmQiLCJ0aW1lc3RhbXAiOjE3OTQ4NjUxOTZ9XSwic2Vzc2lvbl9pZCI6IjZlMTIxMjU3LTg0ZGEtNDVjYS05OGY1LTBjMDNkMDFiYzE5OCIsImlzX2Fub255bW91cyI6ZmFsc2V9.sbodzc0fX-DEi-10PlQoYmCOEdZ7cDGs0GnN-P_OMhOZgDxQyGdlTmFqSAtWyXKmF1A8Ry8h6P4Xkm3ANH352A"
+            },
+            {
+                "correo": "javiera.munoz@ninaspro.cl",
+                "id": "c43aa40b-e08c-5d7d-b28c-fff101f943c4",
+                "instancia": "f58950d7-e247-5afd-9f19-835cb908e9ec",
+                "token": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImI4MTI2OWYxLTIxZDgtNGYyZS1iNzE5LWMyMjQwYTg0MGQ5MCIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwOi8vMTI3LjAuMC4xOjU0MzIxL2F1dGgvdjEiLCJzdWIiOiJjNDNhYTQwYi1lMDhjLTVkN2QtYjI4Yy1mZmYxMDFmOTQzYzQiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzk0ODY4Nzk3LCJpYXQiOjE3OTQ4NjUxOTcsImVtYWlsIjoiamF2aWVyYS5tdW5vekBuaW5hc3Byby5jbCIsInBob25lIjoiIiwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiZW1haWwiLCJwcm92aWRlcnMiOlsiZW1haWwiXX0sInVzZXJfbWV0YWRhdGEiOnt9LCJyb2xlIjoiYXV0aGVudGljYXRlZCIsImFhbCI6ImFhbDEiLCJhbXIiOlt7Im1ldGhvZCI6InBhc3N3b3JkIiwidGltZXN0YW1wIjoxNzk0ODY1MTk3fV0sInNlc3Npb25faWQiOiI5NTU2MDE5ZC03ZjkzLTQ3MGUtYjg1MC0yNTUyZjY5ZThjZTYiLCJpc19hbm9ueW1vdXMiOmZhbHNlfQ.DnyPMit1S-QDhoPUkw1ZPsfGvYiYdSF1nKVXgv1wpNdZdUgKLtENlCORqFJJIYHXZRR_Wr7dyfBBEPH9yejyCw",
+                "clase": "6ad7b605-0cb1-599b-90fb-d64d23b85464"
+            },
+            {
+                "clase": "6ad7b605-0cb1-599b-90fb-d64d23b85464",
+                "correo": "antonia.reyes@ninaspro.cl",
+                "id": "9d8b6611-7054-5812-a50b-6b4a4462f965",
+                "instancia": "f58950d7-e247-5afd-9f19-835cb908e9ec",
+                "token": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImI4MTI2OWYxLTIxZDgtNGYyZS1iNzE5LWMyMjQwYTg0MGQ5MCIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwOi8vMTI3LjAuMC4xOjU0MzIxL2F1dGgvdjEiLCJzdWIiOiI5ZDhiNjYxMS03MDU0LTU4MTItYTUwYi02YjRhNDQ2MmY5NjUiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzk0ODY4Nzk3LCJpYXQiOjE3OTQ4NjUxOTcsImVtYWlsIjoiYW50b25pYS5yZXllc0BuaW5hc3Byby5jbCIsInBob25lIjoiIiwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiZW1haWwiLCJwcm92aWRlcnMiOlsiZW1haWwiXX0sInVzZXJfbWV0YWRhdGEiOnt9LCJyb2xlIjoiYXV0aGVudGljYXRlZCIsImFhbCI6ImFhbDEiLCJhbXIiOlt7Im1ldGhvZCI6InBhc3N3b3JkIiwidGltZXN0YW1wIjoxNzk0ODY1MTk3fV0sInNlc3Npb25faWQiOiJmY2IyOTdlYS0xYWE5LTRjMjQtODk4Ni0xNDNiZmUwMWQ3OTkiLCJpc19hbm9ueW1vdXMiOmZhbHNlfQ.diO4pL8EIXOQiOmPwVtTFz9orGDzkHkhdsG_oXzE53hUitrPVGexYVY6ezVPrrBNEfZBx6juKY_qhOoyk1vGQw"
+            },
+            {
+                "clase": "6ad7b605-0cb1-599b-90fb-d64d23b85464",
+                "correo": "catalina.soto@ninaspro.cl",
+                "id": "13506b24-5575-50a6-a191-0cfdd46a9cb1",
+                "instancia": "f58950d7-e247-5afd-9f19-835cb908e9ec",
+                "token": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImI4MTI2OWYxLTIxZDgtNGYyZS1iNzE5LWMyMjQwYTg0MGQ5MCIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwOi8vMTI3LjAuMC4xOjU0MzIxL2F1dGgvdjEiLCJzdWIiOiIxMzUwNmIyNC01NTc1LTUwYTYtYTE5MS0wY2ZkZDQ2YTljYjEiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzk0ODY4Nzk3LCJpYXQiOjE3OTQ4NjUxOTcsImVtYWlsIjoiY2F0YWxpbmEuc290b0BuaW5hc3Byby5jbCIsInBob25lIjoiIiwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiZW1haWwiLCJwcm92aWRlcnMiOlsiZW1haWwiXX0sInVzZXJfbWV0YWRhdGEiOnt9LCJyb2xlIjoiYXV0aGVudGljYXRlZCIsImFhbCI6ImFhbDEiLCJhbXIiOlt7Im1ldGhvZCI6InBhc3N3b3JkIiwidGltZXN0YW1wIjoxNzk0ODY1MTk3fV0sInNlc3Npb25faWQiOiJjMjAwZTNhYi00YzM4LTQ5N2QtYTY5OC1kZmEzMzRmNzhkZmUiLCJpc19hbm9ueW1vdXMiOmZhbHNlfQ.8_kiupebBlyZm95AptpQALvVbqefFxnTYHbpwPJQ9NC1uwQs_zs6_DWAzByqvDOyKjuJMXJFIDj95J7FYxxqGQ"
+            },
+            {
+                "correo": "martina.lagos@ninaspro.cl",
+                "id": "5759ea42-23e1-55d2-92b8-343d22a714e4",
+                "instancia": "f58950d7-e247-5afd-9f19-835cb908e9ec",
+                "token": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImI4MTI2OWYxLTIxZDgtNGYyZS1iNzE5LWMyMjQwYTg0MGQ5MCIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwOi8vMTI3LjAuMC4xOjU0MzIxL2F1dGgvdjEiLCJzdWIiOiI1NzU5ZWE0Mi0yM2UxLTU1ZDItOTJiOC0zNDNkMjJhNzE0ZTQiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzk0ODY4Nzk4LCJpYXQiOjE3OTQ4NjUxOTgsImVtYWlsIjoibWFydGluYS5sYWdvc0BuaW5hc3Byby5jbCIsInBob25lIjoiIiwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiZW1haWwiLCJwcm92aWRlcnMiOlsiZW1haWwiXX0sInVzZXJfbWV0YWRhdGEiOnt9LCJyb2xlIjoiYXV0aGVudGljYXRlZCIsImFhbCI6ImFhbDEiLCJhbXIiOlt7Im1ldGhvZCI6InBhc3N3b3JkIiwidGltZXN0YW1wIjoxNzk0ODY1MTk4fV0sInNlc3Npb25faWQiOiJiNGQ2YTIwZC02ODQ2LTRlNjEtYmNhYi1kY2NkYjVmZjFlMmEiLCJpc19hbm9ueW1vdXMiOmZhbHNlfQ.XH2lO75Ys9u01ssnm6KrSl0KqZG3YIeMAwy0fyERB3KrrCG5cZ-Wwgl-f0GxYSnWoHgjNubd1fFA8STWjFdu4Q",
+                "clase": "6ad7b605-0cb1-599b-90fb-d64d23b85464"
+            },
+            {
+                "correo": "fernanda.pizarro@ninaspro.cl",
+                "id": "34151514-aeca-5778-b1fe-e141cc035af5",
+                "instancia": "3a5ad0ad-2a99-50e2-8307-e0b7e8f6eb76",
+                "token": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImI4MTI2OWYxLTIxZDgtNGYyZS1iNzE5LWMyMjQwYTg0MGQ5MCIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwOi8vMTI3LjAuMC4xOjU0MzIxL2F1dGgvdjEiLCJzdWIiOiIzNDE1MTUxNC1hZWNhLTU3NzgtYjFmZS1lMTQxY2MwMzVhZjUiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzk0ODY4Nzk4LCJpYXQiOjE3OTQ4NjUxOTgsImVtYWlsIjoiZmVybmFuZGEucGl6YXJyb0BuaW5hc3Byby5jbCIsInBob25lIjoiIiwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiZW1haWwiLCJwcm92aWRlcnMiOlsiZW1haWwiXX0sInVzZXJfbWV0YWRhdGEiOnt9LCJyb2xlIjoiYXV0aGVudGljYXRlZCIsImFhbCI6ImFhbDEiLCJhbXIiOlt7Im1ldGhvZCI6InBhc3N3b3JkIiwidGltZXN0YW1wIjoxNzk0ODY1MTk4fV0sInNlc3Npb25faWQiOiI1OTViMjJmNi0yYTg1LTQwYjUtYTRmZC02N2VkNDI3YmIyYTAiLCJpc19hbm9ueW1vdXMiOmZhbHNlfQ.kzH4M8sQ6_tOi4YWkgAbYCSjIHaDaP37UK4B45jyCeqkbsr_byfcsu5hNs2CklliMaI4_RGTDT5O7g3L7E5TyA",
+                "clase": "e7d7ef11-4963-5fef-b5e1-a0c0f0d78e34"
+            }
+        ]
+    }
+}

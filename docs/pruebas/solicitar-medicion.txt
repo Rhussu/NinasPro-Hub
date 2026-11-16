@@ -1,0 +1,2 @@
+# Editar este archivo en premain pide una medición de los RNF en la beta
+# (workflow "Medición de RNF (beta)"). Anotar la fecha y el motivo.

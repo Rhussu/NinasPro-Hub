@@ -1,0 +1,36 @@
+21:45:42
+supabase_storage_NinasPro-Hub;77.69MiB / 17.57GiB;0.01%
+supabase_rest_NinasPro-Hub;75.9MiB / 17.57GiB;3.03%
+supabase_auth_NinasPro-Hub;10.7MiB / 17.57GiB;0.00%
+supabase_kong_NinasPro-Hub;181.1MiB / 17.57GiB;1.83%
+supabase_db_NinasPro-Hub;246.9MiB / 17.57GiB;51.08%
+21:46:04
+supabase_storage_NinasPro-Hub;77.18MiB / 17.57GiB;0.00%
+supabase_rest_NinasPro-Hub;76.23MiB / 17.57GiB;4.61%
+supabase_auth_NinasPro-Hub;10.7MiB / 17.57GiB;0.00%
+supabase_kong_NinasPro-Hub;184.2MiB / 17.57GiB;3.80%
+supabase_db_NinasPro-Hub;246.4MiB / 17.57GiB;57.67%
+21:46:26
+supabase_storage_NinasPro-Hub;77.37MiB / 17.57GiB;0.07%
+supabase_rest_NinasPro-Hub;73.78MiB / 17.57GiB;2.64%
+supabase_auth_NinasPro-Hub;11.36MiB / 17.57GiB;2.67%
+supabase_kong_NinasPro-Hub;184.3MiB / 17.57GiB;1.48%
+supabase_db_NinasPro-Hub;247MiB / 17.57GiB;38.90%
+21:46:49
+supabase_storage_NinasPro-Hub;77.41MiB / 17.57GiB;0.00%
+supabase_rest_NinasPro-Hub;73.99MiB / 17.57GiB;3.48%
+supabase_auth_NinasPro-Hub;10.85MiB / 17.57GiB;0.00%
+supabase_kong_NinasPro-Hub;184.3MiB / 17.57GiB;11.06%
+supabase_db_NinasPro-Hub;246.9MiB / 17.57GiB;56.65%
+21:47:11
+supabase_storage_NinasPro-Hub;78.23MiB / 17.57GiB;0.03%
+supabase_rest_NinasPro-Hub;73.86MiB / 17.57GiB;3.38%
+supabase_auth_NinasPro-Hub;10.87MiB / 17.57GiB;0.00%
+supabase_kong_NinasPro-Hub;185.2MiB / 17.57GiB;1.99%
+supabase_db_NinasPro-Hub;247.7MiB / 17.57GiB;47.23%
+21:47:33
+supabase_storage_NinasPro-Hub;77.79MiB / 17.57GiB;0.00%
+supabase_rest_NinasPro-Hub;74.63MiB / 17.57GiB;4.47%
+supabase_auth_NinasPro-Hub;10.87MiB / 17.57GiB;0.00%
+supabase_kong_NinasPro-Hub;184.9MiB / 17.57GiB;1.45%
+supabase_db_NinasPro-Hub;248.1MiB / 17.57GiB;38.03%

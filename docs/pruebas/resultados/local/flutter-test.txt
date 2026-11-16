@@ -1,0 +1,313 @@
+00:00 +0: loading /app/frontend/test/voluntariado_roles_screens_test.dart
+00:00 +0: /app/frontend/test/voluntariado_roles_screens_test.dart: Directorio del voluntariado lista las activas, filtra por estado y por sede y exporta lo filtrado (US-32)
+00:00 +1: /app/frontend/test/voluntariado_roles_screens_test.dart: Directorio del voluntariado lista las activas, filtra por estado y por sede y exporta lo filtrado (US-32)
+00:00 +2: /app/frontend/test/voluntariado_roles_screens_test.dart: Directorio del voluntariado lista las activas, filtra por estado y por sede y exporta lo filtrado (US-32)
+00:00 +3: /app/frontend/test/voluntariado_roles_screens_test.dart: Directorio del voluntariado lista las activas, filtra por estado y por sede y exporta lo filtrado (US-32)
+00:00 +4: /app/frontend/test/voluntariado_roles_screens_test.dart: Directorio del voluntariado lista las activas, filtra por estado y por sede y exporta lo filtrado (US-32)
+00:02 +5: /app/frontend/test/voluntariado_roles_screens_test.dart: Directorio del voluntariado lista las activas, filtra por estado y por sede y exporta lo filtrado (US-32)
+00:03 +6: /app/frontend/test/voluntariado_roles_screens_test.dart: Directorio del voluntariado lista las activas, filtra por estado y por sede y exporta lo filtrado (US-32)
+00:03 +7: /app/frontend/test/ajustes_accesos_test.dart: Tutora Ajustes llega a la clase de hoy y a su trabajo, en ese orden y sin lo de Gestión
+00:05 +8: /app/frontend/test/accesos_mfa_screens_test.dart: VerificacionMfaScreen la primera vez muestra el QR y la clave, y verifica el código
+00:05 +9: /app/frontend/test/voluntariado_roles_screens_test.dart: Directorio del voluntariado la ficha registra la adhesión y asigna a un curso (US-31)
+00:05 +10: /app/frontend/test/catalogo_ajustes_test.dart: Sedes rechaza un nombre que solo cambia en tildes o mayúsculas
+00:06 +11: /app/frontend/test/catalogo_ajustes_test.dart: Sedes rechaza un nombre que solo cambia en tildes o mayúsculas
+00:06 +12: /app/frontend/test/catalogo_ajustes_test.dart: Sedes rechaza un nombre que solo cambia en tildes o mayúsculas
+00:06 +13: /app/frontend/test/catalogo_ajustes_test.dart: Sedes rechaza un nombre que solo cambia en tildes o mayúsculas
+00:06 +14: /app/frontend/test/catalogo_ajustes_test.dart: Sedes rechaza un nombre que solo cambia en tildes o mayúsculas
+00:06 +15: /app/frontend/test/catalogo_ajustes_test.dart: Sedes rechaza un nombre que solo cambia en tildes o mayúsculas
+00:07 +16: /app/frontend/test/catalogo_ajustes_test.dart: Sedes rechaza un nombre que solo cambia en tildes o mayúsculas
+00:07 +17: /app/frontend/test/ajustes_accesos_test.dart: Tutora cada entrada abre la misma vista que su tarjeta o su Speed Dial
+00:07 +18: /app/frontend/test/ajustes_accesos_test.dart: Tutora cada entrada abre la misma vista que su tarjeta o su Speed Dial
+00:07 +19: /app/frontend/test/ajustes_accesos_test.dart: Tutora cada entrada abre la misma vista que su tarjeta o su Speed Dial
+00:07 +20: /app/frontend/test/ajustes_accesos_test.dart: Tutora cada entrada abre la misma vista que su tarjeta o su Speed Dial
+00:08 +21: /app/frontend/test/ajustes_accesos_test.dart: Tutora cada entrada abre la misma vista que su tarjeta o su Speed Dial
+00:08 +22: /app/frontend/test/ajustes_accesos_test.dart: Tutora cada entrada abre la misma vista que su tarjeta o su Speed Dial
+00:08 +23: /app/frontend/test/ajustes_accesos_test.dart: Tutora cada entrada abre la misma vista que su tarjeta o su Speed Dial
+00:08 +24: /app/frontend/test/calendario_screen_test.dart: Gestión ve solo los cursos vigentes y suspende y reanuda una sesión
+00:09 +25: /app/frontend/test/calendario_screen_test.dart: Gestión ve solo los cursos vigentes y suspende y reanuda una sesión
+00:09 +26: /app/frontend/test/directorio_screens_test.dart: la barra lateral navega por todas las secciones
+00:09 +27: /app/frontend/test/accesos_mfa_screens_test.dart: AccesosView la Directiva marca a una líder de sede y revoca una autorización
+00:09 +28: /app/frontend/test/accesos_mfa_screens_test.dart: AccesosView la Directiva marca a una líder de sede y revoca una autorización
+00:09 +29: /app/frontend/test/accesos_mfa_screens_test.dart: AccesosView la Directiva marca a una líder de sede y revoca una autorización
+00:09 +30: /app/frontend/test/accesos_mfa_screens_test.dart: AccesosView la Directiva marca a una líder de sede y revoca una autorización
+00:09 +31: /app/frontend/test/accesos_mfa_screens_test.dart: AccesosView la Directiva marca a una líder de sede y revoca una autorización
+00:10 +32: /app/frontend/test/accesos_mfa_screens_test.dart: AccesosView la Directiva marca a una líder de sede y revoca una autorización
+00:10 +33: /app/frontend/test/voluntariado_roles_screens_test.dart: Directorio del voluntariado el alta individual crea la ficha y muestra el error de la base (US-30 E3)
+00:10 +34: /app/frontend/test/voluntariado_roles_screens_test.dart: Directorio del voluntariado el alta individual crea la ficha y muestra el error de la base (US-30 E3)
+00:10 +35: /app/frontend/test/voluntariado_roles_screens_test.dart: Directorio del voluntariado el alta individual crea la ficha y muestra el error de la base (US-30 E3)
+00:10 +36: /app/frontend/test/directorio_screens_test.dart: exportar descarga el archivo disociado y registra la descarga en la auditoría (US-21, US-22)
+00:10 +37: /app/frontend/test/directorio_screens_test.dart: exportar descarga el archivo disociado y registra la descarga en la auditoría (US-21, US-22)
+00:10 +38: /app/frontend/test/directorio_screens_test.dart: exportar descarga el archivo disociado y registra la descarga en la auditoría (US-21, US-22)
+00:11 +39: /app/frontend/test/directorio_screens_test.dart: exportar descarga el archivo disociado y registra la descarga en la auditoría (US-21, US-22)
+00:11 +40: /app/frontend/test/directorio_screens_test.dart: exportar descarga el archivo disociado y registra la descarga en la auditoría (US-21, US-22)
+00:11 +41: /app/frontend/test/directorio_screens_test.dart: exportar descarga el archivo disociado y registra la descarga en la auditoría (US-21, US-22)
+00:11 +42: /app/frontend/test/directorio_screens_test.dart: exportar descarga el archivo disociado y registra la descarga en la auditoría (US-21, US-22)
+00:11 +43: /app/frontend/test/directorio_screens_test.dart: exportar descarga el archivo disociado y registra la descarga en la auditoría (US-21, US-22)
+00:11 +44: /app/frontend/test/directorio_screens_test.dart: exportar descarga el archivo disociado y registra la descarga en la auditoría (US-21, US-22)
+00:11 +45: /app/frontend/test/directorio_screens_test.dart: exportar descarga el archivo disociado y registra la descarga en la auditoría (US-21, US-22)
+00:11 +46: /app/frontend/test/directorio_screens_test.dart: exportar descarga el archivo disociado y registra la descarga en la auditoría (US-21, US-22)
+00:11 +47: /app/frontend/test/directorio_screens_test.dart: exportar descarga el archivo disociado y registra la descarga en la auditoría (US-21, US-22)
+00:11 +48: /app/frontend/test/ajustes_accesos_test.dart: Equipo de Gestión cada entrada abre la misma vista de Gestión
+00:11 +49: /app/frontend/test/ajustes_accesos_test.dart: Equipo de Gestión cada entrada abre la misma vista de Gestión
+00:12 +50: /app/frontend/test/ajustes_accesos_test.dart: Equipo de Gestión cada entrada abre la misma vista de Gestión
+00:12 +51: /app/frontend/test/ajustes_accesos_test.dart: Equipo de Gestión cada entrada abre la misma vista de Gestión
+00:13 +52: /app/frontend/test/ajustes_accesos_test.dart: Equipo de Gestión cada entrada abre la misma vista de Gestión
+00:13 +53: /app/frontend/test/ajustes_accesos_test.dart: Equipo de Gestión cada entrada abre la misma vista de Gestión
+00:13 +54: /app/frontend/test/ajustes_accesos_test.dart: Equipo de Gestión cada entrada abre la misma vista de Gestión
+00:14 +55: /app/frontend/test/ajustes_accesos_test.dart: Equipo de Gestión cada entrada abre la misma vista de Gestión
+00:14 +56: /app/frontend/test/ajustes_accesos_test.dart: Equipo de Gestión cada entrada abre la misma vista de Gestión
+00:14 +57: /app/frontend/test/ajustes_accesos_test.dart: Equipo de Gestión cada entrada abre la misma vista de Gestión
+00:14 +58: /app/frontend/test/ajustes_accesos_test.dart: Equipo de Gestión cada entrada abre la misma vista de Gestión
+00:14 +59: /app/frontend/test/ajustes_accesos_test.dart: Equipo de Gestión cada entrada abre la misma vista de Gestión
+00:14 +60: /app/frontend/test/ajustes_accesos_test.dart: Equipo de Gestión cada entrada abre la misma vista de Gestión
+00:14 +61: /app/frontend/test/ajustes_accesos_test.dart: Equipo de Gestión cada entrada abre la misma vista de Gestión
+00:15 +62: /app/frontend/test/ajustes_accesos_test.dart: Equipo de Gestión cada entrada abre la misma vista de Gestión
+00:15 +63: /app/frontend/test/ajustes_accesos_test.dart: Equipo de Gestión cada entrada abre la misma vista de Gestión
+00:15 +64: /app/frontend/test/ajustes_accesos_test.dart: Equipo de Gestión cada entrada abre la misma vista de Gestión
+00:15 +65: /app/frontend/test/ajustes_accesos_test.dart: Equipo de Gestión cada entrada abre la misma vista de Gestión
+00:15 +66: /app/frontend/test/ajustes_accesos_test.dart: Equipo de Gestión cada entrada abre la misma vista de Gestión
+00:15 +67: /app/frontend/test/ajustes_accesos_test.dart: Equipo de Gestión cada entrada abre la misma vista de Gestión
+00:15 +68: /app/frontend/test/ajustes_accesos_test.dart: Equipo de Gestión cada entrada abre la misma vista de Gestión
+00:15 +69: /app/frontend/test/ajustes_accesos_test.dart: Equipo de Gestión cada entrada abre la misma vista de Gestión
+00:15 +70: /app/frontend/test/ajustes_accesos_test.dart: Equipo de Gestión cada entrada abre la misma vista de Gestión
+00:15 +71: /app/frontend/test/directorio_screens_test.dart: Ajustes de la Directiva: menú lateral y creación de una sede (US-01)
+00:16 +72: /app/frontend/test/directorio_screens_test.dart: Ajustes de la Directiva: menú lateral y creación de una sede (US-01)
+00:16 +73: /app/frontend/test/directorio_screens_test.dart: Ajustes de la Directiva: menú lateral y creación de una sede (US-01)
+00:16 +74: /app/frontend/test/directorio_screens_test.dart: Ajustes de la Directiva: menú lateral y creación de una sede (US-01)
+00:17 +75: /app/frontend/test/directorio_screens_test.dart: Ajustes de la Directiva: menú lateral y creación de una sede (US-01)
+00:17 +76: /app/frontend/test/directorio_screens_test.dart: Ajustes de la Directiva: menú lateral y creación de una sede (US-01)
+00:17 +77: /app/frontend/test/directorio_screens_test.dart: Ajustes de la Directiva: menú lateral y creación de una sede (US-01)
+00:17 +78: /app/frontend/test/directorio_screens_test.dart: Ajustes de la Directiva: menú lateral y creación de una sede (US-01)
+00:17 +79: /app/frontend/test/directorio_screens_test.dart: Ajustes de la Directiva: menú lateral y creación de una sede (US-01)
+00:17 +80: /app/frontend/test/directorio_screens_test.dart: Ajustes de la Directiva: menú lateral y creación de una sede (US-01)
+00:17 +81: /app/frontend/test/directorio_screens_test.dart: Ajustes de la Directiva: menú lateral y creación de una sede (US-01)
+00:17 +82: /app/frontend/test/directorio_screens_test.dart: Ajustes de la Directiva: menú lateral y creación de una sede (US-01)
+00:17 +83: /app/frontend/test/directorio_screens_test.dart: Ajustes de la Directiva: menú lateral y creación de una sede (US-01)
+00:17 +84: /app/frontend/test/directorio_screens_test.dart: Ajustes de la Directiva: menú lateral y creación de una sede (US-01)
+00:18 +85: /app/frontend/test/directorio_screens_test.dart: Ajustes de la Directiva: menú lateral y creación de una sede (US-01)
+00:18 +86: /app/frontend/test/directorio_screens_test.dart: Ajustes de la Directiva: menú lateral y creación de una sede (US-01)
+00:18 +87: /app/frontend/test/directorio_screens_test.dart: Ajustes de la Directiva: menú lateral y creación de una sede (US-01)
+00:18 +88: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets NinasProStatCard renders and responds to tap
+00:18 +89: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets NinasProStatCard renders and responds to tap
+00:18 +90: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets NinasProStatCard renders and responds to tap
+00:18 +91: /app/frontend/test/ajustes_accesos_test.dart: Directiva Ajustes llega a la consola, al catálogo y, aparte, a lo de Gestión en todas las sedes
+00:18 +92: /app/frontend/test/ajustes_accesos_test.dart: Directiva Ajustes llega a la consola, al catálogo y, aparte, a lo de Gestión en todas las sedes
+00:19 +93: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:19 +94: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:19 +95: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:19 +96: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:19 +97: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:19 +98: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:19 +99: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:19 +100: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:19 +101: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:19 +102: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:19 +103: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:19 +104: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:19 +105: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:19 +106: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:19 +107: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:19 +108: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:19 +109: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:19 +110: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:19 +111: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:19 +112: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +113: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +114: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +115: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +116: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +117: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +118: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +119: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +120: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +121: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +122: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +123: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +124: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +125: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +126: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +127: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +128: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +129: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +130: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +131: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +132: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +133: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +134: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +135: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +136: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +137: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +138: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +139: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +140: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +141: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +142: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +143: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +144: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +145: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +146: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +147: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:20 +148: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:21 +149: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:21 +150: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:21 +151: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:21 +152: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:21 +153: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:21 +154: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:21 +155: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:21 +156: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:21 +157: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:21 +158: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)
+00:21 +159: /app/frontend/test/ajustes_accesos_test.dart: Directiva las entradas de la consola cierran Ajustes y abren la sección con su acción
+00:22 +160: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen speed dial: asistencia P/A, Kahoot, ejercicios y fotos (US-13, US-18, US-28, US-29)
+00:23 +161: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen speed dial: asistencia P/A, Kahoot, ejercicios y fotos (US-13, US-18, US-28, US-29)
+00:23 +162: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen speed dial: asistencia P/A, Kahoot, ejercicios y fotos (US-13, US-18, US-28, US-29)
+00:23 +163: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen speed dial: asistencia P/A, Kahoot, ejercicios y fotos (US-13, US-18, US-28, US-29)
+00:23 +164: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen speed dial: asistencia P/A, Kahoot, ejercicios y fotos (US-13, US-18, US-28, US-29)
+00:23 +165: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen speed dial: asistencia P/A, Kahoot, ejercicios y fotos (US-13, US-18, US-28, US-29)
+00:23 +166: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen speed dial: asistencia P/A, Kahoot, ejercicios y fotos (US-13, US-18, US-28, US-29)
+00:23 +167: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen speed dial: asistencia P/A, Kahoot, ejercicios y fotos (US-13, US-18, US-28, US-29)
+00:23 +168: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen speed dial: asistencia P/A, Kahoot, ejercicios y fotos (US-13, US-18, US-28, US-29)
+00:23 +169: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen speed dial: asistencia P/A, Kahoot, ejercicios y fotos (US-13, US-18, US-28, US-29)
+00:23 +170: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen speed dial: asistencia P/A, Kahoot, ejercicios y fotos (US-13, US-18, US-28, US-29)
+00:23 +171: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen speed dial: asistencia P/A, Kahoot, ejercicios y fotos (US-13, US-18, US-28, US-29)
+00:23 +172: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen speed dial: asistencia P/A, Kahoot, ejercicios y fotos (US-13, US-18, US-28, US-29)
+00:23 +173: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen speed dial: asistencia P/A, Kahoot, ejercicios y fotos (US-13, US-18, US-28, US-29)
+00:23 +174: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen speed dial: asistencia P/A, Kahoot, ejercicios y fotos (US-13, US-18, US-28, US-29)
+00:24 +175: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen speed dial: asistencia P/A, Kahoot, ejercicios y fotos (US-13, US-18, US-28, US-29)
+00:24 +176: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen speed dial: asistencia P/A, Kahoot, ejercicios y fotos (US-13, US-18, US-28, US-29)
+00:24 +177: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen speed dial: asistencia P/A, Kahoot, ejercicios y fotos (US-13, US-18, US-28, US-29)
+00:24 +178: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen speed dial: asistencia P/A, Kahoot, ejercicios y fotos (US-13, US-18, US-28, US-29)
+00:24 +179: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen speed dial: asistencia P/A, Kahoot, ejercicios y fotos (US-13, US-18, US-28, US-29)
+00:24 +180: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen speed dial: asistencia P/A, Kahoot, ejercicios y fotos (US-13, US-18, US-28, US-29)
+00:24 +181: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen speed dial: asistencia P/A, Kahoot, ejercicios y fotos (US-13, US-18, US-28, US-29)
+00:24 +182: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen speed dial: asistencia P/A, Kahoot, ejercicios y fotos (US-13, US-18, US-28, US-29)
+00:24 +183: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen speed dial: asistencia P/A, Kahoot, ejercicios y fotos (US-13, US-18, US-28, US-29)
+00:24 +184: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen speed dial: asistencia P/A, Kahoot, ejercicios y fotos (US-13, US-18, US-28, US-29)
+00:24 +185: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen speed dial: asistencia P/A, Kahoot, ejercicios y fotos (US-13, US-18, US-28, US-29)
+00:24 +186: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen speed dial: asistencia P/A, Kahoot, ejercicios y fotos (US-13, US-18, US-28, US-29)
+00:24 +187: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen speed dial: asistencia P/A, Kahoot, ejercicios y fotos (US-13, US-18, US-28, US-29)
+00:24 +188: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen speed dial: asistencia P/A, Kahoot, ejercicios y fotos (US-13, US-18, US-28, US-29)
+00:24 +189: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen speed dial: asistencia P/A, Kahoot, ejercicios y fotos (US-13, US-18, US-28, US-29)
+00:25 +190: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets TutoraMobileScreen speed dial: asistencia P/A, Kahoot, ejercicios y fotos (US-13, US-18, US-28, US-29)
+00:25 +191: /app/frontend/test/auth_test.dart: AccesoScreen inicia sesión con correo y contraseña
+00:25 +192: /app/frontend/test/auth_test.dart: AccesoScreen inicia sesión con correo y contraseña
+00:26 +193: /app/frontend/test/auth_test.dart: AccesoScreen inicia sesión con correo y contraseña
+00:26 +194: /app/frontend/test/auth_test.dart: AccesoScreen inicia sesión con correo y contraseña
+00:26 +195: /app/frontend/test/auth_test.dart: AccesoScreen inicia sesión con correo y contraseña
+00:26 +196: /app/frontend/test/auth_test.dart: AccesoScreen inicia sesión con correo y contraseña
+00:26 +197: /app/frontend/test/auth_test.dart: AccesoScreen inicia sesión con correo y contraseña
+00:26 +198: /app/frontend/test/reportes_portal_alertas_test.dart: Vistas el portal denegado muestra el motivo y permite reintentar
+00:26 +199: /app/frontend/test/reportes_portal_alertas_test.dart: Vistas el portal denegado muestra el motivo y permite reintentar
+00:26 +200: /app/frontend/test/reportes_portal_alertas_test.dart: Vistas el portal denegado muestra el motivo y permite reintentar
+00:26 +201: /app/frontend/test/reportes_portal_alertas_test.dart: Vistas el portal denegado muestra el motivo y permite reintentar
+00:26 +202: /app/frontend/test/reportes_portal_alertas_test.dart: Vistas el portal denegado muestra el motivo y permite reintentar
+00:27 +203: /app/frontend/test/reportes_portal_alertas_test.dart: Vistas el portal denegado muestra el motivo y permite reintentar
+00:27 +204: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets El podio Kahoot lleva un lugar por alumna presente: con una sola, queda primera (US-29)
+00:27 +205: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets El podio Kahoot lleva un lugar por alumna presente: con una sola, queda primera (US-29)
+00:27 +206: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets El podio Kahoot lleva un lugar por alumna presente: con una sola, queda primera (US-29)
+00:27 +207: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets El podio Kahoot lleva un lugar por alumna presente: con una sola, queda primera (US-29)
+00:27 +208: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets El podio Kahoot lleva un lugar por alumna presente: con una sola, queda primera (US-29)
+00:27 +209: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets El podio Kahoot lleva un lugar por alumna presente: con una sola, queda primera (US-29)
+00:27 +210: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets El podio Kahoot lleva un lugar por alumna presente: con una sola, queda primera (US-29)
+00:27 +211: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets El podio Kahoot lleva un lugar por alumna presente: con una sola, queda primera (US-29)
+00:27 +212: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets El podio Kahoot lleva un lugar por alumna presente: con una sola, queda primera (US-29)
+00:27 +213: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets El podio Kahoot lleva un lugar por alumna presente: con una sola, queda primera (US-29)
+00:27 +214: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets El podio Kahoot lleva un lugar por alumna presente: con una sola, queda primera (US-29)
+00:27 +215: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets El podio Kahoot lleva un lugar por alumna presente: con una sola, queda primera (US-29)
+00:27 +216: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets El podio Kahoot lleva un lugar por alumna presente: con una sola, queda primera (US-29)
+00:27 +217: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets El podio Kahoot lleva un lugar por alumna presente: con una sola, queda primera (US-29)
+00:27 +218: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets El podio Kahoot lleva un lugar por alumna presente: con una sola, queda primera (US-29)
+00:27 +219: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets El podio Kahoot lleva un lugar por alumna presente: con una sola, queda primera (US-29)
+00:27 +220: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets El podio Kahoot lleva un lugar por alumna presente: con una sola, queda primera (US-29)
+00:27 +221: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets El podio Kahoot lleva un lugar por alumna presente: con una sola, queda primera (US-29)
+00:27 +222: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets El podio Kahoot lleva un lugar por alumna presente: con una sola, queda primera (US-29)
+00:27 +223: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets El podio Kahoot lleva un lugar por alumna presente: con una sola, queda primera (US-29)
+00:27 +224: /app/frontend/test/rut_input_formatter_test.dart: RutInputFormatter formatea el texto dentro de un TextField
+00:27 +225: /app/frontend/test/rut_input_formatter_test.dart: RutInputFormatter formatea el texto dentro de un TextField
+00:27 +226: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:27 +227: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:28 +228: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:28 +229: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:28 +230: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:28 +231: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:28 +232: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:28 +233: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:29 +234: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:29 +235: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:29 +236: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:29 +237: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:29 +238: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:29 +239: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:29 +240: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:29 +241: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:29 +242: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:29 +243: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:29 +244: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:29 +245: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:29 +246: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:30 +247: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:30 +248: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:30 +249: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:30 +250: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:30 +251: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:30 +252: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:30 +253: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:31 +254: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:31 +255: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:31 +256: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:31 +257: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:31 +258: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:31 +259: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:31 +260: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:31 +261: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:31 +262: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:31 +263: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:31 +264: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:31 +265: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:31 +266: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:31 +267: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:31 +268: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:31 +269: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:31 +270: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:31 +271: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:31 +272: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:31 +273: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:31 +274: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:31 +275: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:31 +276: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:31 +277: /app/frontend/test/justificativos_evidencias_test.dart: Compresión de la foto en el dispositivo (US-18 escenario 2, TC-12) una foto de varios MB queda en JPEG de menos de 1,5 MB y a lo más 1920 px
+00:32 +278: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets GestionMobileScreen speed dial opens tutor and class screens (US-13, US-15, US-29, US-33, US-43)
+00:32 +279: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets GestionMobileScreen speed dial opens tutor and class screens (US-13, US-15, US-29, US-33, US-43)
+00:32 +280: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets GestionMobileScreen speed dial opens tutor and class screens (US-13, US-15, US-29, US-33, US-43)
+00:32 +281: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets GestionMobileScreen speed dial opens tutor and class screens (US-13, US-15, US-29, US-33, US-43)
+00:32 +282: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets GestionMobileScreen speed dial opens tutor and class screens (US-13, US-15, US-29, US-33, US-43)
+00:32 +283: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets GestionMobileScreen speed dial opens tutor and class screens (US-13, US-15, US-29, US-33, US-43)
+00:33 +284: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets GestionMobileScreen speed dial opens tutor and class screens (US-13, US-15, US-29, US-33, US-43)
+00:34 +285: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets GestionMobileScreen speed dial opens tutor and class screens (US-13, US-15, US-29, US-33, US-43)
+00:34 +286: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets GestionMobileScreen speed dial opens tutor and class screens (US-13, US-15, US-29, US-33, US-43)
+00:34 +287: /app/frontend/test/alumnas_screens_test.dart: nómina de la Directiva sin instancias no se puede inscribir
+00:34 +288: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets AjustesGestionScreen muestra perfil de la tutora sin sección de apoderado
+00:34 +289: /app/frontend/test/alumnas_screens_test.dart: carga masiva (US-07, US-08) avisa los conflictos y los resuelve en la misma vista previa
+00:34 +290: /app/frontend/test/alumnas_screens_test.dart: carga masiva (US-07, US-08) avisa los conflictos y los resuelve en la misma vista previa
+00:35 +291: /app/frontend/test/alumnas_screens_test.dart: carga masiva (US-07, US-08) avisa los conflictos y los resuelve en la misma vista previa
+00:35 +292: /app/frontend/test/alumnas_screens_test.dart: carga masiva (US-07, US-08) avisa los conflictos y los resuelve en la misma vista previa
+00:35 +293: /app/frontend/test/alumnas_screens_test.dart: carga masiva (US-07, US-08) avisa los conflictos y los resuelve en la misma vista previa
+00:35 +294: /app/frontend/test/alumnas_screens_test.dart: carga masiva (US-07, US-08) avisa los conflictos y los resuelve en la misma vista previa
+00:35 +295: /app/frontend/test/alumnas_screens_test.dart: carga masiva (US-07, US-08) avisa los conflictos y los resuelve en la misma vista previa
+00:35 +296: /app/frontend/test/alumnas_screens_test.dart: carga masiva (US-07, US-08) avisa los conflictos y los resuelve en la misma vista previa
+00:36 +297: /app/frontend/test/alumnas_screens_test.dart: carga masiva (US-07, US-08) avisa los conflictos y los resuelve en la misma vista previa
+00:36 +298: /app/frontend/test/hub_screens_test.dart: Pantallas y widgets HubShellScreen cierra sesión desde Ajustes
+00:37 +299: /app/frontend/test/alumnas_screens_test.dart: carga masiva (US-07, US-08) lo que no se resuelve queda pendiente y se resuelve después
+00:37 +300: /app/frontend/test/alumnas_screens_test.dart: carga masiva (US-07, US-08) lo que no se resuelve queda pendiente y se resuelve después
+00:37 +301: /app/frontend/test/alumnas_screens_test.dart: carga masiva (US-07, US-08) un pendiente que sigue sin resolverse se informa y se puede descartar
+00:38 +302: /app/frontend/test/alumnas_screens_test.dart: carga masiva (US-07, US-08) una planilla que no respeta la plantilla se rechaza completa
+00:38 +303: /app/frontend/test/alumnas_screens_test.dart: carga masiva (US-07, US-08) si la base rechaza la carga se muestra su mensaje
+00:38 +304: /app/frontend/test/alumnas_screens_test.dart: inscripción individual (US-09) valida el RUT y el contacto, e inscribe con la fecha de nacimiento
+00:40 +305: /app/frontend/test/alumnas_screens_test.dart: inscripción individual (US-09) si ya está inscrita en el curso muestra el motivo de la base
+00:41 +306: /app/frontend/test/alumnas_screens_test.dart: inscripción individual (US-09) si el RUT tiene ficha con otros datos deja elegir antes de inscribir
+00:42 +307: /app/frontend/test/alumnas_screens_test.dart: inscripción individual (US-09) si el correo está en uso deja inscribir sin correo
+00:43 +308: /app/frontend/test/alumnas_screens_test.dart: ficha de la alumna (US-09, US-10, US-12) otorgar el consentimiento exige el respaldo y activa la matrícula
+00:44 +309: /app/frontend/test/alumnas_screens_test.dart: ficha de la alumna (US-09, US-10, US-12) revoca un canal con fecha y motivo
+00:45 +310: /app/frontend/test/alumnas_screens_test.dart: ficha de la alumna (US-09, US-10, US-12) registra el retiro de una inscripción conservando su historial
+00:46 +311: All tests passed!

@@ -1,0 +1,2 @@
+{"herramienta":"OpenSSL 3.5.9 29 Sep 2026 (Library: OpenSSL 3.5.9 29 Sep 2026)","fecha":"2026-11-16T22:13:32Z","hosts":[
+{"host":"rhussu.github.io","tls1_0":"rechazado","tls1_1":"rechazado","tls1_2":"aceptado","tls1_3":"aceptado","certificado":"0 (ok)","vence":"Dec 29 23:44:45 2026 GMT","cumple":true}],"cumple":true}
