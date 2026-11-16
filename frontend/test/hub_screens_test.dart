@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ninas_pro_hub/config/ninaspro_theme.dart';
 import 'package:ninas_pro_hub/models/sesion_usuario.dart';
+import 'package:ninas_pro_hub/repositories/clase_repository.dart';
 import 'package:ninas_pro_hub/repositories/mock_hub_repository.dart';
 import 'package:ninas_pro_hub/screens/alumna/portal_alumna_screen.dart';
 import 'package:ninas_pro_hub/screens/directorio/ajustes_directiva_screen.dart';
@@ -12,18 +13,38 @@ import 'package:ninas_pro_hub/screens/hub_shell_screen.dart';
 import 'package:ninas_pro_hub/screens/tutora/ajustes_tutora_screen.dart';
 import 'package:ninas_pro_hub/screens/tutora/tutora_mobile_screen.dart';
 import 'package:ninas_pro_hub/widgets/ninaspro_mascot.dart';
-import 'package:ninas_pro_hub/widgets/ninaspro_skeleton.dart';
 import 'package:ninas_pro_hub/widgets/ninaspro_stat_card.dart';
 
 import 'fakes/fake_auth_service.dart';
+import 'fakes/fake_clase_repository.dart';
 
 void main() {
   group('Mockup Screens & Widgets Tests', () {
     late MockHubRepository repository;
+    late FakeClaseRepository clase;
 
     setUp(() {
       repository = MockHubRepository();
+      clase = FakeClaseRepository();
     });
+
+    tearDown(() => clase.cerrar());
+
+    // Deja pasar los avisos (SnackBar) para que no tapen la barra inferior de la siguiente pantalla
+    Future<void> cerrarAvisos(WidgetTester tester) async {
+      await tester.pump(const Duration(seconds: 8));
+      await tester.pumpAndSettle();
+    }
+
+    // Espera un Future de la app avanzando el tiempo simulado (sembast usa timers)
+    Future<T> esperar<T>(WidgetTester tester, Future<T> futuro) async {
+      var listo = false;
+      futuro.whenComplete(() => listo = true).ignore();
+      for (var i = 0; i < 50 && !listo; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      return futuro;
+    }
 
     Widget createTestApp(Widget child) {
       return MaterialApp(
@@ -71,31 +92,27 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
 
       await tester.pumpWidget(createTestApp(
-        TutoraMobileScreen(repository: repository),
+        TutoraMobileScreen(repository: repository, clase: clase, sesion: SesionesDemo.tutora),
       ));
       await tester.pumpAndSettle();
 
       // Sin barra superior propia: la planificación de hoy va en el banner
       expect(find.text('TUTORA'), findsNothing);
       expect(find.byTooltip('Actualizar'), findsNothing);
-      expect(find.text('Clase 4 · Sábado 25 de Abril'), findsOneWidget);
+      expect(find.textContaining('Clase 4 · '), findsOneWidget);
       expect(find.text('Hoy toca: Funciones y Modularización del Código'), findsOneWidget);
       expect(find.text('Programación Competitiva Básica (Python) · Sede Beauchef'), findsOneWidget);
 
-      // Recargar deslizando hacia abajo: ~1 s descargando datos con esqueleto de carga
+      // Recargar deslizando hacia abajo vuelve a traer la clase
       await tester.drag(find.byType(ListView).first, const Offset(0, 600));
-      await tester.pump(); // Termina el arrastre
-      await tester.pump(const Duration(milliseconds: 300)); // Indicador en posición: inicia la recarga
-      expect(find.byType(NinasProSkeletonInicio), findsOneWidget);
-      expect(find.text('¡Hola, Daniela!'), findsNothing);
       await tester.pumpAndSettle();
-      expect(find.byType(NinasProSkeletonInicio), findsNothing);
-      expect(find.text('¡Hola, Daniela!'), findsOneWidget);
       expect(find.text('¡Hola, Daniela!'), findsOneWidget);
       expect(find.text('Alumnas presentes'), findsOneWidget);
+      expect(find.text('—/4'), findsOneWidget); // aún sin pase de lista
+      expect(find.text('Sin pase de lista'), findsOneWidget);
       expect(find.text('Recursos del Curso'), findsOneWidget);
 
-      // Rol de la semana: visible pero no editable
+      // Rol de la semana (aún del mockup): visible pero no editable
       expect(find.text('Tu rol esta semana · Semana 4'), findsOneWidget);
       expect(find.text('Presentar el Kahoot'), findsOneWidget);
       expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
@@ -112,16 +129,16 @@ void main() {
       await tester.tap(find.byTooltip('Cerrar acciones rápidas'));
       await tester.pumpAndSettle();
 
-      // Mi asistencia: registro individual de clases y roles
+      // Mi asistencia: Daniela asistió a las 3 clases realizadas
       final tarjetaMiAsistencia = find.ancestor(of: find.text('Mi asistencia'), matching: find.byType(Card));
-      expect(find.descendant(of: tarjetaMiAsistencia, matching: find.text('8/8')), findsOneWidget);
+      expect(find.descendant(of: tarjetaMiAsistencia, matching: find.text('3/3')), findsOneWidget);
       expect(find.descendant(of: tarjetaMiAsistencia, matching: find.text('100%')), findsOneWidget);
       await tester.tap(find.text('Mi asistencia'));
       await tester.pumpAndSettle();
       expect(find.text('Mi Asistencia'), findsOneWidget);
-      expect(find.text('Semana 3 · 18/04'), findsOneWidget);
+      expect(find.textContaining('Semana 3 · '), findsOneWidget);
       expect(find.text('HOY'), findsOneWidget);
-      expect(find.text('Programada'), findsNWidgets(2)); // semanas 9 y 10
+      expect(find.text('Programada'), findsNWidgets(7)); // semanas 4 a 10
       await tester.pageBack();
       await tester.pumpAndSettle();
     });
@@ -133,7 +150,7 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
 
       await tester.pumpWidget(createTestApp(
-        TutoraMobileScreen(repository: repository),
+        TutoraMobileScreen(repository: repository, clase: clase, sesion: SesionesDemo.tutora),
       ));
       await tester.pumpAndSettle();
 
@@ -144,35 +161,52 @@ void main() {
         await tester.pumpAndSettle();
       }
 
-      // Asistencia: alternar P ↔ A y guardar (US-13)
+      // Antes del pase de lista no hay podio ni ejercicios
+      await abrirAccion('Registrar Kahoot');
+      expect(find.textContaining('Se necesitan al menos 3 alumnas presentes'), findsOneWidget);
+      await tester.pumpAndSettle(const Duration(seconds: 5));
+
+      // Asistencia: todas parten presentes; alternar P ↔ A y guardar (US-13)
       await abrirAccion('Asistencia');
       expect(find.text('Guardar Asistencia de la Clase'), findsOneWidget);
+      expect(find.text('4 Presentes'), findsOneWidget);
       await tester.tap(find.text('Presente').first);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Guardar Asistencia de la Clase'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('Asistencia guardada'), findsOneWidget);
+      expect(find.textContaining('Asistencia guardada: 3 presentes, 1 ausentes'), findsOneWidget);
+      expect(find.textContaining('Última edición: Daniela Valenzuela Castro'), findsOneWidget);
+      expect(clase.estadoAlumna('clase-4', 'insc-1'), EstadoAsistencia.ausente);
       await tester.pageBack();
       await tester.pumpAndSettle();
+      expect(find.text('3/4'), findsOneWidget);
 
-      // Podio Kahoot (US-29)
+      // Podio Kahoot con las presentes (US-29)
       await abrirAccion('Registrar Kahoot');
       expect(find.text('Registrar Podio Kahoot (US-29)'), findsOneWidget);
       await tester.tap(find.text('Guardar Podio de la Sesión'));
       await tester.pumpAndSettle();
       expect(find.text('Registrar Podio Kahoot (US-29)'), findsNothing);
-      final sesiones = await repository.getSesiones(cursoId: 'curso-pcb-stgo');
-      expect(sesiones.firstWhere((s) => s.id == 'sesion-4').podioKahoot, isNotNull);
+      expect(clase.podio('clase-4'), ['insc-2', 'insc-3', 'insc-4']);
+      await cerrarAvisos(tester);
 
-      // Ejercicios (US-28)
+      // Ejercicios solo de las presentes, y se guardan (US-28)
       await abrirAccion('Ejercicios');
       expect(find.textContaining('Mostrando únicamente a las alumnas Presentes'), findsOneWidget);
+      expect(find.text('Valentina Soto Morales'), findsNothing);
+      await tester.tap(find.byIcon(Icons.add_circle_outline).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Guardar Ejercicios y Participación'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Ejercicios y participación guardados'), findsOneWidget);
+      expect(clase.participacion('clase-4', 'insc-2'), (1, false));
       await tester.pageBack();
       await tester.pumpAndSettle();
 
-      // Fotos (US-18, US-19)
+      // Fotos (US-18, US-19): Josefa está presente y no autoriza fotos
       await abrirAccion('Fotos');
       expect(find.textContaining('Restricción de Imagen'), findsOneWidget);
+      expect(find.textContaining('Josefa Muñoz Vera'), findsOneWidget);
       await tester.tap(find.textContaining('Tomar / Seleccionar Foto'));
       await tester.pumpAndSettle();
       expect(find.textContaining('Reemplazar Foto'), findsOneWidget);
@@ -262,29 +296,29 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
 
       await tester.pumpWidget(createTestApp(
-        GestionMobileScreen(repository: repository),
+        GestionMobileScreen(repository: repository, clase: clase, sesion: SesionesDemo.gestion),
       ));
       await tester.pumpAndSettle();
 
       expect(find.text('GESTIÓN SEDE'), findsNothing);
       expect(find.text('Hoy toca: Funciones y Modularización del Código'), findsOneWidget);
       expect(find.text('Alumnas presentes'), findsOneWidget);
-      // Mi asistencia como tutora (US-33): Camila asistió a 7 de 8 clases
+      // Mi asistencia como tutora (US-33): Camila asistió a 2 de 3 clases
       expect(find.text('Mi asistencia'), findsOneWidget);
       final tarjetaMiAsistencia = find.ancestor(of: find.text('Mi asistencia'), matching: find.byType(Card));
-      expect(find.descendant(of: tarjetaMiAsistencia, matching: find.text('7/8')), findsOneWidget);
-      expect(find.descendant(of: tarjetaMiAsistencia, matching: find.text('88%')), findsOneWidget);
+      expect(find.descendant(of: tarjetaMiAsistencia, matching: find.text('2/3')), findsOneWidget);
+      expect(find.descendant(of: tarjetaMiAsistencia, matching: find.text('67%')), findsOneWidget);
       // Abre mi registro individual (no la asistencia de todas las tutoras)
       await tester.tap(find.text('Mi asistencia'));
       await tester.pumpAndSettle();
       expect(find.text('Mi Asistencia'), findsOneWidget);
       expect(find.text('Asistencia de Tutoras'), findsNothing);
       expect(find.text('HOY'), findsOneWidget);
-      expect(find.text('Ausente'), findsOneWidget); // Camila faltó en la semana 5
+      expect(find.text('Ausente'), findsOneWidget); // Camila faltó en la semana 2
       await tester.pageBack();
       await tester.pumpAndSettle();
 
-      // Saludo y rol semanal de la tutora de Gestión que usa la app (tutora-1)
+      // Saludo y rol semanal (aún del mockup: tutora-1)
       expect(find.text('¡Hola, Camila!'), findsOneWidget);
       expect(find.text('Tu rol esta semana · Semana 4'), findsOneWidget);
       expect(find.text('Foto y Asistencia'), findsOneWidget);
@@ -309,14 +343,15 @@ void main() {
       expect(find.textContaining('inasistencias consecutivas'), findsWidgets);
     });
 
-    testWidgets('GestionMobileScreen speed dial opens tutor and class screens (US-13, US-29, US-33, US-43)', (WidgetTester tester) async {
+    testWidgets('GestionMobileScreen speed dial opens tutor and class screens (US-13, US-15, US-29, US-33, US-43)', (WidgetTester tester) async {
       tester.view.physicalSize = const Size(420, 1800);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
+      clase.perfilId = 'perfil-camila';
       await tester.pumpWidget(createTestApp(
-        GestionMobileScreen(repository: repository),
+        GestionMobileScreen(repository: repository, clase: clase, sesion: SesionesDemo.gestion),
       ));
       await tester.pumpAndSettle();
 
@@ -327,7 +362,7 @@ void main() {
         await tester.pumpAndSettle();
       }
 
-      // Roles semanales de tutoras (US-43)
+      // Roles semanales de tutoras (US-43, aún del mockup)
       await abrirAccion('Asignar roles a tutoras');
       expect(find.text('Roles de Tutoras'), findsOneWidget);
       expect(find.text('Semana 4'), findsOneWidget);
@@ -340,26 +375,40 @@ void main() {
       await tester.pageBack();
       await tester.pumpAndSettle();
 
-      // Asistencia de tutoras con rol semanal (US-33, US-43)
+      // Asistencia de tutoras: el equipo parte presente y se guarda (US-33)
       await abrirAccion('Asistencia de tutoras');
-      expect(find.text('Semana 4 · 25/04'), findsOneWidget);
+      expect(find.textContaining('Semana 4 · '), findsOneWidget);
       expect(find.text('Clase actual'), findsOneWidget);
-      expect(find.text('Guardar Asistencia de Tutoras'), findsOneWidget);
-      expect(find.text('Foto y Asistencia'), findsOneWidget); // rol de Camila en semana 4
-      expect(find.text('Sin rol asignado'), findsWidgets);
-      // Historial: semana 3 (solo lectura, con el rol que tuvo cada tutora)
+      expect(find.text('3 Presentes'), findsOneWidget);
+      await tester.tap(find.text('Presente').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Guardar Asistencia de Tutoras'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Asistencia de tutoras guardada: 2 de 3 presentes'), findsOneWidget);
+      expect(clase.estadoTutora('clase-4', 'perfil-javiera'), EstadoAsistencia.ausente);
+      // Historial: semana 2 (Camila faltó) y corrección posterior (US-33 escenario 3)
       await tester.tap(find.byTooltip('Semana anterior'));
       await tester.pumpAndSettle();
-      expect(find.text('Semana 3 · 18/04'), findsOneWidget);
+      await tester.tap(find.byTooltip('Semana anterior'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Semana 2 · '), findsOneWidget);
       expect(find.text('Historial · solo lectura'), findsOneWidget);
-      expect(find.text('Guardar Asistencia de Tutoras'), findsNothing);
-      expect(find.text('7 Presentes'), findsOneWidget);
+      expect(find.text('2 Presentes'), findsOneWidget);
       expect(find.text('1 Ausentes'), findsOneWidget);
-      expect(find.text('Coordinar Actividad Práctica'), findsOneWidget); // rol de Camila en semana 3
+      await cerrarAvisos(tester);
+      await tester.tap(find.text('Corregir lista'));
+      await tester.pumpAndSettle();
+      expect(find.text('Historial · corrigiendo'), findsOneWidget);
+      await tester.tap(find.text('Ausente'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Guardar Corrección'));
+      await tester.pumpAndSettle();
+      expect(clase.estadoTutora('clase-2', 'perfil-camila'), EstadoAsistencia.presente);
+      expect(find.text('3 Presentes'), findsOneWidget);
       await tester.pageBack();
       await tester.pumpAndSettle();
 
-      // Asistencia de alumnas compartida con Tutora (US-13) con historial
+      // Asistencia de alumnas compartida con Tutora (US-13) con historial y corrección (US-15)
       await abrirAccion('Asistencia');
       expect(find.text('Guardar Asistencia de la Clase'), findsOneWidget);
       await tester.tap(find.byTooltip('Semana anterior'));
@@ -367,6 +416,14 @@ void main() {
       expect(find.text('Historial · solo lectura'), findsOneWidget);
       expect(find.text('Guardar Asistencia de la Clase'), findsNothing);
       expect(find.text('1 Ausentes'), findsOneWidget); // Valentina faltó en la semana 3
+      await tester.tap(find.text('Corregir lista'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Ausente'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Guardar Corrección'));
+      await tester.pumpAndSettle();
+      expect(clase.estadoAlumna('clase-3', 'insc-1'), EstadoAsistencia.presente);
+      expect(find.textContaining('Última edición: Camila Sepúlveda Rivas'), findsOneWidget);
       // Volver a la clase actual
       await tester.tap(find.byTooltip('Volver a la clase actual'));
       await tester.pumpAndSettle();
@@ -374,13 +431,12 @@ void main() {
       await tester.pageBack();
       await tester.pumpAndSettle();
 
-      // Podio Kahoot (US-29)
+      // Podio Kahoot (US-29): sin pase de lista de hoy aún no se registra
       await abrirAccion('Registrar Kahoot');
-      expect(find.text('Registrar Podio Kahoot (US-29)'), findsOneWidget);
-      await tester.tapAt(const Offset(10, 10)); // cerrar modal
-      await tester.pumpAndSettle();
+      expect(find.textContaining('Se necesitan al menos 3 alumnas presentes'), findsOneWidget);
+      await tester.pumpAndSettle(const Duration(seconds: 5));
 
-      // Justificativo manual aprobado de inmediato (US-37)
+      // Justificativo manual aprobado de inmediato (US-37, aún del mockup)
       await abrirAccion('Ingresar justificativo');
       expect(find.text('Ingresar Justificativo'), findsOneWidget);
       await tester.tap(find.text('Registrar y Aprobar'));
@@ -466,6 +522,7 @@ void main() {
           sesion: sesion,
           themeNotifier: themeNotifier,
           onCerrarSesion: onCerrarSesion,
+          claseRepository: clase,
         ),
       ));
       await tester.pumpAndSettle();
@@ -477,33 +534,50 @@ void main() {
 
       expect(find.text('NiñasPro Hub'), findsOneWidget);
 
-      // Nubecita junto a Ajustes: conexión y cambios pendientes
-      Future<void> guardarPodio() => repository.guardarPodioKahoot(
-            sesionId: 'sesion-4',
-            primerLugarAlumnaId: 'alumna-1',
-            segundoLugarAlumnaId: 'alumna-2',
-            tercerLugarAlumnaId: 'alumna-3',
-          );
-      expect(find.byTooltip('Conectado · todo guardado en la nube'), findsOneWidget);
-      await guardarPodio();
-      await tester.pump();
+      // Nubecita junto a Ajustes: conexión y cambios de la clase pendientes
+      final lista = await esperar(tester, clase.lista('clase-4'));
+      Future<ResultadoGuardado> guardar() => clase.guardarAsistencia('clase-4', [
+            for (final r in lista.registros) r.copyWith(estado: EstadoAsistencia.presente),
+          ]);
       expect(find.byTooltip('Conectado · todo guardado en la nube'), findsOneWidget);
 
-      // Se cae internet: el cambio queda pendiente en el dispositivo
-      await repository.simularConexion(false);
-      await guardarPodio();
+      // Se cae internet: el pase de lista queda pendiente en el dispositivo (US-14)
+      clase.simularConexion(false);
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Sin conexión'), findsOneWidget);
+      expect((await esperar(tester, guardar())).pendiente, isTrue);
       await tester.pump();
       expect(find.byTooltip('Sin conexión · 1 cambio pendiente'), findsOneWidget);
 
-      // Vuelve la conexión: se suben los pendientes solos
-      final reconexion = repository.simularConexion(true);
-      await tester.pump();
-      expect(find.byTooltip('Subiendo 1 cambio pendiente…'), findsOneWidget);
-      await tester.pump(MockHubRepository.demoraSincronizacion);
-      await reconexion;
+      // Vuelve la conexión: se suben los pendientes solos y sin duplicar
+      clase.simularConexion(true);
+      await tester.pumpAndSettle();
+      await esperar(tester, clase.sincronizar());
       await tester.pumpAndSettle();
       expect(find.byTooltip('Conectado · todo guardado en la nube'), findsOneWidget);
       expect(find.text('☁️ Volvió la conexión: 1 cambio subido a la nube.'), findsOneWidget);
+      expect(clase.envios, [OperacionesClase.asistencia]);
+
+      // Un cambio guardado sin conexión que la nube rechaza al subirlo se avisa
+      clase.simularConexion(false);
+      await tester.pumpAndSettle();
+      await esperar(tester, guardar());
+      clase.rechazo = 'La clase ya está cerrada para edición.';
+      clase.simularConexion(true);
+      await esperar(tester, clase.sincronizar());
+      await tester.pumpAndSettle();
+      expect(find.textContaining('no se pudo subir: La clase ya está cerrada para edición.'), findsOneWidget);
+    });
+
+    testWidgets('HubShellScreen sin la clase conectada lo explica a Tutora y Gestión', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(420, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(createTestApp(HubShellScreen(repository: repository, sesion: SesionesDemo.tutora)));
+      await tester.pumpAndSettle();
+      expect(find.text('La clase necesita la conexión con la base de datos.'), findsOneWidget);
     });
 
     testWidgets('HubShellScreen abre la vista de Gestión según la sesión', (WidgetTester tester) async {

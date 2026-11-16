@@ -5,6 +5,7 @@ import 'package:ninas_pro_hub/services/health_service.dart';
 import 'package:ninas_pro_hub/widgets/db_health_checker.dart';
 
 import 'fakes/fake_auth_service.dart';
+import 'fakes/fake_clase_repository.dart';
 
 class MockHealthService extends HealthService {
   final DbHealthResult Function(String? url, String? key)? onCheck;
@@ -135,8 +136,10 @@ void main() {
 
   testWidgets('NinasProApp con sesión de Gestión abre su vista y al cerrar sesión vuelve al acceso', (WidgetTester tester) async {
     final auth = FakeAuthService(sesionGuardada: SesionesDemo.gestion);
+    final clase = FakeClaseRepository();
+    addTearDown(clase.cerrar);
 
-    await tester.pumpWidget(NinasProApp(authService: auth, healthService: MockHealthService()));
+    await tester.pumpWidget(NinasProApp(authService: auth, healthService: MockHealthService(), claseRepository: clase));
     await tester.pumpAndSettle();
 
     expect(find.text('NiñasPro Hub'), findsOneWidget);
