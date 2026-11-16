@@ -174,12 +174,15 @@ void main() {
     await irA(tester, 'Sedes');
     await tester.tap(find.text('Nueva sede'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextFormField, 'Nombre de la sede'), 'Sede Beauchef');
+    await tester.enterText(find.widgetWithText(TextFormField, 'Nombre de la sede'), 'sede beauchéf');
     await tester.enterText(find.widgetWithText(TextFormField, 'Institución anfitriona'), 'U. de Concepción');
     await tester.enterText(find.widgetWithText(TextFormField, 'Región'), 'Biobío');
     await tester.tap(find.text('Guardar'));
     await tester.pumpAndSettle();
-    expect(find.text('Ya existe una sede llamada "Sede Beauchef".'), findsOneWidget);
+    expect(
+      find.text('Ya existe la sede "Sede Beauchef". Los nombres no distinguen tildes, mayúsculas ni signos.'),
+      findsOneWidget,
+    );
 
     await tester.enterText(find.widgetWithText(TextFormField, 'Nombre de la sede'), 'Sede Concepción');
     await tester.tap(find.text('Guardar'));

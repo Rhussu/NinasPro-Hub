@@ -1,6 +1,7 @@
 import 'package:ninas_pro_hub/models/hub_models.dart';
 import 'package:ninas_pro_hub/repositories/catalogo_repository.dart';
 import 'package:ninas_pro_hub/utils/calendario.dart';
+import 'package:ninas_pro_hub/utils/nombres.dart';
 
 /// [CatalogoRepository] en memoria con las mismas reglas que la base:
 /// nombres y códigos únicos, fechas válidas, secciones paralelas confirmadas
@@ -43,7 +44,7 @@ class FakeCatalogoRepository implements CatalogoRepository {
   Future<List<Sede>> sedes() async => List.of(listaSedes);
 
   bool _nombreSedeUsado(String nombre, {String? excepto}) =>
-      listaSedes.any((s) => s.id != excepto && s.nombre.toLowerCase() == nombre.trim().toLowerCase());
+      listaSedes.any((s) => s.id != excepto && claveNombre(s.nombre) == claveNombre(nombre));
 
   @override
   Future<ResultadoCatalogo<void>> crearSede(DatosSede d) async {
@@ -81,7 +82,28 @@ class FakeCatalogoRepository implements CatalogoRepository {
   Future<List<CursoCatalogo>> cursos() async => List.of(listaCursos);
 
   bool _codigoUsado(String codigo, {String? excepto}) =>
-      listaCursos.any((c) => c.id != excepto && c.codigo == codigo.trim().toUpperCase());
+      listaCursos.any((c) => c.id != excepto && claveNombre(c.codigo) == claveNombre(codigo));
+
+  @override
+  Future<ResultadoCatalogo<void>> eliminarSede(String id) async {
+    if (errorEscritura != null) return ResultadoCatalogo.error(errorEscritura);
+    final sede = listaSedes.firstWhere((s) => s.id == id);
+    final usos = [...sede.usos, if (listaInstancias.any((i) => i.sedeId == id)) 'instancias de curso'];
+    if (usos.isNotEmpty) return ResultadoCatalogo.error('No se puede eliminar "${sede.nombre}": tiene ${usos.join(', ')}.');
+    listaSedes.remove(sede);
+    return const ResultadoCatalogo.ok();
+  }
+
+  @override
+  Future<ResultadoCatalogo<void>> eliminarCurso(String id) async {
+    if (errorEscritura != null) return ResultadoCatalogo.error(errorEscritura);
+    final curso = listaCursos.firstWhere((c) => c.id == id);
+    if (curso.usos.isNotEmpty || listaInstancias.any((i) => i.catalogoId == id)) {
+      return ResultadoCatalogo.error('No se puede eliminar "${curso.codigo}": tiene instancias de curso.');
+    }
+    listaCursos.remove(curso);
+    return const ResultadoCatalogo.ok();
+  }
 
   @override
   Future<ResultadoCatalogo<void>> crearCurso(DatosCurso d) async {

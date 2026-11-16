@@ -175,7 +175,7 @@ void main() {
       final repetida = await repo.crearSede(
         const DatosSede(nombre: 'Sede Concepción', institucion: 'UdeC', region: 'Biobío', modalidad: 'Presencial'),
       );
-      expect(repetida.error, 'Ya existe una sede llamada "Sede Concepción".');
+      expect(repetida.error, 'Ya existe una sede con ese nombre. Los nombres no distinguen tildes, mayúsculas ni signos.');
     });
 
     test('un curso con código repetido o sin permiso devuelve el mensaje para mostrar', () async {
@@ -297,6 +297,81 @@ void main() {
 
       respuesta = http.Response('boom', 500);
       expect((await repo.reanudarSesion('clase-3')).error, contains('Revisa tu conexión'));
+    });
+
+    test('lee los usos de sedes y cursos y elimina solo los que no se usan', () async {
+      var respuesta = http.Response(
+        jsonEncode([
+          {
+            'id': 'sede-a',
+            'nombre': 'Sede Beauchef',
+            'modalidad': 'presencial',
+            'activa': true,
+            'usuarios_sedes': [
+              {'es_lider_sede': true, 'perfiles': {'nombres': 'Camila', 'apellidos': 'Sepúlveda'}},
+              {'es_lider_sede': false, 'perfiles': {'nombres': 'Daniela', 'apellidos': 'Valenzuela'}},
+            ],
+            'instancias_curso': [
+              {'count': 1},
+            ],
+            'correos_autorizados': [
+              {'count': 3},
+            ],
+          },
+          {
+            'id': 'sede-b',
+            'nombre': 'Sede Libre',
+            'modalidad': 'presencial',
+            'activa': true,
+            'usuarios_sedes': [],
+            'instancias_curso': [
+              {'count': 0},
+            ],
+            'correos_autorizados': [
+              {'count': 0},
+            ],
+          },
+        ]),
+        200,
+        headers: json,
+      );
+      final repo = crear((_) => respuesta);
+
+      final sedes = await repo.sedes();
+      expect(sedes.first.usos, ['1 instancia de curso', '2 personas asignadas', '3 accesos pendientes']);
+      expect(sedes.last.usos, isEmpty);
+      expect(pedidos.last.url.queryParameters['correos_autorizados.usado_en'], 'is.null');
+
+      respuesta = http.Response(
+        jsonEncode([
+          {
+            'id': 'cat-1',
+            'codigo': 'PCB',
+            'nombre': 'Programación',
+            'descripcion': null,
+            'instancias_curso': [
+              {'count': 2},
+            ],
+          },
+        ]),
+        200,
+        headers: json,
+      );
+      expect((await repo.cursos()).single.usos, ['2 instancias de curso']);
+
+      respuesta = http.Response(jsonEncode([{'id': 'sede-b'}]), 200, headers: json);
+      expect((await repo.eliminarSede('sede-b')).ok, isTrue);
+      expect(pedidos.last.method, 'DELETE');
+      expect(pedidos.last.url.queryParameters['id'], 'eq.sede-b');
+
+      respuesta = error(409, '23503', 'No se puede eliminar "PCB": tiene 2 instancias de curso.');
+      expect((await repo.eliminarCurso('cat-1')).error, 'No se puede eliminar "PCB": tiene 2 instancias de curso.');
+
+      respuesta = error(409, '23503', 'update or delete on table "sedes" violates foreign key constraint');
+      expect((await repo.eliminarSede('sede-a')).error, 'No se puede eliminar: hay registros que lo usan.');
+
+      respuesta = http.Response('[]', 200, headers: json);
+      expect((await repo.eliminarCurso('cat-1')).error, 'No tienes permiso para hacer este cambio.');
     });
 
     test('lee las sesiones de la instancia ordenadas por fecha', () async {
