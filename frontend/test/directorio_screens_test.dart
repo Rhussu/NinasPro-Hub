@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ninas_pro_hub/config/ninaspro_theme.dart';
-import 'package:ninas_pro_hub/models/hub_models.dart';
 import 'package:ninas_pro_hub/repositories/mock_hub_repository.dart';
 import 'package:ninas_pro_hub/screens/directorio/ajustes_directiva_screen.dart';
 import 'package:ninas_pro_hub/screens/directorio/directorio_desktop_screen.dart';
@@ -71,9 +70,9 @@ void main() {
   testWidgets('la barra lateral navega por todas las secciones', (tester) async {
     await abrir(tester, DirectorioDesktopScreen(repository: repository));
 
+    // Sin la base de datos, la nómina de alumnas no se muestra (ver alumnas_screens_test.dart)
     await irA(tester, 'Alumnas');
-    expect(find.text('Inscribir alumna'), findsOneWidget);
-    expect(find.text('Josefa Ñancupil Rojas'), findsOneWidget);
+    expect(find.textContaining('necesita la conexión con la base de datos'), findsOneWidget);
 
     await irA(tester, 'Voluntariado');
     expect(find.text('Nueva voluntaria'), findsOneWidget);
@@ -85,47 +84,6 @@ void main() {
 
     await irA(tester, 'Auditoría');
     expect(find.text('16 eventos'), findsOneWidget);
-  });
-
-  testWidgets('carga masiva de alumnas: previsualiza y confirma (US-07, US-08)', (tester) async {
-    await abrir(tester, DirectorioDesktopScreen(repository: repository));
-    await irA(tester, 'Alumnas');
-
-    await tester.tap(find.text('Carga masiva'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Usar planilla de ejemplo'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('3 nuevas'), findsOneWidget);
-    expect(find.text('3 inválidas'), findsOneWidget);
-    await tester.tap(find.text('Confirmar carga (4)'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('✅ 4 alumnas quedaron preinscritas.'), findsOneWidget);
-    expect(find.text('Antonia Núñez Ríos'), findsOneWidget);
-    // Con conexión la carga queda en la nube de inmediato
-    expect(repository.estadoSincronizacion.value, EstadoSincronizacion.sincronizado);
-    expect(repository.cambiosPendientes.value, 0);
-  });
-
-  testWidgets('la ficha de la alumna permite revocar la autorización de imagen (US-12)', (tester) async {
-    await abrir(tester, DirectorioDesktopScreen(repository: repository));
-    await irA(tester, 'Alumnas');
-
-    await tester.tap(find.text('Valentina Soto Morales'));
-    await tester.pumpAndSettle();
-    expect(find.text('Autorizaciones del apoderado/a'), findsOneWidget);
-
-    await tester.tap(find.text('Revocar autorización'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextField, 'Motivo'), 'Solicitud de la apoderada');
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Revocar'));
-    await tester.pumpAndSettle();
-
-    final alumna = await repository.getAlumnaById('alumna-1');
-    expect(alumna!.autorizaFoto, isFalse);
-    expect(find.textContaining('Revocada desde'), findsWidgets);
   });
 
   testWidgets('la ficha de la voluntaria cambia su pertenencia al Equipo de Gestión', (tester) async {
