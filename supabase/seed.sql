@@ -418,4 +418,36 @@ INSERT INTO auth.identities (id, user_id, provider_id, provider, identity_data, 
 -- Justificativo pendiente de Valentina por su inasistencia de la semana pasada (bandeja de Gestión, US-37)
 INSERT INTO public.justificativos_inasistencia (clase_id, inscripcion_id, motivo, explicacion, subido_por, created_at) VALUES ('6ad7b605-0cb1-599b-90fb-d64d23b85464', 'a4480b07-a5c2-54e5-8a92-b3908d5c5212', 'escolar', 'Tenía una prueba de recuperación en el liceo ese sábado.', '4a27e42e-c5be-56a3-8312-e7402686bf11', now() - interval '2 days');
 
+-- Voluntariado sin cuenta (US-30): una autorizada que aún no entra y una retirada
+INSERT INTO public.voluntarios_detalle (rut, nombres, apellidos, correo, institucion_u_ocupacion, rol, sede_id, fecha_ingreso, declaracion_adhesion_firmada, fecha_firma_declaracion) VALUES ('20.123.456-5', 'Sofía', 'Araya Medina', 'sofia.araya@ninaspro.cl', 'Ingeniería Civil en Computación, U. de Chile', 'tutora', '86e8126c-4085-5643-8d87-3ee4ed689f96', current_date - 3, true, current_date - 3);
+INSERT INTO public.correos_autorizados (correo, rol, sede_id, rut, nombres, apellidos, autorizado_por) VALUES ('sofia.araya@ninaspro.cl', 'tutora', '86e8126c-4085-5643-8d87-3ee4ed689f96', '20.123.456-5', 'Sofía', 'Araya Medina', '153a59dc-cc3d-516f-92db-27df6fe5dd6b');
+INSERT INTO public.voluntarios_detalle (rut, nombres, apellidos, correo, institucion_u_ocupacion, rol, sede_id, fecha_ingreso, fecha_salida, declaracion_adhesion_firmada, fecha_firma_declaracion) VALUES ('18.987.654-8', 'Ignacia', 'Morales Fuentes', 'ignacia.morales@ninaspro.cl', 'Profesora de Matemáticas', 'tutora', '86e8126c-4085-5643-8d87-3ee4ed689f96', '2023-03-04', '2025-12-15', true, '2023-03-04');
+
+-- Roles de cada clase de PCB Beauchef (US-43, US-44): 0, 1, 2 o más por tutora.
+-- Clases realizadas: cada tutora del equipo con uno o dos roles, ya cumplidos.
+WITH equipo AS (
+  SELECT ti.tutor_id, row_number() OVER (ORDER BY ti.tutor_id) AS k
+  FROM public.tutores_instancia ti WHERE ti.instancia_curso_id = 'f58950d7-e247-5afd-9f19-835cb908e9ec'
+), roles AS (
+  SELECT id, row_number() OVER (ORDER BY codigo) - 1 AS n FROM public.rol_tarea_tutor WHERE activo
+)
+INSERT INTO public.tareas_semanales_tutores (clase_id, tutor_id, rol_tarea_tutor_id, completada)
+SELECT c.id, e.tutor_id, r.id, true
+FROM public.clases c
+CROSS JOIN equipo e
+JOIN roles r ON r.n = (e.k + c.numero_sesion) % 8
+  OR (r.n = (e.k + c.numero_sesion + 4) % 8 AND (e.k + c.numero_sesion) % 3 = 0)
+WHERE c.instancia_curso_id = 'f58950d7-e247-5afd-9f19-835cb908e9ec' AND c.estado = 'realizada';
+
+-- Clase de esta semana: Daniela con dos roles (uno ya listo), Javiera con dos y Martina sin rol
+INSERT INTO public.tareas_semanales_tutores (clase_id, tutor_id, rol_tarea_tutor_id, completada) VALUES
+  ('3844f374-485a-5725-8e66-b90fe194e42e', '0d1e4929-00dc-5acf-b9c4-62627fc4fe1b', 'b20fbd23-ef8d-5ecd-baae-d5c71eb8a47e', false),
+  ('3844f374-485a-5725-8e66-b90fe194e42e', '0d1e4929-00dc-5acf-b9c4-62627fc4fe1b', 'f65b5e4b-66e9-5324-ad9a-ac410bd159f2', true),
+  ('3844f374-485a-5725-8e66-b90fe194e42e', '9fc64a9c-583f-5ea3-b88c-abdcd2b255fa', '286fcbeb-e7bc-557a-97e3-6291f3b140ef', false),
+  ('3844f374-485a-5725-8e66-b90fe194e42e', 'ae6f6860-9f29-5d72-bdfe-e1104526da18', '62387432-fd3f-5337-87e4-ad655844367e', false),
+  ('3844f374-485a-5725-8e66-b90fe194e42e', 'c43aa40b-e08c-5d7d-b28c-fff101f943c4', '9b3c9334-3511-52af-bd3a-0793beebf747', false),
+  ('3844f374-485a-5725-8e66-b90fe194e42e', 'c43aa40b-e08c-5d7d-b28c-fff101f943c4', '17aa066a-3cca-5cda-acbc-d2ff3766c85c', false),
+  ('3844f374-485a-5725-8e66-b90fe194e42e', '9d8b6611-7054-5812-a50b-6b4a4462f965', '1adfb6a1-0a79-5ef2-96a7-73754313bb97', false),
+  ('3844f374-485a-5725-8e66-b90fe194e42e', '13506b24-5575-50a6-a191-0cfdd46a9cb1', '30ea72c1-0fe6-574d-a90a-4f5949fb9944', false);
+
 COMMIT;
