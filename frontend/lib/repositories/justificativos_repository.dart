@@ -3,7 +3,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/ninaspro_theme.dart';
 import '../models/hub_models.dart';
-import 'alumnas_repository.dart' show ArchivoAdjunto, MapeoAlumnas;
 import 'clase_repository.dart' show MapeoClase;
 
 export '../models/hub_models.dart' show EstadoJustificativo, MotivoJustificativo;
@@ -42,8 +41,6 @@ class JustificativoDetalle {
   final MotivoJustificativo motivo;
   final String? explicacion;
 
-  /// Ruta del respaldo en el bucket privado (se abre con una URL firmada)
-  final String? respaldo;
   final EstadoJustificativo estado;
   final String? observacion;
   final String? resueltoPor;
@@ -67,7 +64,6 @@ class JustificativoDetalle {
     required this.sedeNombre,
     required this.motivo,
     this.explicacion,
-    this.respaldo,
     required this.estado,
     this.observacion,
     this.resueltoPor,
@@ -78,14 +74,6 @@ class JustificativoDetalle {
 
   /// Clase #4 · 25/04/2026
   String get claseEtiqueta => 'Clase #$numeroSesion · ${fechaCorta(claseFecha)}';
-
-  /// Nombre del archivo de respaldo, sin la carpeta ni la marca de tiempo
-  String? get nombreRespaldo {
-    final r = respaldo;
-    if (r == null) return null;
-    final archivo = r.split('/').last;
-    return archivo.replaceFirst(RegExp(r'^\d+_'), '');
-  }
 }
 
 /// Clase que la alumna puede elegir al justificar (US-35 escenario 1)
@@ -135,12 +123,11 @@ abstract class JustificativosRepository {
   /// Clases que la alumna autenticada puede justificar
   Future<List<ClaseJustificable>> clasesParaJustificar();
 
-  /// La alumna envía su justificativo: queda pendiente para Gestión (US-35, US-36)
+  /// La alumna envía su justificativo con su explicación: queda pendiente para Gestión (US-35)
   Future<Resultado<void>> enviar({
     required ClaseJustificable clase,
     required MotivoJustificativo motivo,
     required String explicacion,
-    ArchivoAdjunto? respaldo,
   });
 
   /// Gestión registra el aviso de la apoderada: queda aprobado (US-16)
@@ -149,7 +136,6 @@ abstract class JustificativosRepository {
     required String inscripcionId,
     required MotivoJustificativo motivo,
     required String explicacion,
-    ArchivoAdjunto? respaldo,
   });
 
   /// Gestión aprueba o rechaza un pendiente; el rechazo lleva observación (US-37)
@@ -157,9 +143,6 @@ abstract class JustificativosRepository {
 
   /// Gestión elimina un justificativo vinculado por error (US-16 escenario 3)
   Future<Resultado<void>> eliminar(String id);
-
-  /// URL firmada de corta duración para ver el respaldo (US-17 escenario 1)
-  Future<Resultado<String>> urlRespaldo(String ruta);
 }
 
 /// Traducción entre las filas de Supabase y los modelos de la app
@@ -182,7 +165,6 @@ class MapeoJustificativos {
     sedeNombre: f['sede_nombre'] as String? ?? '',
     motivo: MotivoJustificativo.desdeDb(f['motivo']) ?? MotivoJustificativo.otro,
     explicacion: f['explicacion'] as String?,
-    respaldo: f['archivo_adjunto_url'] as String?,
     estado: EstadoJustificativo.desdeDb(f['estado']) ?? EstadoJustificativo.pendiente,
     observacion: f['observacion_resolucion'] as String?,
     resueltoPor: f['resuelto_por_nombre'] as String?,
@@ -202,23 +184,14 @@ class MapeoJustificativos {
     asistencia: MapeoClase.estado(f['asistencia']),
     justificativo: EstadoJustificativo.desdeDb(f['justificativo_estado']),
   );
-
-  /// Ruta del respaldo: carpeta de la inscripción y la clase (la exigen las políticas del bucket)
-  static String rutaRespaldo(String inscripcionId, String claseId, ArchivoAdjunto archivo, DateTime ahora) =>
-      '$inscripcionId/$claseId/${ahora.millisecondsSinceEpoch}_${MapeoAlumnas.nombreSeguro(archivo.nombre)}';
 }
 
 const _mensajeError = 'No pudimos guardar el justificativo. Inténtalo nuevamente.';
 
 class SupabaseJustificativosRepository implements JustificativosRepository {
-  static const _bucket = 'justificativos';
-
   final SupabaseClient _client;
 
-  /// Reloj inyectable para nombrar los respaldos en las pruebas
-  final DateTime Function() _ahora;
-
-  SupabaseJustificativosRepository(this._client, {DateTime Function()? ahora}) : _ahora = ahora ?? DateTime.now;
+  SupabaseJustificativosRepository(this._client);
 
   @override
   Future<List<JustificativoDetalle>> justificativos() async {
@@ -237,21 +210,11 @@ class SupabaseJustificativosRepository implements JustificativosRepository {
     required ClaseJustificable clase,
     required MotivoJustificativo motivo,
     required String explicacion,
-    ArchivoAdjunto? respaldo,
-  }) => _conRespaldo(
-    inscripcionId: clase.inscripcionId,
-    claseId: clase.claseId,
-    respaldo: respaldo,
-    guardar: (ruta) => _client.rpc(
-      'enviar_justificativo',
-      params: {
-        'p_clase_id': clase.claseId,
-        'p_motivo': motivo.name,
-        'p_explicacion': explicacion.trim(),
-        'p_archivo': ruta,
-      },
-    ),
-  );
+  }) => _rpc('enviar_justificativo', {
+    'p_clase_id': clase.claseId,
+    'p_motivo': motivo.name,
+    'p_explicacion': explicacion.trim(),
+  });
 
   @override
   Future<Resultado<void>> registrar({
@@ -259,85 +222,26 @@ class SupabaseJustificativosRepository implements JustificativosRepository {
     required String inscripcionId,
     required MotivoJustificativo motivo,
     required String explicacion,
-    ArchivoAdjunto? respaldo,
-  }) => _conRespaldo(
-    inscripcionId: inscripcionId,
-    claseId: claseId,
-    respaldo: respaldo,
-    guardar: (ruta) => _client.rpc(
-      'registrar_justificativo',
-      params: {
-        'p_clase_id': claseId,
-        'p_inscripcion_id': inscripcionId,
-        'p_motivo': motivo.name,
-        'p_explicacion': explicacion.trim(),
-        'p_archivo': ruta,
-      },
-    ),
-  );
-
-  // Sube el respaldo (si hay) y guarda; si la base lo rechaza, borra el archivo huérfano
-  Future<Resultado<void>> _conRespaldo({
-    required String inscripcionId,
-    required String claseId,
-    required ArchivoAdjunto? respaldo,
-    required Future<dynamic> Function(String? ruta) guardar,
-  }) async {
-    final errorArchivo = respaldo?.error;
-    if (errorArchivo != null) return Resultado.error(errorArchivo);
-    String? ruta;
-    try {
-      if (respaldo != null) {
-        ruta = MapeoJustificativos.rutaRespaldo(inscripcionId, claseId, respaldo, _ahora());
-        await _client.storage
-            .from(_bucket)
-            .uploadBinary(ruta, respaldo.bytes, fileOptions: FileOptions(contentType: respaldo.tipo));
-      }
-      await guardar(ruta);
-      return const Resultado.ok();
-    } on StorageException catch (e) {
-      return Resultado.error(
-        e.statusCode == '403'
-            ? 'No tienes permiso para adjuntar respaldos de esta alumna.'
-            : 'No pudimos subir el respaldo. Inténtalo nuevamente.',
-      );
-    } on PostgrestException catch (e) {
-      if (ruta != null) await _client.storage.from(_bucket).remove([ruta]).catchError((_) => <FileObject>[]);
-      return Resultado.error(_mensaje(e));
-    }
-  }
+  }) => _rpc('registrar_justificativo', {
+    'p_clase_id': claseId,
+    'p_inscripcion_id': inscripcionId,
+    'p_motivo': motivo.name,
+    'p_explicacion': explicacion.trim(),
+  });
 
   @override
-  Future<Resultado<void>> resolver(String id, {required bool aprobar, String? observacion}) async {
+  Future<Resultado<void>> resolver(String id, {required bool aprobar, String? observacion}) =>
+      _rpc('resolver_justificativo', {'p_id': id, 'p_aprobar': aprobar, 'p_observacion': observacion?.trim()});
+
+  @override
+  Future<Resultado<void>> eliminar(String id) => _rpc('eliminar_justificativo', {'p_id': id});
+
+  Future<Resultado<void>> _rpc(String funcion, Map<String, Object?> params) async {
     try {
-      await _client.rpc(
-        'resolver_justificativo',
-        params: {'p_id': id, 'p_aprobar': aprobar, 'p_observacion': observacion?.trim()},
-      );
+      await _client.rpc(funcion, params: params);
       return const Resultado.ok();
     } on PostgrestException catch (e) {
       return Resultado.error(_mensaje(e));
-    }
-  }
-
-  @override
-  Future<Resultado<void>> eliminar(String id) async {
-    try {
-      final ruta = await _client.rpc('eliminar_justificativo', params: {'p_id': id}) as String?;
-      // El justificativo ya no existe: si el respaldo no se borra, queda inaccesible para la app
-      if (ruta != null) await _client.storage.from(_bucket).remove([ruta]).catchError((_) => <FileObject>[]);
-      return const Resultado.ok();
-    } on PostgrestException catch (e) {
-      return Resultado.error(_mensaje(e));
-    }
-  }
-
-  @override
-  Future<Resultado<String>> urlRespaldo(String ruta) async {
-    try {
-      return Resultado.ok(await _client.storage.from(_bucket).createSignedUrl(ruta, 60));
-    } on StorageException {
-      return const Resultado.error('No pudimos abrir el respaldo.');
     }
   }
 

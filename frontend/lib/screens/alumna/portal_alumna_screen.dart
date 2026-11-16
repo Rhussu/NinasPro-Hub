@@ -16,7 +16,7 @@ import 'justificativos_alumna.dart';
 /// - US-25: Dashboard de asistencia % y progreso académico vs. meta mínima (80% o 70% justificada).
 /// - US-26: Cronograma de clases de sábados y recursos del curso (Classroom y Juez Virtual, únicos por curso).
 /// - US-29: Historial acumulado de podios Kahoot (conteo de 1°, 2° y 3° lugar).
-/// - US-35/US-36: Justificación de inasistencia eligiendo la clase, con respaldo opcional, y
+/// - US-35: Justificación de inasistencia eligiendo la clase y explicándola en texto, y
 ///   la lista de sus justificativos con la observación de Gestión (con [JustificativosRepository]).
 /// - Recuperación de clases justificadas mediante ejercicios resueltos (25 ej. = +1 clase, 50 ej. = +2 clases).
 class PortalAlumnaScreen extends StatefulWidget {
@@ -24,7 +24,7 @@ class PortalAlumnaScreen extends StatefulWidget {
   final HubRepository repository;
   final String alumnaId;
 
-  /// Justificativos reales de la alumna autenticada (US-35, US-36)
+  /// Justificativos reales de la alumna autenticada (US-35)
   final JustificativosRepository? justificativos;
 
   const PortalAlumnaScreen({

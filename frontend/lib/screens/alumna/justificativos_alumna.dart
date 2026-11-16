@@ -2,15 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../../config/ninaspro_colors.dart';
 import '../../config/ninaspro_theme.dart';
-import '../../repositories/alumnas_repository.dart' show ArchivoAdjunto;
 import '../../repositories/justificativos_repository.dart';
 import '../gestion/justificativos_gestion.dart'
-    show CampoRespaldoJustificativo, EtiquetaEstadoJustificativo, SelectorMotivoJustificativo;
+    show AvisoPrivacidadJustificativo, EtiquetaEstadoJustificativo, SelectorMotivoJustificativo;
 
-/// La alumna justifica una inasistencia desde su portal (US-35, US-36): elige
-/// la clase, el motivo tipificado y explica con sus palabras; el respaldo es
-/// opcional. Queda pendiente para el Equipo de Gestión de su sede. Devuelve
-/// true si se envió.
+/// La alumna justifica una inasistencia desde su portal (US-35): elige la
+/// clase, el motivo tipificado y explica con sus palabras (solo texto, sin
+/// archivos adjuntos). Queda pendiente para el Equipo de Gestión de su sede.
+/// Devuelve true si se envió.
 Future<bool> mostrarModalJustificarFalta(BuildContext context, JustificativosRepository repository) async {
   final isDark = Theme.of(context).brightness == Brightness.dark;
   final messenger = ScaffoldMessenger.of(context);
@@ -37,7 +36,6 @@ Future<bool> mostrarModalJustificarFalta(BuildContext context, JustificativosRep
   final hoy = DateUtils.dateOnly(DateTime.now());
   var clase = clases.where((c) => !c.fecha.isBefore(hoy)).firstOrNull ?? clases.last;
   MotivoJustificativo? motivo;
-  ArchivoAdjunto? respaldo;
   final detalleCtrl = TextEditingController();
   String? error;
   var enviando = false;
@@ -58,12 +56,7 @@ Future<bool> mostrarModalJustificarFalta(BuildContext context, JustificativosRep
             enviando = true;
             error = null;
           });
-          final r = await repository.enviar(
-            clase: clase,
-            motivo: motivo!,
-            explicacion: detalleCtrl.text,
-            respaldo: respaldo,
-          );
+          final r = await repository.enviar(clase: clase, motivo: motivo!, explicacion: detalleCtrl.text);
           if (!ctx.mounted) return;
           if (!r.ok) {
             return setModal(() {
@@ -137,18 +130,14 @@ Future<bool> mostrarModalJustificarFalta(BuildContext context, JustificativosRep
                 const SizedBox(height: 16),
                 const Text('Cuéntanos qué pasó:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 8),
+                const AvisoPrivacidadJustificativo(),
+                const SizedBox(height: 8),
                 TextField(
                   controller: detalleCtrl,
                   maxLines: 3,
                   maxLength: 500,
                   keyboardType: TextInputType.multiline,
                   decoration: const InputDecoration(hintText: 'Explica brevemente la razón de tu ausencia...'),
-                ),
-                const SizedBox(height: 8),
-                CampoRespaldoJustificativo(
-                  archivo: respaldo,
-                  error: respaldo?.error,
-                  onCambiar: (a) => setModal(() => respaldo = a),
                 ),
                 if (error != null) ...[
                   const SizedBox(height: 10),

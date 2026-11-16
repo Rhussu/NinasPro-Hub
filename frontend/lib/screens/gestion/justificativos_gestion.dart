@@ -1,18 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../config/ninaspro_colors.dart';
 import '../../config/ninaspro_theme.dart';
 import '../../models/hub_models.dart';
-import '../../repositories/alumnas_repository.dart' show ArchivoAdjunto;
 import '../../repositories/justificativos_repository.dart';
-import '../../services/selector_archivos.dart';
 import '../tutora/clase_sesion_controller.dart';
 
-/// Aviso de minimización de datos de salud al adjuntar un respaldo (US-36 escenario 2)
-const avisoPrivacidadRespaldo =
-    'Por tu privacidad y conforme a la ley, no ingreses diagnósticos médicos ni datos de salud sensibles. '
-    'Solo se requiere constancia de atención o motivo general.';
+/// Aviso de minimización de datos de salud junto a la explicación (RB-8)
+const avisoPrivacidadJustificativo =
+    'Por tu privacidad, no incluyas diagnósticos médicos ni datos de salud sensibles: basta con el motivo general.';
 
 /// Bandeja de justificativos del Equipo de Gestión de la sede (US-16, US-37).
 ///
@@ -75,15 +71,8 @@ class BandejaJustificativosController extends ChangeNotifier {
     required String inscripcionId,
     required MotivoJustificativo motivo,
     required String explicacion,
-    ArchivoAdjunto? respaldo,
   }) => _tras(
-    repository.registrar(
-      claseId: claseId,
-      inscripcionId: inscripcionId,
-      motivo: motivo,
-      explicacion: explicacion,
-      respaldo: respaldo,
-    ),
+    repository.registrar(claseId: claseId, inscripcionId: inscripcionId, motivo: motivo, explicacion: explicacion),
   );
 }
 
@@ -93,15 +82,6 @@ void _avisar(ScaffoldMessengerState messenger, String texto, {bool error = false
     ..showSnackBar(
       SnackBar(backgroundColor: error ? NinasProColors.error700 : NinasProColors.success700, content: Text(texto)),
     );
-}
-
-/// Abre el respaldo con una URL firmada de corta duración (US-17 escenario 1)
-Future<void> abrirRespaldoJustificativo(BuildContext context, JustificativosRepository repo, String ruta) async {
-  final messenger = ScaffoldMessenger.of(context);
-  final r = await repo.urlRespaldo(ruta);
-  final url = r.valor;
-  if (url == null) return _avisar(messenger, r.error ?? 'No pudimos abrir el respaldo.', error: true);
-  await launchUrl(Uri.parse(url), webOnlyWindowName: '_blank');
 }
 
 /// Colores (fondo, texto) del estado de un justificativo
@@ -297,12 +277,6 @@ class TarjetaJustificativo extends StatelessWidget {
               spacing: 6,
               runSpacing: 6,
               children: [
-                if (j.respaldo != null)
-                  TextButton.icon(
-                    onPressed: () => abrirRespaldoJustificativo(context, controller.repository, j.respaldo!),
-                    icon: const Icon(Icons.attach_file_rounded, size: 16),
-                    label: const Text('Ver respaldo'),
-                  ),
                 TextButton.icon(
                   style: TextButton.styleFrom(foregroundColor: NinasProColors.error700),
                   onPressed: () => _eliminar(context),
@@ -426,12 +400,6 @@ Future<void> mostrarModalResolverJustificativo(
                         const SizedBox(height: 6),
                         Text('"${j.explicacion}"', style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
                       ],
-                      if (j.respaldo != null)
-                        TextButton.icon(
-                          onPressed: () => abrirRespaldoJustificativo(ctx, controller.repository, j.respaldo!),
-                          icon: const Icon(Icons.attach_file_rounded, size: 16),
-                          label: Text('Ver respaldo (${j.nombreRespaldo})'),
-                        ),
                     ],
                   ),
                 ),
@@ -508,79 +476,28 @@ class SelectorMotivoJustificativo extends StatelessWidget {
   }
 }
 
-/// Adjuntar un respaldo opcional (PDF o imagen de hasta 5 MB) con el aviso de privacidad (US-36)
-class CampoRespaldoJustificativo extends StatelessWidget {
-  final ArchivoAdjunto? archivo;
-  final String? error;
-  final ValueChanged<ArchivoAdjunto?> onCambiar;
-
-  const CampoRespaldoJustificativo({super.key, required this.archivo, this.error, required this.onCambiar});
-
-  Future<void> _elegir() async {
-    final elegido = await elegirArchivo(ArchivoAdjunto.extensiones);
-    if (elegido != null) onCambiar(elegido);
-  }
+/// Aviso de privacidad junto a la explicación del justificativo (RB-8)
+class AvisoPrivacidadJustificativo extends StatelessWidget {
+  const AvisoPrivacidadJustificativo({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final a = archivo;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(color: NinasProColors.info100, borderRadius: BorderRadius.circular(10)),
-          child: const Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(Icons.privacy_tip_outlined, size: 18, color: NinasProColors.info900),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  avisoPrivacidadRespaldo,
-                  style: TextStyle(fontSize: 11.5, color: NinasProColors.info900, fontWeight: FontWeight.w600),
-                ),
-              ),
-            ],
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(color: NinasProColors.info100, borderRadius: BorderRadius.circular(10)),
+      child: const Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.privacy_tip_outlined, size: 18, color: NinasProColors.info900),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              avisoPrivacidadJustificativo,
+              style: TextStyle(fontSize: 11.5, color: NinasProColors.info900, fontWeight: FontWeight.w600),
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
-        if (a == null)
-          OutlinedButton.icon(
-            onPressed: _elegir,
-            icon: const Icon(Icons.attach_file_rounded, size: 18),
-            label: const Text('Adjuntar respaldo'),
-          )
-        else
-          Row(
-            children: [
-              const Icon(Icons.description_outlined, size: 18),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(a.nombre, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
-              ),
-              IconButton(
-                tooltip: 'Cambiar respaldo',
-                onPressed: _elegir,
-                icon: const Icon(Icons.swap_horiz_rounded, size: 18),
-              ),
-              IconButton(
-                tooltip: 'Quitar respaldo',
-                onPressed: () => onCambiar(null),
-                icon: const Icon(Icons.close_rounded, size: 18),
-              ),
-            ],
-          ),
-        if (error != null)
-          Text(
-            error!,
-            style: const TextStyle(color: NinasProColors.error700, fontSize: 12, fontWeight: FontWeight.w600),
-          ),
-        const Text(
-          'Opcional: PDF, PNG o JPG de hasta 5 MB.',
-          style: TextStyle(fontSize: 11, color: NinasProColors.neutral500),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -605,7 +522,6 @@ Future<void> mostrarModalRegistrarJustificativo(
   List<RegistroAsistencia>? alumnas;
   String? inscripcionId;
   MotivoJustificativo? motivo;
-  ArchivoAdjunto? respaldo;
   String? error;
   var guardando = false;
   var cargandoAlumnas = false;
@@ -656,8 +572,8 @@ Future<void> mostrarModalRegistrarJustificativo(
           final insc = inscripcionId;
           if (insc == null) return setModal(() => error = 'Elige a la alumna.');
           if (motivo == null) return setModal(() => error = 'Elige el motivo de la inasistencia.');
-          if (detalleCtrl.text.trim().isEmpty && respaldo == null) {
-            return setModal(() => error = 'Escribe la descripción o adjunta un respaldo.');
+          if (detalleCtrl.text.trim().isEmpty) {
+            return setModal(() => error = 'Escribe la descripción del aviso.');
           }
           setModal(() {
             guardando = true;
@@ -668,7 +584,6 @@ Future<void> mostrarModalRegistrarJustificativo(
             inscripcionId: insc,
             motivo: motivo!,
             explicacion: detalleCtrl.text,
-            respaldo: respaldo,
           );
           if (!ctx.mounted) return;
           if (!r.ok) {
@@ -772,6 +687,8 @@ Future<void> mostrarModalRegistrarJustificativo(
                 const SizedBox(height: 14),
                 const Text('Descripción:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 6),
+                const AvisoPrivacidadJustificativo(),
+                const SizedBox(height: 8),
                 TextField(
                   controller: detalleCtrl,
                   maxLines: 3,
@@ -779,12 +696,6 @@ Future<void> mostrarModalRegistrarJustificativo(
                   decoration: const InputDecoration(
                     hintText: 'Ej: La apoderada avisó por teléfono que no podrá asistir…',
                   ),
-                ),
-                const SizedBox(height: 8),
-                CampoRespaldoJustificativo(
-                  archivo: respaldo,
-                  error: respaldo?.error,
-                  onCambiar: (a) => setModal(() => respaldo = a),
                 ),
                 if (error != null) ...[
                   const SizedBox(height: 10),
