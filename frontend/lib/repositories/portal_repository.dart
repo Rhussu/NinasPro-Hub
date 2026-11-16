@@ -243,7 +243,13 @@ class SupabasePortalRepository implements PortalRepository {
 
   @override
   Future<PortalAlumna> portal() async {
-    final respuesta = await _client.rpc('portal_alumna');
-    return MapeoPortal.portal(respuesta as Map<String, dynamic>);
+    try {
+      final respuesta = await _client.rpc('portal_alumna');
+      return MapeoPortal.portal(respuesta as Map<String, dynamic>);
+    } on PostgrestException catch (e) {
+      // La base responde 403 con el motivo cuando la cuenta no puede ver el portal
+      if (e.code == '42501' || e.code == '403') throw PortalDenegado(e.message);
+      rethrow;
+    }
   }
 }

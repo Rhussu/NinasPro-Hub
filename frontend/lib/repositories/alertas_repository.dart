@@ -112,7 +112,7 @@ class SupabaseAlertasRepository implements AlertasRepository {
     final filas = await _client
         .from('alertas_detalle')
         .select()
-        .order('atendida')
+        .order('atendida', ascending: true)
         .order('created_at', ascending: false);
     return [for (final f in filas) MapeoAlertas.alerta(f)];
   }

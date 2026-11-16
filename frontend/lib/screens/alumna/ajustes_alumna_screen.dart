@@ -54,8 +54,14 @@ class _AjustesAlumnaScreenState extends State<AjustesAlumnaScreen> {
       cargando: _cargando,
       themeNotifier: widget.themeNotifier,
       onCerrarSesion: widget.onCerrarSesion,
+      // Sin datos se muestra igual la apariencia y el cierre de sesión
       perfil: portal == null
-          ? null
+          ? const AjustesPerfil(
+              nombre: 'Alumna',
+              detalle: 'No pudimos cargar tu ficha. Revisa tu conexión.',
+              rolEtiqueta: 'Alumna',
+              rolEmoji: '👧',
+            )
           : AjustesPerfil(
               nombre: portal.nombreCompleto,
               detalle: curso?.nombre ?? 'Sin curso asignado',
