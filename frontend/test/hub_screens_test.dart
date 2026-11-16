@@ -27,6 +27,8 @@ import 'fakes/fake_auth_service.dart';
 import 'fakes/fake_clase_repository.dart';
 import 'fakes/fake_evidencias_repository.dart';
 import 'fakes/fake_justificativos_repository.dart';
+import 'fakes/fake_roles_repository.dart';
+import 'fakes/fake_voluntariado_repository.dart';
 
 void main() {
   group('Mockup Screens & Widgets Tests', () {
@@ -105,14 +107,18 @@ void main() {
       expect(tapped, isTrue);
     });
 
-    testWidgets('TutoraMobileScreen main page: mi asistencia, rol de solo lectura y sin funciones de gestión (US-33, US-43)', (WidgetTester tester) async {
+    testWidgets('TutoraMobileScreen main page: mi asistencia, mis roles y sin funciones de gestión (US-33, US-43, US-44)', (WidgetTester tester) async {
       tester.view.physicalSize = const Size(420, 1800);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
+      final roles = FakeRolesRepository()
+        ..asignar('clase-4', 'perfil-daniela', ['rol-presentar', 'rol-kahoot'], cumplidos: {'rol-kahoot'})
+        ..asignar('clase-4', 'perfil-camila', ['rol-recepcion'])
+        ..asignar('clase-3', 'perfil-daniela', ['rol-foto'], cumplidos: {'rol-foto'});
       await tester.pumpWidget(createTestApp(
-        TutoraMobileScreen(repository: repository, clase: clase, sesion: SesionesDemo.tutora),
+        TutoraMobileScreen(repository: repository, clase: clase, sesion: SesionesDemo.tutora, roles: roles),
       ));
       await tester.pumpAndSettle();
 
@@ -132,10 +138,25 @@ void main() {
       expect(find.text('Sin pase de lista'), findsOneWidget);
       expect(find.text('Recursos del Curso'), findsOneWidget);
 
-      // Rol de la semana (aún del mockup): visible pero no editable
-      expect(find.text('Tu rol esta semana · Semana 4'), findsOneWidget);
-      expect(find.text('Presentar el Kahoot'), findsOneWidget);
-      expect(find.byIcon(Icons.chevron_right_rounded), findsNothing);
+      // Sus dos roles de la clase de esta semana: marca el que terminó (US-44 escenario 2)
+      expect(find.text('Tus roles · Clase 4'), findsOneWidget);
+      expect(find.text('1 de 2 listos'), findsOneWidget);
+      await tester.tap(find.widgetWithText(CheckboxListTile, 'Presentar la Clase'));
+      await tester.pumpAndSettle();
+      expect(find.text('2 de 2 listos'), findsOneWidget);
+      expect(roles.rolesDe('clase-4', 'perfil-daniela').every((t) => t.completada), isTrue);
+
+      // Ve los roles del equipo, sin poder asignarlos (US-44 escenario 3)
+      await tester.tap(find.text('Ver los roles del equipo'));
+      await tester.pumpAndSettle();
+      expect(find.text('Roles del equipo'), findsOneWidget);
+      expect(find.text('Recepción de Alumnas'), findsOneWidget);
+      expect(find.text('Daniela Valenzuela Castro (tú)'), findsOneWidget);
+      expect(find.byIcon(Icons.edit_calendar_rounded), findsNothing);
+      final ajeno = tester.widget<CheckboxListTile>(find.widgetWithText(CheckboxListTile, 'Recepción de Alumnas'));
+      expect(ajeno.onChanged, isNull);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
 
       // Sin funciones exclusivas de Gestión
       expect(find.text('Justificativos pendientes'), findsNothing);
@@ -444,6 +465,8 @@ void main() {
         horasSinFoto: 75,
         tutoras: 'Daniela Valenzuela Castro',
       ));
+      final roles = FakeRolesRepository(perfilId: 'perfil-camila')
+        ..asignar('clase-4', 'perfil-camila', ['rol-foto']);
       await tester.pumpWidget(createTestApp(
         GestionMobileScreen(
           repository: repository,
@@ -451,6 +474,7 @@ void main() {
           sesion: SesionesDemo.gestion,
           justificativos: justificativos,
           evidencias: evidencias,
+          roles: roles,
         ),
       ));
       await tester.pumpAndSettle();
@@ -473,10 +497,11 @@ void main() {
       await tester.pageBack();
       await tester.pumpAndSettle();
 
-      // Saludo y rol semanal (aún del mockup: tutora-1)
+      // Saludo y sus roles de la clase de esta semana (US-43)
       expect(find.text('¡Hola, Camila!'), findsOneWidget);
-      expect(find.text('Tu rol esta semana · Semana 4'), findsOneWidget);
+      expect(find.text('Tus roles · Clase 4'), findsOneWidget);
       expect(find.text('Foto y Asistencia'), findsOneWidget);
+      expect(find.text('Asignar roles del equipo'), findsOneWidget);
 
       // Recursos del curso (US-26)
       expect(find.text('Recursos del Curso'), findsOneWidget);
@@ -531,6 +556,8 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
 
       clase.perfilId = 'perfil-camila';
+      final roles = FakeRolesRepository(perfilId: 'perfil-camila')
+        ..asignar('clase-4', 'perfil-daniela', ['rol-presentar'], cumplidos: {'rol-presentar'});
       await tester.pumpWidget(createTestApp(
         GestionMobileScreen(
           repository: repository,
@@ -538,6 +565,7 @@ void main() {
           sesion: SesionesDemo.gestion,
           justificativos: justificativos,
           evidencias: evidencias,
+          roles: roles,
         ),
       ));
       await tester.pumpAndSettle();
@@ -549,16 +577,34 @@ void main() {
         await tester.pumpAndSettle();
       }
 
-      // Roles semanales de tutoras (US-43, aún del mockup)
+      // Roles de la próxima clase: varios por tutora, sin perder lo cumplido (US-43)
       await abrirAccion('Asignar roles a tutoras');
       expect(find.text('Roles de Tutoras'), findsOneWidget);
-      expect(find.text('Semana 4'), findsOneWidget);
-      expect(find.text('Semana actual'), findsOneWidget);
-      expect(find.textContaining('Roles obligatorios sin cubrir'), findsOneWidget);
-      await tester.tap(find.byTooltip('Semana siguiente'));
+      expect(find.textContaining('Clase 4 · '), findsOneWidget);
+      expect(find.text('Próxima clase'), findsOneWidget);
+      expect(find.textContaining('1 de 3 tutoras con rol'), findsOneWidget);
+      expect(find.text('Roles obligatorios sin cubrir: Recepción de Alumnas, Foto y Asistencia.'), findsOneWidget);
+      await tester.tap(find.byTooltip('Elegir los roles de Daniela Valenzuela Castro'));
       await tester.pumpAndSettle();
-      expect(find.text('Semana 5'), findsOneWidget);
-      expect(find.textContaining('0 de 8 tutoras con rol asignado'), findsOneWidget);
+      expect(find.text('Tutora líder · inactivo'), findsNothing);
+      await tester.tap(find.widgetWithText(CheckboxListTile, 'Foto y Asistencia · obligatorio'));
+      await tester.tap(find.widgetWithText(CheckboxListTile, 'Preparar el Kahoot'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Guardar (3)'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('3 roles para Daniela Valenzuela Castro en la clase 4'), findsOneWidget);
+      expect(roles.rolesDe('clase-4', 'perfil-daniela').map((t) => t.rolId), ['rol-presentar', 'rol-foto', 'rol-kahoot']);
+      expect(roles.rolesDe('clase-4', 'perfil-daniela').first.completada, isTrue);
+      expect(find.text('Roles obligatorios sin cubrir: Recepción de Alumnas.'), findsOneWidget);
+      // Gestión marca el cumplimiento de cualquier tutora (US-44)
+      await tester.tap(find.widgetWithText(CheckboxListTile, 'Preparar el Kahoot'));
+      await tester.pumpAndSettle();
+      expect(roles.rolesDe('clase-4', 'perfil-daniela').last.completada, isTrue);
+      // Otra clase: sin roles
+      await tester.tap(find.byTooltip('Clase siguiente'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Clase 5 · '), findsOneWidget);
+      expect(find.textContaining('0 de 3 tutoras con rol'), findsOneWidget);
       await tester.pageBack();
       await tester.pumpAndSettle();
 
@@ -659,13 +705,17 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
 
       await tester.pumpWidget(createTestApp(
-        AjustesGestionScreen(repository: repository),
+        AjustesGestionScreen(
+          sesion: SesionesDemo.gestion,
+          voluntariado: FakeVoluntariadoRepository(),
+          clase: FakeClaseRepository(perfilId: 'perfil-camila'),
+        ),
       ));
       await tester.pumpAndSettle();
 
       expect(find.text('Camila Sepúlveda Rivas'), findsOneWidget);
       expect(find.text('MI PERFIL'), findsOneWidget);
-      expect(find.text('Adhesión voluntaria'), findsOneWidget);
+      expect(find.text('Sede Beauchef'), findsWidgets);
       expect(find.text('APODERADO/A'), findsNothing);
     });
 
@@ -676,14 +726,22 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
 
       await tester.pumpWidget(createTestApp(
-        AjustesTutoraScreen(repository: repository),
+        AjustesTutoraScreen(
+          sesion: SesionesDemo.tutora,
+          voluntariado: FakeVoluntariadoRepository(),
+          clase: FakeClaseRepository(),
+        ),
       ));
       await tester.pumpAndSettle();
 
       expect(find.text('Daniela Valenzuela Castro'), findsOneWidget);
       expect(find.textContaining('Tutora'), findsWidgets);
       expect(find.text('MI PERFIL'), findsOneWidget);
-      expect(find.text('Adhesión voluntaria'), findsOneWidget);
+      // Su ficha del voluntariado: adhesión, institución e ingreso (US-31, US-32)
+      expect(find.text('Declaración de adhesión'), findsOneWidget);
+      expect(find.text('Firmada el 14/03/2026'), findsOneWidget);
+      expect(find.text('Programación Competitiva Básica (Python)'), findsOneWidget);
+      expect(find.text('03/03/2023'), findsOneWidget);
       expect(find.text('APODERADO/A'), findsNothing);
     });
 

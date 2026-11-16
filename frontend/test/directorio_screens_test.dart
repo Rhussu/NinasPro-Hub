@@ -7,6 +7,7 @@ import 'package:ninas_pro_hub/screens/directorio/directorio_desktop_screen.dart'
 import 'package:ninas_pro_hub/screens/directorio/directorio_grafico_asistencia.dart';
 
 import 'fakes/fake_catalogo_repository.dart';
+import 'fakes/fake_roles_repository.dart';
 
 /// Vista de escritorio de la Directiva Nacional y sus Ajustes
 void main() {
@@ -74,9 +75,9 @@ void main() {
     await irA(tester, 'Alumnas');
     expect(find.textContaining('necesita la conexión con la base de datos'), findsOneWidget);
 
+    // Igual el voluntariado (ver voluntariado_roles_screens_test.dart)
     await irA(tester, 'Voluntariado');
-    expect(find.text('Nueva voluntaria'), findsOneWidget);
-    expect(find.text('Constanza Vidal Orellana'), findsOneWidget);
+    expect(find.text('El voluntariado necesita la conexión con la base de datos.'), findsOneWidget);
 
     await irA(tester, 'Exportar');
     expect(find.text('Exportar reportes'), findsOneWidget);
@@ -84,20 +85,6 @@ void main() {
 
     await irA(tester, 'Auditoría');
     expect(find.text('16 eventos'), findsOneWidget);
-  });
-
-  testWidgets('la ficha de la voluntaria cambia su pertenencia al Equipo de Gestión', (tester) async {
-    await abrir(tester, DirectorioDesktopScreen(repository: repository));
-    await irA(tester, 'Voluntariado');
-
-    await tester.tap(find.text('Daniela Valenzuela Castro'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(SwitchListTile, 'Equipo de Gestión'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('✅ Daniela Valenzuela Castro ahora es parte del Equipo de Gestión.'), findsOneWidget);
-    final tutoras = await repository.getTutoras();
-    expect(tutoras.firstWhere((t) => t.id == 'tutora-3').esEquipoGestion, isTrue);
   });
 
   testWidgets('exportar registra la descarga en la auditoría (US-22)', (tester) async {
@@ -121,7 +108,12 @@ void main() {
     final catalogo = FakeCatalogoRepository();
     await abrir(
       tester,
-      AjustesDirectivaScreen(repository: repository, themeNotifier: themeNotifier, catalogoRepository: catalogo),
+      AjustesDirectivaScreen(
+        repository: repository,
+        themeNotifier: themeNotifier,
+        catalogoRepository: catalogo,
+        rolesRepository: FakeRolesRepository(),
+      ),
     );
 
     expect(find.text('Directiva Nacional'), findsOneWidget);
@@ -192,10 +184,10 @@ void main() {
 
     await irA(tester, 'Roles de tutoras');
     expect(find.text('Presentar la Clase'), findsOneWidget);
-    await tester.tap(find.byTooltip('Eliminar Inventario'));
+    await tester.tap(find.byTooltip('Eliminar Preparar el Kahoot'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Eliminar'));
     await tester.pumpAndSettle();
-    expect(find.text('Inventario'), findsNothing);
+    expect(find.text('Preparar el Kahoot'), findsNothing);
   });
 }

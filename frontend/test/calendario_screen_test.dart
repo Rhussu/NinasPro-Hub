@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ninas_pro_hub/config/ninaspro_theme.dart';
 import 'package:ninas_pro_hub/models/hub_models.dart';
-import 'package:ninas_pro_hub/repositories/mock_hub_repository.dart';
 import 'package:ninas_pro_hub/screens/calendario/calendario_screen.dart';
 import 'package:ninas_pro_hub/screens/gestion/ajustes_gestion_screen.dart';
 
+import 'fakes/fake_auth_service.dart';
 import 'fakes/fake_catalogo_repository.dart';
 
 /// Calendario de clases de la sede (US-03)
@@ -161,7 +161,7 @@ void main() {
   testWidgets('Ajustes de Gestión abre el calendario de clases', (tester) async {
     await abrir(
       tester,
-      AjustesGestionScreen(repository: MockHubRepository(), catalogoRepository: repositorio()),
+      AjustesGestionScreen(sesion: SesionesDemo.gestion, catalogoRepository: repositorio()),
     );
 
     await tester.scrollUntilVisible(find.text('Calendario de clases'), 200);

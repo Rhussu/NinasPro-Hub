@@ -241,7 +241,7 @@ void main() {
     });
 
     testWidgets('Gestión no tiene Accesos: las alumnas las gestiona la Directiva', (tester) async {
-      await tester.pumpWidget(_app(AjustesGestionScreen(repository: MockHubRepository())));
+      await tester.pumpWidget(_app(AjustesGestionScreen(sesion: SesionesDemo.gestion)));
       await tester.pumpAndSettle();
       expect(find.text('Accesos'), findsNothing);
     });
