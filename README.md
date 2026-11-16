@@ -163,6 +163,20 @@ La sección **Alumnas** de la Directiva ya usa Supabase (`AlumnasRepository`). *
 
 ---
 
+## 👩‍🏫 La clase en el aula: asistencia, participación y podio
+
+La clase de Tutora y de Gestión ya usa Supabase (`ClaseRepository`). La tutora ve los cursos a los que está asignada (`tutores_instancia`) y Gestión, los de su sede. Si opera más de uno, elige el curso arriba de la pantalla. La **clase actual** es la última no suspendida cuya fecha ya llegó: la de hoy o, durante la semana, la del último día de clases. Justificativos, alertas y roles semanales siguen con los datos del mockup hasta sus PR.
+
+- **Pase de lista (US-13):** todas parten como Presente y la tutora alterna Presente ↔ Ausente. Las Justificadas aparecen con 🔒 y solo las cambia el Equipo de Gestión de la sede. Las preinscritas sin consentimiento no aparecen. El primer guardado deja la clase en `realizada`. Ni las clases futuras ni las suspendidas admiten registros.
+- **Correcciones (US-15, US-33 escenario 3):** en el historial semana a semana, *Corregir lista* reabre una clase anterior, o *Pasar lista* si quedó sin registrar. Cada lista muestra quién hizo la última edición y a qué hora.
+- **Ejercicios, participación y podio (US-28, US-29):** se registran solo para las alumnas **presentes del pase de lista guardado**. El podio pide tres alumnas presentes distintas. Si una alumna pasa a ausente, pierde su participación y su lugar en el podio de esa clase.
+- **Asistencia de tutoras (US-33):** Gestión la toma desde el Speed Dial con el equipo asignado al curso, que parte como presente.
+- **Sin conexión (US-14, US-34):** cada guardado se escribe primero en el navegador (IndexedDB con `sembast_web`, `lib/data/offline/cola_sincronizacion.dart`) y se intenta subir de inmediato. Si no hay red, la lista muestra *Pendiente de envío por falta de conexión*. Se reenvía sola al volver internet (`connectivity_plus`), cada 30 s o al deslizar hacia abajo. Un guardado nuevo de la misma lista reemplaza al pendiente anterior, y los pendientes de una cuenta nunca se suben con la sesión de otra. Si la nube rechaza un cambio pendiente al subirlo (por ejemplo, la clase se suspendió mientras tanto), la nubecita lo avisa.
+- **Reglas en la base (migración 15):** las tablas de la clase solo se escriben con las RPC `guardar_asistencia_clase`, `guardar_participacion_clase`, `guardar_podio_kahoot` y `guardar_asistencia_tutores`. Las RPC son idempotentes: reenviar una lista no duplica ni escribe nada. En cada registro gana el **último guardado según la hora del dispositivo** (`p_guardado_en`, sin pasar de la hora del servidor). Así, una lista que llega tarde por falta de conexión no pisa una corrección hecha después por otra persona. Las lecturas son `lista_asistencia_clase` y `lista_asistencia_tutores`, que respetan la RLS. Solo se asigna a un curso a una voluntaria con la adhesión firmada y vigente.
+- **Auditoría (migración 16):** el trigger `auditar()` guarda en `auditoria_cambios_datos` cada alta, cambio y borrado de la asistencia de alumnas y tutoras y de la participación. Registra el valor anterior y el nuevo (JSONB), la autora, la IP y el navegador. Los cambios del sistema quedan con autora `NULL`. Nadie puede escribir, modificar ni borrar las bitácoras (ni siquiera la Directiva), que solo la Directiva lee.
+
+---
+
 ## 🔄 Estrategia de CI/CD y Calidad
 
 Para garantizar estabilidad y seguridad, el repositorio implementa una política de **Pull Requests protegidos**:
