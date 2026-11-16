@@ -11,9 +11,6 @@ class FakeAlumnasRepository implements AlumnasRepository {
   final Map<String, FichaAlumna> fichas = {};
   final List<InscripcionNomina> inscripciones = [];
 
-  /// Filas recibidas por la última confirmación (para revisar lo que envió la app)
-  List<Map<String, Object?>>? ultimasFilas;
-
   /// Respaldos subidos: ruta -> nombre original
   final Map<String, String> respaldos = {};
 
@@ -177,71 +174,150 @@ class FakeAlumnasRepository implements AlumnasRepository {
     );
   }
 
-  ResultadoImportacion _clasificar(String instanciaId, String nombreArchivo, List<Map<String, Object?>> filas) {
-    String texto(Map<String, Object?> f, String clave) => (f[clave] as String? ?? '').trim();
-    final ruts = [for (final f in filas) normalizarRut(texto(f, 'rut'))];
-    return ResultadoImportacion(
-      nombreArchivo: nombreArchivo,
-      filas: [
-        for (final f in filas)
-          () {
-            final rut = texto(f, 'rut');
-            final existente = _porRut(rut);
-            final motivos = [
-              if (rut.isEmpty) 'Falta el RUT de la alumna' else if (!validarRut(rut)) 'RUT de la alumna inválido (dígito verificador)',
-              if (rut.isNotEmpty && ruts.where((r) => r == normalizarRut(rut)).length > 1) 'RUT repetido en la planilla',
-              if (existente != null &&
-                  inscripciones.any((i) => i.alumnaId == existente.id && i.instanciaId == instanciaId))
-                'Ya está inscrita en este curso',
-              if (texto(f, 'telefono_apoderado').isEmpty || texto(f, 'correo_apoderado').isEmpty)
-                'El correo y el teléfono del apoderado/a son obligatorios por protocolo institucional',
-            ];
-            return FilaImportacion(
-              numeroFila: (f['fila'] as num).toInt(),
-              nombre: '${texto(f, 'nombres')} ${texto(f, 'apellidos')}'.trim(),
-              rut: validarRut(rut) ? formatearRut(rut) : rut,
-              detalle: '${texto(f, 'nombres_apoderado')} ${texto(f, 'apellidos_apoderado')}'.trim(),
-              estado: motivos.isNotEmpty
-                  ? EstadoFilaImportacion.invalida
-                  : (existente != null ? EstadoFilaImportacion.existente : EstadoFilaImportacion.nueva),
-              motivo: motivos.isEmpty ? null : motivos.join('. '),
-            );
-          }(),
-      ],
+  /// Pendientes guardados al confirmar cargas con conflictos
+  final List<ConflictoImportacion> pendientes = [];
+
+  FilaNomina _diagnosticar(String instanciaId, FilaNomina f, List<FilaNomina> todas) {
+    String texto(String clave) => '${f.datos[clave] ?? ''}'.trim();
+    final rut = texto('rut');
+    final res = f.resolucion;
+    final base = (
+      nombre: '${texto('nombres')} ${texto('apellidos')}'.trim(),
+      rut: validarRut(rut) ? formatearRut(rut) : rut,
+      apoderado: '${texto('nombres_apoderado')} ${texto('apellidos_apoderado')}'.trim(),
+    );
+    FilaNomina con(EstadoFilaNomina estado, {List<String> motivos = const [], List<TipoConflicto> conflictos = const [],
+            List<DiferenciaFicha> diferencias = const [], List<int> repetidas = const []}) =>
+        FilaNomina(
+          numero: f.numero,
+          datos: f.datos,
+          nombre: base.nombre,
+          rut: base.rut,
+          apoderado: base.apoderado,
+          estado: estado,
+          motivo: motivos.isEmpty ? null : motivos.join('. '),
+          conflictos: conflictos,
+          diferencias: diferencias,
+          filasRepetidas: repetidas,
+          resolucion: res,
+          conflictoId: f.conflictoId,
+        );
+
+    if (res == ResolucionFila.descartar) return con(EstadoFilaNomina.descartada);
+    final existente = validarRut(rut) ? _porRut(rut) : null;
+    if (existente != null && inscripciones.any((i) => i.alumnaId == existente.id && i.instanciaId == instanciaId)) {
+      return con(EstadoFilaNomina.inscrita, motivos: const ['Ya está inscrita en este curso']);
+    }
+    final errores = [
+      if (rut.isEmpty) 'Falta el RUT de la alumna' else if (!validarRut(rut)) 'RUT de la alumna inválido (dígito verificador)',
+      if (texto('telefono_apoderado').isEmpty || texto('correo_apoderado').isEmpty)
+        'El correo y el teléfono del apoderado/a son obligatorios por protocolo institucional',
+    ];
+    final repetidas = [
+      for (final o in todas)
+        if (o.resolucion != ResolucionFila.descartar && rut.isNotEmpty && normalizarRut('${o.datos['rut'] ?? ''}') == normalizarRut(rut))
+          o.numero,
+    ];
+    final correo = res == ResolucionFila.sinCorreo ? '' : texto('correo');
+    final diferencias = [
+      if (existente != null && res == null && texto('nombres').isNotEmpty && texto('nombres') != existente.nombres)
+        DiferenciaFicha(campo: 'Nombres', ficha: existente.nombres, planilla: texto('nombres')),
+    ];
+    final conflictos = [
+      if (repetidas.length > 1) TipoConflicto.rutRepetido,
+      if (diferencias.isNotEmpty) TipoConflicto.fichaDistinta,
+      if (correo.isNotEmpty && correosEnUso.contains(correo)) TipoConflicto.correoEnUso,
+    ];
+    final motivosConflicto = [
+      if (repetidas.length > 1) 'RUT repetido en la planilla (filas ${repetidas.join(', ')}): elige qué fila vale',
+      if (diferencias.isNotEmpty) 'El RUT ya tiene ficha con datos distintos: mantén la ficha o actualízala',
+      if (conflictos.contains(TipoConflicto.correoEnUso)) 'El correo de la alumna ya lo usa otra persona',
+    ];
+    if (errores.isNotEmpty) {
+      return con(EstadoFilaNomina.invalida, motivos: [...errores, ...motivosConflicto], conflictos: conflictos);
+    }
+    if (conflictos.isNotEmpty) {
+      return con(
+        EstadoFilaNomina.conflicto,
+        motivos: motivosConflicto,
+        conflictos: conflictos,
+        diferencias: diferencias,
+        repetidas: repetidas.length > 1 ? repetidas : const [],
+      );
+    }
+    return con(existente == null ? EstadoFilaNomina.nueva : EstadoFilaNomina.existente);
+  }
+
+  /// Correos que ya usa otra persona
+  final Set<String> correosEnUso = {};
+
+  /// Filas enviadas en la última confirmación (para revisar lo que mandó la app)
+  List<FilaNomina>? ultimasFilasEnviadas;
+
+  @override
+  Future<ResultadoAlumnas<RevisionNomina>> revisarImportacion({
+    required String instanciaId,
+    required String archivo,
+    required List<FilaNomina> filas,
+  }) async {
+    if (errorEscritura != null) return ResultadoAlumnas.error(errorEscritura);
+    return ResultadoAlumnas.ok(
+      RevisionNomina(archivo: archivo, filas: [for (final f in filas) _diagnosticar(instanciaId, f, filas)]),
     );
   }
 
   @override
-  Future<ResultadoAlumnas<ResultadoImportacion>> previsualizarImportacion({
+  Future<ResultadoAlumnas<({int inscritas, int pendientes, RevisionNomina revision})>> confirmarImportacion({
     required String instanciaId,
-    required String nombreArchivo,
-    required List<Map<String, Object?>> filas,
+    required String archivo,
+    required List<FilaNomina> filas,
   }) async {
     if (errorEscritura != null) return ResultadoAlumnas.error(errorEscritura);
-    return ResultadoAlumnas.ok(_clasificar(instanciaId, nombreArchivo, filas));
-  }
-
-  @override
-  Future<ResultadoAlumnas<({int inscritas, ResultadoImportacion detalle})>> confirmarImportacion({
-    required String instanciaId,
-    required String nombreArchivo,
-    required List<Map<String, Object?>> filas,
-  }) async {
-    if (errorEscritura != null) return ResultadoAlumnas.error(errorEscritura);
-    ultimasFilas = filas;
-    final detalle = _clasificar(instanciaId, nombreArchivo, filas);
+    ultimasFilasEnviadas = filas;
+    final diagnostico = [for (final f in filas) _diagnosticar(instanciaId, f, filas)];
     var inscritas = 0;
-    for (var i = 0; i < filas.length; i++) {
-      final fila = detalle.filas[i];
-      if (fila.estado == EstadoFilaImportacion.invalida) continue;
-      final f = filas[i];
-      final ficha =
-          _porRut(fila.rut) ??
-          agregarFicha(rut: fila.rut, nombres: f['nombres'] as String, apellidos: f['apellidos'] as String);
-      _inscribir(ficha, instanciaId);
-      inscritas++;
+    var enPendiente = 0;
+    final resultado = <FilaNomina>[];
+    for (final d in diagnostico) {
+      if (d.conflictoId != null) pendientes.removeWhere((c) => c.id == d.conflictoId);
+      if (d.estado.porResolver) {
+        pendientes.add(ConflictoImportacion(
+          id: 'conflicto-${_id++}',
+          instanciaId: instanciaId,
+          cursoEtiqueta: listaInstancias.firstWhere((c) => c.id == instanciaId).codigo,
+          archivo: archivo,
+          numeroFila: d.numero,
+          datos: d.datos,
+          motivo: d.motivo ?? '',
+          creadoEn: DateTime(2026, 11, 16),
+        ));
+        enPendiente++;
+        resultado.add(FilaNomina(numero: d.numero, datos: d.datos, nombre: d.nombre, rut: d.rut, estado: EstadoFilaNomina.pendiente, motivo: d.motivo));
+        continue;
+      }
+      if (d.estado.seInscribe) {
+        final ficha = _porRut(d.rut) ??
+            agregarFicha(rut: d.rut, nombres: d.datos['nombres'] as String, apellidos: d.datos['apellidos'] as String);
+        if (d.resolucion == ResolucionFila.actualizarFicha) {
+          fichas[ficha.id] = FichaAlumna(
+            id: ficha.id,
+            rut: ficha.rut,
+            nombres: d.datos['nombres'] as String,
+            apellidos: d.datos['apellidos'] as String,
+            apoderado: ficha.apoderado,
+            autorizaciones: ficha.autorizaciones,
+          );
+        }
+        _inscribir(fichas[ficha.id]!, instanciaId);
+        inscritas++;
+      }
+      resultado.add(d);
     }
-    return ResultadoAlumnas.ok((inscritas: inscritas, detalle: detalle));
+    return ResultadoAlumnas.ok((
+      inscritas: inscritas,
+      pendientes: enPendiente,
+      revision: RevisionNomina(archivo: archivo, filas: resultado),
+    ));
   }
 
   FichaAlumna agregarFicha({required String rut, required String nombres, required String apellidos}) {
@@ -251,11 +327,41 @@ class FakeAlumnasRepository implements AlumnasRepository {
   }
 
   @override
-  Future<ResultadoAlumnas<void>> inscribir({required String instanciaId, required DatosAlumna datos}) async {
-    final r = await confirmarImportacion(instanciaId: instanciaId, nombreArchivo: '', filas: [datos.fila]);
-    final fila = r.valor?.detalle.filas.first;
-    if (r.error != null) return ResultadoAlumnas.error(r.error);
-    return fila!.estado == EstadoFilaImportacion.invalida ? ResultadoAlumnas.error(fila.motivo) : const ResultadoAlumnas.ok();
+  Future<ResultadoAlumnas<FilaNomina>> inscribir({
+    required String instanciaId,
+    required DatosAlumna datos,
+    ResolucionFila? resolucion,
+  }) async {
+    final fila = FilaNomina(numero: 1, datos: datos.fila, resolucion: resolucion);
+    final revisada = _diagnosticar(instanciaId, fila, [fila]);
+    if (!revisada.estado.seInscribe) return ResultadoAlumnas.ok(revisada);
+    final r = await confirmarImportacion(instanciaId: instanciaId, archivo: '', filas: [fila]);
+    return r.ok ? ResultadoAlumnas.ok(r.valor!.revision.filas.first) : ResultadoAlumnas.error(r.error);
+  }
+
+  @override
+  Future<List<ConflictoImportacion>> conflictosPendientes() async => List.of(pendientes);
+
+  @override
+  Future<ResultadoAlumnas<List<FilaNomina>>> revisarConflictos(List<ConflictoImportacion> conflictos) async {
+    final filas = [for (final c in conflictos) c.fila];
+    return ResultadoAlumnas.ok([
+      for (final (i, c) in conflictos.indexed)
+        _diagnosticar(c.instanciaId, filas[i], [for (final o in conflictos) if (o.instanciaId == c.instanciaId) o.fila]),
+    ]);
+  }
+
+  @override
+  Future<ResultadoAlumnas<FilaNomina>> resolverConflicto(ConflictoImportacion conflicto, FilaNomina fila) async {
+    final enviada = FilaNomina(numero: conflicto.numeroFila, datos: fila.datos, resolucion: fila.resolucion, conflictoId: conflicto.id);
+    final r = await confirmarImportacion(instanciaId: conflicto.instanciaId, archivo: conflicto.archivo ?? '', filas: [enviada]);
+    return r.ok ? ResultadoAlumnas.ok(r.valor!.revision.filas.first) : ResultadoAlumnas.error(r.error);
+  }
+
+  @override
+  Future<ResultadoAlumnas<void>> descartarConflicto(String conflictoId) async {
+    pendientes.removeWhere((c) => c.id == conflictoId);
+    return const ResultadoAlumnas.ok();
   }
 
   void _reemplazarAutorizaciones(String alumnaId, AutorizacionesFicha a) {

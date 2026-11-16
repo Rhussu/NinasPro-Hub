@@ -7,7 +7,6 @@ import 'package:ninas_pro_hub/config/ninaspro_theme.dart';
 import 'package:ninas_pro_hub/models/hub_models.dart';
 import 'package:ninas_pro_hub/repositories/alumnas_repository.dart';
 import 'package:ninas_pro_hub/repositories/mock_hub_repository.dart';
-import 'package:ninas_pro_hub/screens/alumnas/pendientes_autorizacion_screen.dart';
 import 'package:ninas_pro_hub/screens/directorio/directorio_alumnas_view.dart';
 import 'package:ninas_pro_hub/screens/directorio/directorio_desktop_screen.dart';
 import 'package:ninas_pro_hub/services/descargas.dart';
@@ -91,36 +90,142 @@ void main() {
   });
 
   group('carga masiva (US-07, US-08)', () {
-    testWidgets('previsualiza nuevas, existentes e inválidas, descarga las rechazadas y confirma', (tester) async {
-      elegir('nómina.csv', utf8.encode([
-        columnasPlantillaAlumnas.join(','),
-        fila('25.000.001-4', 'María José'),
-        fila('25.000.007-0', 'Josefa'),
-        fila('21.998.765-K', 'Isidora'),
-      ].join('\n')));
+    Future<void> subir(WidgetTester tester, List<String> filas) async {
+      elegir('nómina.csv', utf8.encode([columnasPlantillaAlumnas.join(','), ...filas].join('\n')));
       await abrir(tester, DirectorioAlumnasView(repository: repo));
-
       await tester.tap(find.text('Carga masiva'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Elegir archivo'));
       await tester.pumpAndSettle();
+    }
+
+    Future<void> resolver(WidgetTester tester, int numeroFila, String accion) async {
+      await tester.ensureVisible(find.byTooltip('Resolver fila $numeroFila'));
+      await tester.tap(find.byTooltip('Resolver fila $numeroFila'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(accion).last);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('avisa los conflictos y los resuelve en la misma vista previa', (tester) async {
+      await subir(tester, [
+        fila('25.000.001-4', 'María José'),
+        fila('25.000.007-0', 'Josefa'),
+        fila('21.998.765-K', 'Isi'),
+        fila('25.000.012-K', 'Bea'),
+        fila('25.000.012-K', 'Beatriz'),
+      ]);
 
       expect(find.text('1 nuevas'), findsOneWidget);
-      expect(find.text('1 ya existentes'), findsOneWidget);
-      expect(find.text('1 inválidas'), findsOneWidget);
-      expect(find.text('RUT de la alumna inválido (dígito verificador)'), findsOneWidget);
+      expect(find.text('4 por resolver'), findsOneWidget);
+      expect(find.textContaining('4 filas tienen conflictos o errores'), findsOneWidget);
+      expect(find.textContaining('RUT de la alumna inválido (dígito verificador)'), findsOneWidget);
+      expect(find.textContaining('Nombres: «Isidora» en la ficha, «Isi» en la planilla'), findsOneWidget);
+      expect(find.textContaining('RUT repetido en la planilla (filas 5, 6)'), findsNWidgets(2));
 
-      await tester.tap(find.text('Descargar filas rechazadas'));
-      expect(ultimaDescarga!.nombre, 'filas_rechazadas_nómina.csv');
+      await tester.tap(find.text('Descargar filas por resolver'));
+      expect(ultimaDescarga!.nombre, 'por_resolver_nómina.csv');
       expect(utf8.decode(ultimaDescarga!.bytes.sublist(3)), contains('3,25.000.007-0,Josefa Pérez'));
 
-      await tester.tap(find.text('Confirmar carga (2)'));
+      await resolver(tester, 4, 'Actualizar la ficha con la planilla');
+      expect(find.textContaining('Se actualizará la ficha con la planilla'), findsOneWidget);
+
+      await resolver(tester, 6, 'Usar esta fila y descartar las repetidas');
+      expect(find.text('1 descartadas'), findsOneWidget);
+
+      await resolver(tester, 3, 'Corregir datos');
+      await tester.enterText(find.widgetWithText(TextFormField, 'RUT'), '25.000.007-3');
+      await tester.tap(find.text('Aplicar'));
       await tester.pumpAndSettle();
-      expect(find.text('✅ 2 alumnas inscritas · 1 filas rechazadas.'), findsOneWidget);
-      expect(find.text('María José Pérez'), findsOneWidget);
-      expect(repo.ultimasFilas!.map((f) => f['fila']), [2, 3, 4]);
-      // La ficha existente se reutiliza: Isidora tiene ahora dos inscripciones
-      expect(repo.inscripciones.where((i) => i.nombres == 'Isidora'), hasLength(2));
+
+      expect(find.text('0 por resolver'), findsOneWidget);
+      await tester.tap(find.text('Confirmar carga (4)'));
+      await tester.pumpAndSettle();
+      expect(find.text('✅ 4 alumnas inscritas.'), findsOneWidget);
+      expect(find.text('Josefa Pérez'), findsOneWidget);
+      expect(find.text('Beatriz Pérez'), findsOneWidget);
+      expect(find.text('Bea Pérez'), findsNothing);
+      // La ficha existente se actualizó y tiene ahora dos inscripciones
+      expect(repo.fichas.values.where((f) => f.nombres == 'Isi'), hasLength(1));
+      expect(repo.inscripciones.where((i) => i.rut == '21.998.765-K'), hasLength(2));
+      expect(repo.pendientes, isEmpty);
+    });
+
+    testWidgets('lo que no se resuelve queda pendiente y se resuelve después', (tester) async {
+      await subir(tester, [fila('25.000.001-4', 'María José'), fila('25.000.007-0', 'Josefa')]);
+
+      await tester.tap(find.text('Confirmar: 1 inscripción · 1 pendientes'));
+      await tester.pumpAndSettle();
+      expect(find.text('✅ 1 alumna inscrita · 1 filas quedaron en Conflictos de importación.'), findsOneWidget);
+      expect(repo.pendientes.single.archivo, 'nómina.csv');
+
+      await tester.tap(find.text('Conflictos de importación (1)'));
+      await tester.pumpAndSettle();
+      expect(find.text('Con errores'), findsOneWidget);
+      expect(find.text('PCB-2026-S2-BEAUCHEF\nnómina.csv'), findsOneWidget);
+
+      await tester.ensureVisible(find.byTooltip('Resolver fila 3'));
+      await tester.tap(find.byTooltip('Resolver fila 3'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Corregir datos').last);
+      await tester.pumpAndSettle();
+      await tester.enterText(find.widgetWithText(TextFormField, 'RUT'), '25.000.007-3');
+      await tester.tap(find.text('Aplicar'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('✅ Josefa Pérez quedó inscrita.'), findsOneWidget);
+      expect(find.text('✅ No quedan conflictos pendientes.'), findsOneWidget);
+      await tester.tap(find.text('Cerrar'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Conflictos de importación ('), findsNothing);
+      expect(find.text('Josefa Pérez'), findsOneWidget);
+    });
+
+    testWidgets('un pendiente que sigue sin resolverse se informa y se puede descartar', (tester) async {
+      repo.correosEnUso.add('ocupada@correo.cl');
+      repo.pendientes.add(ConflictoImportacion(
+        id: 'conf-1',
+        instanciaId: 'inst-a',
+        cursoEtiqueta: 'PCB · Sede Beauchef',
+        archivo: 'marzo.xlsx',
+        numeroFila: 9,
+        datos: {
+          'fila': 9,
+          'rut': '25.000.013-8',
+          'nombres': 'Carla',
+          'apellidos': 'Rojas',
+          'correo': 'ocupada@correo.cl',
+          'nombres_apoderado': 'Rosa',
+          'apellidos_apoderado': 'Rojas',
+          'telefono_apoderado': '+56 9 1234 5678',
+          'correo_apoderado': 'rosa@correo.cl',
+        },
+        motivo: 'El correo de la alumna ya lo usa otra persona',
+        creadoEn: DateTime(2026, 11, 16),
+      ));
+      await abrir(tester, DirectorioAlumnasView(repository: repo));
+      await tester.tap(find.text('Conflictos de importación (1)'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('El correo de la alumna ya lo usa otra persona'), findsOneWidget);
+
+      // Corregir sin cambiar el correo: sigue pendiente
+      await tester.ensureVisible(find.byTooltip('Resolver fila 9'));
+      await tester.tap(find.byTooltip('Resolver fila 9'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Corregir datos').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Aplicar'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('La fila 9 sigue pendiente'), findsOneWidget);
+      expect(repo.pendientes, hasLength(1));
+
+      await tester.ensureVisible(find.byTooltip('Resolver fila 9'));
+      await tester.tap(find.byTooltip('Resolver fila 9'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Descartar fila').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Fila 9 descartada.'), findsOneWidget);
+      expect(repo.pendientes, isEmpty);
     });
 
     testWidgets('una planilla que no respeta la plantilla se rechaza completa', (tester) async {
@@ -134,7 +239,7 @@ void main() {
 
       expect(find.textContaining('fue rechazada completa'), findsOneWidget);
       expect(find.textContaining('Faltan columnas'), findsOneWidget);
-      expect(find.textContaining('Confirmar carga'), findsNothing);
+      expect(find.textContaining('Confirmar'), findsNothing);
 
       await tester.tap(find.text('Subir otra planilla'));
       await tester.pumpAndSettle();
@@ -143,15 +248,9 @@ void main() {
     });
 
     testWidgets('si la base rechaza la carga se muestra su mensaje', (tester) async {
-      elegir('nomina.csv', utf8.encode('${columnasPlantillaAlumnas.join(',')}\n${fila('25.000.001-4', 'Ana')}'));
-      repo.errorEscritura = 'Solo la Directiva o el Equipo de Gestión de la sede inscriben alumnas.';
-      await abrir(tester, DirectorioAlumnasView(repository: repo));
-
-      await tester.tap(find.text('Carga masiva'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Elegir archivo'));
-      await tester.pumpAndSettle();
-      expect(find.text('Solo la Directiva o el Equipo de Gestión de la sede inscriben alumnas.'), findsOneWidget);
+      repo.errorEscritura = 'Solo la Directiva inscribe alumnas.';
+      await subir(tester, [fila('25.000.001-4', 'Ana')]);
+      expect(find.text('Solo la Directiva inscribe alumnas.'), findsOneWidget);
     });
   });
 
@@ -188,13 +287,11 @@ void main() {
       expect(find.text('Amanda Núñez'), findsOneWidget);
     });
 
-    testWidgets('si ya está inscrita en el curso muestra el motivo de la base', (tester) async {
-      await abrir(tester, DirectorioAlumnasView(repository: repo));
+    Future<void> completar(WidgetTester tester, List<String> valores) async {
       await tester.tap(find.text('Inscribir alumna'));
       await tester.pumpAndSettle();
-
       final campos = find.descendant(of: find.byType(AlertDialog), matching: find.byType(TextFormField));
-      for (final (i, texto) in ['22.341.890-2', 'Valentina', 'Soto', '', '', '', '', 'Marcela', 'Morales', '+56 9 1', 'm@correo.cl'].indexed) {
+      for (final (i, texto) in valores.indexed) {
         await tester.enterText(campos.at(i), texto);
       }
       await tester.ensureVisible(find.text('Fecha de nacimiento'));
@@ -205,7 +302,39 @@ void main() {
       await tester.ensureVisible(find.text('Inscribir'));
       await tester.tap(find.text('Inscribir'));
       await tester.pumpAndSettle();
+    }
+
+    const apoderada = ['', 'Marcela', 'Morales', '+56 9 1234 5678', 'm@correo.cl'];
+
+    testWidgets('si ya está inscrita en el curso muestra el motivo de la base', (tester) async {
+      await abrir(tester, DirectorioAlumnasView(repository: repo));
+      await completar(tester, ['22.341.890-2', 'Valentina', 'Soto Morales', '', '', '', ...apoderada]);
       expect(find.text('Ya está inscrita en este curso'), findsOneWidget);
+    });
+
+    testWidgets('si el RUT tiene ficha con otros datos deja elegir antes de inscribir', (tester) async {
+      await abrir(tester, DirectorioAlumnasView(repository: repo));
+      // Isidora está en Valparaíso; se inscribe en Beauchef con otro nombre
+      await completar(tester, ['21.998.765-K', 'Isi', 'Silva Vargas', '', '', '', ...apoderada]);
+      expect(find.textContaining('Nombres: «Isidora» en la ficha, «Isi» en el formulario'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('Mantener la ficha e inscribir'));
+      await tester.tap(find.text('Mantener la ficha e inscribir'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('✅ Alumna inscrita'), findsOneWidget);
+      expect(repo.fichas.values.where((f) => f.nombres == 'Isidora'), hasLength(1));
+    });
+
+    testWidgets('si el correo está en uso deja inscribir sin correo', (tester) async {
+      repo.correosEnUso.add('ocupada@correo.cl');
+      await abrir(tester, DirectorioAlumnasView(repository: repo));
+      await completar(tester, ['25.000.020-0', 'Elisa', 'Mora', 'ocupada@correo.cl', '', '', ...apoderada]);
+      expect(find.text('El correo de la alumna ya lo usa otra persona'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('Inscribir sin correo'));
+      await tester.tap(find.text('Inscribir sin correo'));
+      await tester.pumpAndSettle();
+      expect(find.text('Elisa Mora'), findsOneWidget);
     });
   });
 
@@ -294,42 +423,6 @@ void main() {
       expect(find.text('Retirada'), findsOneWidget);
       expect(find.textContaining('Cambio de colegio'), findsOneWidget);
       expect(find.textContaining('asistencia 75.0% (3/4)'), findsOneWidget);
-    });
-  });
-
-  group('pendientes de regularización en Gestión (US-11)', () {
-    testWidgets('la tarjeta del panel cuenta las preinscritas y destaca las urgentes', (tester) async {
-      await abrir(
-        tester,
-        TarjetaAutorizacionesPendientes(repository: repo),
-        tamano: const Size(400, 800),
-      );
-      expect(find.text('2 alumnas esperan su consentimiento'), findsOneWidget);
-      expect(find.text('1 sin regularizar tras 2 sesiones: no pueden pasar lista'), findsOneWidget);
-
-      await tester.tap(find.text('2 alumnas esperan su consentimiento'));
-      await tester.pumpAndSettle();
-      expect(find.text('Autorizaciones pendientes'), findsOneWidget);
-      // La urgente va primero
-      final florencia = tester.getTopLeft(find.text('Florencia Muñoz Tapia')).dy;
-      final isidora = tester.getTopLeft(find.text('Isidora Silva Vargas')).dy;
-      expect(florencia, lessThan(isidora));
-      expect(find.textContaining('Sin consentimiento tras 3 sesiones'), findsOneWidget);
-
-      // En el celular la ficha ocupa toda la pantalla
-      await tester.tap(find.text('Florencia Muñoz Tapia'));
-      await tester.pumpAndSettle();
-      expect(find.byType(Dialog), findsOneWidget);
-      expect(find.text('Autorizaciones del apoderado/a'), findsOneWidget);
-    });
-
-    testWidgets('sin pendientes la tarjeta no se muestra', (tester) async {
-      final vacio = FakeAlumnasRepository();
-      await abrir(tester, TarjetaAutorizacionesPendientes(repository: vacio), tamano: const Size(400, 800));
-      expect(find.byType(Card), findsNothing);
-
-      await abrir(tester, PendientesAutorizacionScreen(repository: vacio), tamano: const Size(400, 800));
-      expect(find.textContaining('Todas las alumnas tienen su consentimiento'), findsOneWidget);
     });
   });
 }

@@ -6,18 +6,20 @@ import '../../repositories/alumnas_repository.dart';
 import '../../services/descargas.dart';
 import '../../services/selector_archivos.dart';
 import '../../utils/planilla.dart';
-import '../directorio/directorio_importacion_dialog.dart';
+import 'filas_nomina.dart';
 
 /// Carga masiva de la nómina desde un CSV (UTF-8) o XLSX (US-07, US-08).
 ///
-/// 1. Se elige la instancia de destino y el archivo. La app revisa la
-///    estructura: si las columnas no son las de la plantilla se rechaza completo.
-/// 2. La base clasifica cada fila sin guardar nada: nuevas, ya existentes (se
-///    reutiliza su ficha) e inválidas con su motivo, descargables en un CSV.
-/// 3. "Confirmar carga" inscribe todas las válidas en una sola transacción.
+/// 1. Se elige la instancia de destino y el archivo. Si las columnas no son las
+///    de la plantilla, el archivo se rechaza completo.
+/// 2. La base revisa cada fila sin guardar nada y avisa los conflictos (RUT
+///    repetido, ficha existente con otros datos, correo en uso) y los errores.
+///    Cada uno se resuelve aquí mismo con el menú de la fila.
+/// 3. "Confirmar carga" inscribe lo resuelto en una transacción; lo que siga sin
+///    resolver queda en "Conflictos de importación" para resolverlo después.
 ///
-/// Devuelve el resultado final, o null si se canceló.
-Future<({int inscritas, int rechazadas})?> mostrarImportacionAlumnas(
+/// Devuelve cuántas se inscribieron y cuántas quedaron pendientes, o null si se canceló.
+Future<({int inscritas, int pendientes})?> mostrarImportacionAlumnas(
   BuildContext context, {
   required AlumnasRepository repository,
   required List<Curso> instancias,
@@ -38,8 +40,9 @@ class _ImportacionAlumnasDialog extends StatefulWidget {
 
 class _ImportacionAlumnasDialogState extends State<_ImportacionAlumnasDialog> {
   late String _instanciaId = widget.instancias.first.id;
-  List<Map<String, Object?>>? _filas;
-  ResultadoImportacion? _resultado;
+  String? _archivo;
+  List<FilaNomina>? _filas;
+  String? _errorEstructura;
   bool _procesando = false;
   String? _error;
 
@@ -50,36 +53,52 @@ class _ImportacionAlumnasDialogState extends State<_ImportacionAlumnasDialog> {
   Future<void> _elegirArchivo() async {
     final archivo = await elegirArchivo(const ['csv', 'xlsx']);
     if (archivo == null || !mounted) return;
+    final List<Map<String, Object?>> datos;
+    try {
+      datos = filasNominaAlumnas(leerPlanilla(archivo.bytes, archivo.nombre));
+    } on PlanillaInvalida catch (e) {
+      setState(() {
+        _archivo = archivo.nombre;
+        _errorEstructura = e.mensaje;
+      });
+      return;
+    }
+    _archivo = archivo.nombre;
+    await _revisar([for (final d in datos) FilaNomina(numero: d['fila'] as int, datos: d)]);
+  }
+
+  /// Vuelve a revisar todas las filas con las correcciones y resoluciones elegidas
+  Future<void> _revisar(List<FilaNomina> filas) async {
     setState(() {
       _procesando = true;
       _error = null;
     });
-
-    // Estructura del archivo: se rechaza completo si no respeta la plantilla
-    final List<Map<String, Object?>> filas;
-    try {
-      filas = filasNominaAlumnas(leerPlanilla(archivo.bytes, archivo.nombre));
-    } on PlanillaInvalida catch (e) {
-      setState(() {
-        _procesando = false;
-        _filas = null;
-        _resultado = ResultadoImportacion(nombreArchivo: archivo.nombre, errorColumnas: e.mensaje);
-      });
-      return;
-    }
-
-    final r = await widget.repository.previsualizarImportacion(
-      instanciaId: _instanciaId,
-      nombreArchivo: archivo.nombre,
-      filas: filas,
-    );
+    final r = await widget.repository.revisarImportacion(instanciaId: _instanciaId, archivo: _archivo!, filas: filas);
     if (!mounted) return;
     setState(() {
       _procesando = false;
       _error = r.error;
-      _filas = r.ok ? filas : null;
-      _resultado = r.valor;
+      if (r.ok) _filas = r.valor!.filas;
     });
+  }
+
+  Future<void> _accion(int indice, AccionFila accion) async {
+    final filas = [..._filas!];
+    switch (accion) {
+      case AccionFila.corregir:
+        final datos = await editarFilaNomina(context, filas[indice]);
+        if (datos == null) return;
+        filas[indice] = filas[indice].conDatos(datos);
+      case AccionFila.usarEstaFila:
+        for (final j in indicesRepetidos(filas, indice)) {
+          filas[j] = filas[j].conResolucion(ResolucionFila.descartar);
+        }
+      case AccionFila.deshacer:
+        filas[indice] = filas[indice].conResolucion(null);
+      default:
+        filas[indice] = filas[indice].conResolucion(resolucionDe(accion));
+    }
+    await _revisar(filas);
   }
 
   Future<void> _confirmar() async {
@@ -87,11 +106,7 @@ class _ImportacionAlumnasDialogState extends State<_ImportacionAlumnasDialog> {
       _procesando = true;
       _error = null;
     });
-    final r = await widget.repository.confirmarImportacion(
-      instanciaId: _instanciaId,
-      nombreArchivo: _resultado!.nombreArchivo,
-      filas: _filas!,
-    );
+    final r = await widget.repository.confirmarImportacion(instanciaId: _instanciaId, archivo: _archivo!, filas: _filas!);
     if (!mounted) return;
     final valor = r.valor;
     if (valor == null) {
@@ -101,46 +116,46 @@ class _ImportacionAlumnasDialogState extends State<_ImportacionAlumnasDialog> {
       });
       return;
     }
-    Navigator.pop(context, (
-      inscritas: valor.inscritas,
-      rechazadas: valor.detalle.contar(EstadoFilaImportacion.invalida),
-    ));
+    Navigator.pop(context, (inscritas: valor.inscritas, pendientes: valor.pendientes));
   }
 
   void _reiniciar() => setState(() {
-    _resultado = null;
+    _archivo = null;
     _filas = null;
+    _errorEstructura = null;
     _error = null;
   });
 
+  void _descargarPorResolver() {
+    final filas = _filas!.where((f) => f.estado.porResolver);
+    descargarArchivo(
+      'por_resolver_${_archivo!.split('.').first}.csv',
+      reporteFilasCsv([for (final f in filas) (fila: f.numero, rut: f.rut, nombre: f.nombre, motivo: f.motivo ?? '')]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final resultado = _resultado;
-    final validas = resultado == null || resultado.errorColumnas != null
-        ? 0
-        : resultado.filas.where((f) => f.estado != EstadoFilaImportacion.invalida).length;
+    final filas = _filas;
+    final revisado = filas != null || _errorEstructura != null;
+    final inscribir = filas?.where((f) => f.estado.seInscribe).length ?? 0;
+    final pendientes = filas?.where((f) => f.estado.porResolver).length ?? 0;
 
     return AlertDialog(
       title: const Text('Carga masiva de nómina'),
       content: SizedBox(
-        width: 820,
+        width: 980,
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (resultado == null)
-                _buildPasoSubida()
+              if (_errorEstructura != null)
+                _RechazoCompleto(archivo: _archivo!, mensaje: _errorEstructura!)
+              else if (filas != null)
+                _buildRevision(filas, pendientes)
               else
-                VistaPreviaImportacion(
-                  resultado: resultado,
-                  destino: _etiqueta(_instancia),
-                  etiquetaDetalle: 'Apoderado/a',
-                  onDescargarRechazadas: () => descargarArchivo(
-                    'filas_rechazadas_${resultado.nombreArchivo.split('.').first}.csv',
-                    reporteRechazadasCsv(resultado),
-                  ),
-                ),
+                _buildPasoSubida(),
               if (_error != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 12),
@@ -152,15 +167,54 @@ class _ImportacionAlumnasDialogState extends State<_ImportacionAlumnasDialog> {
       ),
       actions: [
         TextButton(onPressed: _procesando ? null : () => Navigator.pop(context), child: const Text('Cancelar')),
-        if (resultado != null)
+        if (revisado)
           TextButton(onPressed: _procesando ? null : _reiniciar, child: const Text('Subir otra planilla')),
-        if (resultado != null && resultado.errorColumnas == null)
+        if (filas != null)
           FilledButton.icon(
-            onPressed: _procesando || validas == 0 ? null : _confirmar,
+            onPressed: _procesando || inscribir + pendientes == 0 ? null : _confirmar,
             icon: _procesando
                 ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.check_rounded, size: 18),
-            label: Text('Confirmar carga ($validas)'),
+            label: Text(
+              pendientes == 0
+                  ? 'Confirmar carga ($inscribir)'
+                  : 'Confirmar: $inscribir ${inscribir == 1 ? 'inscripción' : 'inscripciones'} · $pendientes pendientes',
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildRevision(List<FilaNomina> filas, int pendientes) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '$_archivo · ${filas.length} filas · destino: ${_etiqueta(_instancia)}',
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 10),
+        ResumenFilasNomina(filas: filas),
+        if (pendientes > 0) ...[
+          const SizedBox(height: 10),
+          _Aviso(
+            '$pendientes ${pendientes == 1 ? 'fila tiene' : 'filas tienen'} conflictos o errores. Resuélvelas aquí con '
+            'el menú ⋯ de cada fila, o confirma la carga y quedarán pendientes en "Conflictos de importación" '
+            'para resolverlas después.',
+          ),
+        ],
+        const SizedBox(height: 12),
+        if (_procesando) const LinearProgressIndicator(),
+        TablaFilasNomina(filas: filas, onAccion: _procesando ? null : _accion),
+        if (pendientes > 0)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: _descargarPorResolver,
+              icon: const Icon(Icons.download_rounded, size: 18),
+              label: const Text('Descargar filas por resolver'),
+            ),
           ),
       ],
     );
@@ -229,6 +283,61 @@ class _ImportacionAlumnasDialogState extends State<_ImportacionAlumnasDialog> {
           ],
         ),
       ],
+    );
+  }
+}
+
+class _Aviso extends StatelessWidget {
+  final String texto;
+
+  const _Aviso(this.texto);
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? NinasProColors.warning900 : NinasProColors.warning100,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.warning_amber_rounded, color: NinasProColors.warning700),
+          const SizedBox(width: 10),
+          Expanded(child: Text(texto)),
+        ],
+      ),
+    );
+  }
+}
+
+/// La planilla no respeta la plantilla: se rechaza completa (US-08 escenario 1)
+class _RechazoCompleto extends StatelessWidget {
+  final String archivo;
+  final String mensaje;
+
+  const _RechazoCompleto({required this.archivo, required this.mensaje});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = isDark ? NinasProColors.error300 : NinasProColors.error900;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? NinasProColors.error900 : NinasProColors.error100,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.block_rounded, color: color),
+          const SizedBox(width: 12),
+          Expanded(child: Text('$archivo fue rechazada completa.\n$mensaje', style: TextStyle(color: color))),
+        ],
+      ),
     );
   }
 }

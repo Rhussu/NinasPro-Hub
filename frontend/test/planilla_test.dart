@@ -3,7 +3,6 @@ import 'dart:typed_data';
 
 import 'package:excel/excel.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ninas_pro_hub/models/hub_models.dart';
 import 'package:ninas_pro_hub/utils/planilla.dart';
 
 /// Lectura de planillas CSV/XLSX de la nómina (US-07, US-08)
@@ -156,22 +155,12 @@ void main() {
       expect(filas.single['apellidos'], 'Muñoz Ñancupil');
     });
 
-    test('el reporte de rechazadas lista fila, RUT, nombre y motivo', () {
-      const resultado = ResultadoImportacion(
-        nombreArchivo: 'nomina.csv',
-        filas: [
-          FilaImportacion(numeroFila: 2, nombre: 'Ana', rut: '1-9', detalle: '', estado: EstadoFilaImportacion.nueva),
-          FilaImportacion(
-            numeroFila: 7,
-            nombre: 'Josefa, la segunda',
-            rut: '25.000.007-0',
-            detalle: '',
-            estado: EstadoFilaImportacion.invalida,
-            motivo: 'RUT de la alumna inválido (dígito verificador)',
-          ),
-        ],
+    test('el reporte de filas por resolver lista fila, RUT, nombre y motivo', () {
+      final texto = utf8.decode(
+        reporteFilasCsv([
+          (fila: 7, rut: '25.000.007-0', nombre: 'Josefa, la segunda', motivo: 'RUT de la alumna inválido (dígito verificador)'),
+        ]).sublist(3),
       );
-      final texto = utf8.decode(reporteRechazadasCsv(resultado).sublist(3));
       expect(texto, 'fila,rut,nombre,motivo\r\n7,25.000.007-0,"Josefa, la segunda",RUT de la alumna inválido (dígito verificador)\r\n');
     });
   });

@@ -3,8 +3,6 @@ import 'dart:typed_data';
 
 import 'package:excel/excel.dart';
 
-import '../models/hub_models.dart';
-
 /// Lectura de planillas CSV (UTF-8) y XLSX para las cargas masivas (US-07, US-08).
 ///
 /// El archivo se lee en el navegador: aquí se revisa la estructura (formato,
@@ -267,9 +265,8 @@ Uint8List csvUtf8(List<List<String>> filas) {
 /// Plantilla descargable de la nómina de alumnas
 Uint8List plantillaAlumnasCsv() => csvUtf8([columnasPlantillaAlumnas, _ejemploPlantillaAlumnas]);
 
-/// Reporte de filas rechazadas con su número de fila y motivo (US-08 escenario 2)
-Uint8List reporteRechazadasCsv(ResultadoImportacion resultado) => csvUtf8([
+/// Reporte de las filas por resolver con su número de fila y motivo (US-08 escenario 2)
+Uint8List reporteFilasCsv(Iterable<({int fila, String rut, String nombre, String motivo})> filas) => csvUtf8([
   const ['fila', 'rut', 'nombre', 'motivo'],
-  for (final f in resultado.filas.where((f) => f.estado == EstadoFilaImportacion.invalida))
-    ['${f.numeroFila}', f.rut, f.nombre, f.motivo ?? ''],
+  for (final f in filas) ['${f.fila}', f.rut, f.nombre, f.motivo],
 ]);

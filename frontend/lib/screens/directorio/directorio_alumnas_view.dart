@@ -3,6 +3,7 @@ import '../../config/ninaspro_colors.dart';
 import '../../models/hub_models.dart';
 import '../../repositories/alumnas_repository.dart';
 import '../../utils/rut.dart';
+import '../alumnas/conflictos_importacion_dialog.dart';
 import '../alumnas/ficha_alumna_dialog.dart';
 import '../alumnas/importacion_alumnas_dialog.dart';
 import '../alumnas/inscripcion_dialog.dart';
@@ -12,7 +13,8 @@ import 'directorio_widgets.dart';
 ///
 /// Una fila por inscripción, con filtros por sede, curso, estado y
 /// consentimiento, búsqueda por nombre o RUT, inscripción individual, carga
-/// masiva desde CSV o XLSX y la ficha con autorizaciones, revocación y retiro.
+/// masiva desde CSV o XLSX (con sus conflictos pendientes) y la ficha con
+/// autorizaciones, revocación y retiro. Todo esto lo gestiona la Directiva.
 class DirectorioAlumnasView extends StatefulWidget {
   final AlumnasRepository repository;
 
@@ -27,6 +29,7 @@ class _DirectorioAlumnasViewState extends State<DirectorioAlumnasView> {
   String? _errorCarga;
   List<InscripcionNomina> _nomina = [];
   List<Curso> _instancias = [];
+  int _conflictos = 0;
 
   String? _sedeId;
   String? _instanciaId;
@@ -44,10 +47,12 @@ class _DirectorioAlumnasViewState extends State<DirectorioAlumnasView> {
     try {
       final nomina = await widget.repository.nomina();
       final instancias = await widget.repository.instancias();
+      final conflictos = await widget.repository.conflictosPendientes();
       if (!mounted) return;
       setState(() {
         _nomina = nomina;
         _instancias = instancias;
+        _conflictos = conflictos.length;
         _cargando = false;
         _errorCarga = null;
       });
@@ -89,9 +94,14 @@ class _DirectorioAlumnasViewState extends State<DirectorioAlumnasView> {
     mostrarAviso(
       context,
       '✅ ${r.inscritas} ${r.inscritas == 1 ? 'alumna inscrita' : 'alumnas inscritas'}'
-      '${r.rechazadas == 0 ? '' : ' · ${r.rechazadas} filas rechazadas'}.',
+      '${r.pendientes == 0 ? '' : ' · ${r.pendientes} filas quedaron en Conflictos de importación'}.',
     );
     _cargarDatos();
+  }
+
+  Future<void> _verConflictos() async {
+    final cambios = await mostrarConflictosImportacion(context, repository: widget.repository);
+    if (cambios == true && mounted) _cargarDatos();
   }
 
   Future<void> _inscribir() async {
@@ -136,6 +146,7 @@ class _DirectorioAlumnasViewState extends State<DirectorioAlumnasView> {
           titulo: 'Alumnas',
           subtitulo: '$activas activas en ${sedes.length} ${sedes.length == 1 ? 'sede' : 'sedes'}',
           acciones: [
+            BotonConflictosImportacion(cantidad: _conflictos, onPressed: _verConflictos),
             Tooltip(
               message: sinInstancias ? 'Primero programa una instancia de curso en Ajustes' : '',
               child: OutlinedButton.icon(

@@ -265,6 +265,188 @@ class ArchivoAdjunto {
   }
 }
 
+/// Estado de una fila de la nómina al revisarla o cargarla (US-07, US-08)
+enum EstadoFilaNomina {
+  nueva,
+  existente,
+  inscrita,
+  conflicto,
+  invalida,
+  descartada,
+  pendiente;
+
+  String get label => switch (this) {
+    EstadoFilaNomina.nueva => 'Nueva',
+    EstadoFilaNomina.existente => 'Ya tiene ficha',
+    EstadoFilaNomina.inscrita => 'Ya inscrita',
+    EstadoFilaNomina.conflicto => 'Conflicto',
+    EstadoFilaNomina.invalida => 'Con errores',
+    EstadoFilaNomina.descartada => 'Descartada',
+    EstadoFilaNomina.pendiente => 'Pendiente',
+  };
+
+  /// Se inscribe al confirmar
+  bool get seInscribe => this == EstadoFilaNomina.nueva || this == EstadoFilaNomina.existente;
+
+  /// Hay que resolverla ahora o queda pendiente para después
+  bool get porResolver => this == EstadoFilaNomina.conflicto || this == EstadoFilaNomina.invalida;
+
+  static EstadoFilaNomina desdeDb(String? v) =>
+      EstadoFilaNomina.values.where((e) => e.name == v).firstOrNull ?? EstadoFilaNomina.invalida;
+}
+
+/// Conflictos que la base detecta en una fila
+enum TipoConflicto {
+  rutRepetido('rut_repetido'),
+  fichaDistinta('ficha_distinta'),
+  correoEnUso('correo_en_uso');
+
+  final String valorDb;
+
+  const TipoConflicto(this.valorDb);
+
+  static TipoConflicto? desdeDb(String? v) => TipoConflicto.values.where((t) => t.valorDb == v).firstOrNull;
+}
+
+/// Cómo se resuelve una fila con conflicto
+enum ResolucionFila {
+  actualizarFicha('actualizar_ficha', 'Se actualizará la ficha con la planilla'),
+  mantenerFicha('mantener_ficha', 'Se mantiene la ficha actual'),
+  sinCorreo('sin_correo', 'Se inscribe sin correo'),
+  descartar('descartar', 'Descartada');
+
+  final String valorDb;
+  final String label;
+
+  const ResolucionFila(this.valorDb, this.label);
+
+  static ResolucionFila? desdeDb(String? v) => ResolucionFila.values.where((r) => r.valorDb == v).firstOrNull;
+}
+
+/// Un dato que difiere entre la ficha existente y la planilla
+@immutable
+class DiferenciaFicha {
+  final String campo;
+  final String ficha;
+  final String planilla;
+
+  const DiferenciaFicha({required this.campo, required this.ficha, required this.planilla});
+}
+
+/// Fila de una carga de nómina con su diagnóstico y, si se eligió, su resolución
+@immutable
+class FilaNomina {
+  final int numero;
+
+  /// Columnas de la plantilla con las correcciones hechas (claves de la RPC)
+  final Map<String, Object?> datos;
+  final String nombre;
+  final String rut;
+  final String apoderado;
+  final EstadoFilaNomina estado;
+  final String? motivo;
+  final List<TipoConflicto> conflictos;
+  final List<DiferenciaFicha> diferencias;
+  final List<int> filasRepetidas;
+  final ResolucionFila? resolucion;
+
+  /// Pendiente guardado que esta fila resuelve
+  final String? conflictoId;
+
+  const FilaNomina({
+    required this.numero,
+    required this.datos,
+    this.nombre = '',
+    this.rut = '',
+    this.apoderado = '',
+    this.estado = EstadoFilaNomina.nueva,
+    this.motivo,
+    this.conflictos = const [],
+    this.diferencias = const [],
+    this.filasRepetidas = const [],
+    this.resolucion,
+    this.conflictoId,
+  });
+
+  /// Lo que se envía a la RPC importar_alumnas
+  Map<String, Object?> get paraEnviar => {
+    ...datos,
+    'fila': numero,
+    if (resolucion != null) 'resolucion': resolucion!.valorDb,
+    if (conflictoId != null) 'conflicto_id': conflictoId,
+  };
+
+  FilaNomina conResolucion(ResolucionFila? r) => FilaNomina(
+    numero: numero,
+    datos: datos,
+    nombre: nombre,
+    rut: rut,
+    apoderado: apoderado,
+    estado: estado,
+    motivo: motivo,
+    conflictos: conflictos,
+    diferencias: diferencias,
+    filasRepetidas: filasRepetidas,
+    resolucion: r,
+    conflictoId: conflictoId,
+  );
+
+  FilaNomina conDatos(Map<String, Object?> nuevos) => FilaNomina(
+    numero: numero,
+    datos: nuevos,
+    nombre: nombre,
+    rut: rut,
+    apoderado: apoderado,
+    estado: estado,
+    motivo: motivo,
+    conflictos: conflictos,
+    diferencias: diferencias,
+    filasRepetidas: filasRepetidas,
+    resolucion: resolucion,
+    conflictoId: conflictoId,
+  );
+}
+
+/// Resultado de revisar o cargar una planilla
+@immutable
+class RevisionNomina {
+  final String archivo;
+  final List<FilaNomina> filas;
+
+  const RevisionNomina({required this.archivo, required this.filas});
+
+  int contar(EstadoFilaNomina estado) => filas.where((f) => f.estado == estado).length;
+  int get porInscribir => filas.where((f) => f.estado.seInscribe).length;
+  int get porResolver => filas.where((f) => f.estado.porResolver).length;
+}
+
+/// Fila que quedó sin resolver en una carga anterior
+@immutable
+class ConflictoImportacion {
+  final String id;
+  final String instanciaId;
+  final String cursoEtiqueta;
+  final String? archivo;
+  final int numeroFila;
+  final Map<String, Object?> datos;
+  final String motivo;
+  final DateTime creadoEn;
+
+  const ConflictoImportacion({
+    required this.id,
+    required this.instanciaId,
+    required this.cursoEtiqueta,
+    this.archivo,
+    required this.numeroFila,
+    required this.datos,
+    required this.motivo,
+    required this.creadoEn,
+  });
+
+  /// Fila lista para revisarla o resolverla (reemplaza este pendiente)
+  FilaNomina get fila => FilaNomina(numero: numeroFila, datos: datos, conflictoId: id);
+}
+
 /// Resultado de una operación: [valor] si salió bien o [error] listo para mostrar
 @immutable
 class ResultadoAlumnas<T> {
@@ -290,22 +472,42 @@ abstract class AlumnasRepository {
 
   Future<FichaAlumna?> ficha(String alumnaId);
 
-  /// Clasifica cada fila (nueva, existente o inválida con su motivo) sin guardar nada
-  Future<ResultadoAlumnas<ResultadoImportacion>> previsualizarImportacion({
+  /// Diagnostica cada fila (nueva, ya tiene ficha, ya inscrita, conflicto o
+  /// errores) aplicando las resoluciones elegidas, sin guardar nada
+  Future<ResultadoAlumnas<RevisionNomina>> revisarImportacion({
     required String instanciaId,
-    required String nombreArchivo,
-    required List<Map<String, Object?>> filas,
+    required String archivo,
+    required List<FilaNomina> filas,
   });
 
-  /// Inscribe todas las filas válidas en una transacción y devuelve el resultado final
-  Future<ResultadoAlumnas<({int inscritas, ResultadoImportacion detalle})>> confirmarImportacion({
+  /// Inscribe en una transacción las filas resueltas; las que siguen con
+  /// conflictos o errores quedan pendientes para resolverlas después
+  Future<ResultadoAlumnas<({int inscritas, int pendientes, RevisionNomina revision})>> confirmarImportacion({
     required String instanciaId,
-    required String nombreArchivo,
-    required List<Map<String, Object?>> filas,
+    required String archivo,
+    required List<FilaNomina> filas,
   });
 
-  /// Inscripción individual: si el RUT ya tiene ficha se reutiliza (US-09)
-  Future<ResultadoAlumnas<void>> inscribir({required String instanciaId, required DatosAlumna datos});
+  /// Inscripción individual (US-09). Si el RUT ya tiene ficha con otros datos o
+  /// el correo está en uso, no inscribe y devuelve la fila con su conflicto para
+  /// que se elija la [resolucion]
+  Future<ResultadoAlumnas<FilaNomina>> inscribir({
+    required String instanciaId,
+    required DatosAlumna datos,
+    ResolucionFila? resolucion,
+  });
+
+  /// Filas que quedaron sin resolver en cargas anteriores
+  Future<List<ConflictoImportacion>> conflictosPendientes();
+
+  /// Diagnóstico actual de los pendientes (en el mismo orden)
+  Future<ResultadoAlumnas<List<FilaNomina>>> revisarConflictos(List<ConflictoImportacion> conflictos);
+
+  /// Vuelve a procesar el pendiente con sus datos o resolución: se inscribe, o
+  /// queda pendiente con el diagnóstico nuevo
+  Future<ResultadoAlumnas<FilaNomina>> resolverConflicto(ConflictoImportacion conflicto, FilaNomina fila);
+
+  Future<ResultadoAlumnas<void>> descartarConflicto(String conflictoId);
 
   Future<ResultadoAlumnas<void>> registrarAutorizaciones({
     required String alumnaId,
@@ -429,24 +631,58 @@ class MapeoAlumnas {
     );
   }
 
-  static ResultadoImportacion importacion(String nombreArchivo, Map<String, dynamic> r) => ResultadoImportacion(
-    nombreArchivo: nombreArchivo,
-    filas: [
-      for (final f in (r['filas'] as List<dynamic>).cast<Map<String, dynamic>>())
-        FilaImportacion(
-          numeroFila: (f['fila'] as num).toInt(),
-          nombre: f['nombre'] as String? ?? '',
-          rut: f['rut'] as String? ?? '',
-          detalle: f['apoderado'] as String? ?? '',
-          estado: switch (f['estado']) {
-            'nueva' => EstadoFilaImportacion.nueva,
-            'existente' => EstadoFilaImportacion.existente,
-            _ => EstadoFilaImportacion.invalida,
-          },
-          motivo: f['motivo'] as String?,
+  static RevisionNomina revision(String archivo, Map<String, dynamic> r, {List<FilaNomina>? enviadas}) =>
+      RevisionNomina(
+        archivo: archivo,
+        filas: [
+          for (final (i, f) in (r['filas'] as List<dynamic>).cast<Map<String, dynamic>>().indexed)
+            fila(f, conflictoId: enviadas == null || i >= enviadas.length ? null : enviadas[i].conflictoId),
+        ],
+      );
+
+  static FilaNomina fila(Map<String, dynamic> f, {String? conflictoId}) => FilaNomina(
+    numero: (f['fila'] as num).toInt(),
+    datos: Map<String, Object?>.from(f['datos'] as Map? ?? const {}),
+    nombre: f['nombre'] as String? ?? '',
+    rut: f['rut'] as String? ?? '',
+    apoderado: f['apoderado'] as String? ?? '',
+    estado: EstadoFilaNomina.desdeDb(f['estado'] as String?),
+    motivo: f['motivo'] as String?,
+    conflictos: [
+      for (final t in (f['conflictos'] as List<dynamic>? ?? const [])) ?TipoConflicto.desdeDb(t as String?),
+    ],
+    diferencias: [
+      for (final d in (f['diferencias'] as List<dynamic>? ?? const []).cast<Map<String, dynamic>>())
+        DiferenciaFicha(
+          campo: d['campo'] as String,
+          ficha: d['ficha'] as String? ?? '',
+          planilla: d['planilla'] as String? ?? '',
         ),
     ],
+    filasRepetidas: [for (final n in (f['filas_repetidas'] as List<dynamic>? ?? const [])) (n as num).toInt()],
+    resolucion: ResolucionFila.desdeDb(f['resolucion'] as String?),
+    conflictoId: conflictoId,
   );
+
+  static ConflictoImportacion conflicto(Map<String, dynamic> f) {
+    final instancia = f['instancias_curso'] as Map<String, dynamic>? ?? const {};
+    final curso = instancia['cursos'] as Map<String, dynamic>? ?? const {};
+    final sede = instancia['sedes'] as Map<String, dynamic>? ?? const {};
+    return ConflictoImportacion(
+      id: f['id'] as String,
+      instanciaId: f['instancia_curso_id'] as String,
+      cursoEtiqueta: [
+        curso['codigo'],
+        instancia['periodo_academico'],
+        sede['nombre'],
+      ].whereType<String>().join(' · '),
+      archivo: f['archivo'] as String?,
+      numeroFila: (f['numero_fila'] as num).toInt(),
+      datos: Map<String, Object?>.from(f['fila'] as Map),
+      motivo: f['motivo'] as String,
+      creadoEn: DateTime.parse(f['created_at'] as String).toLocal(),
+    );
+  }
 
   /// 'Autorización Firmada (1).PDF' -> 'autorizacion_firmada_1_.pdf'
   static String nombreSeguro(String nombre) {
@@ -497,38 +733,49 @@ class SupabaseAlumnasRepository implements AlumnasRepository {
     return MapeoAlumnas.ficha(fila, [for (final f in inscripciones) MapeoAlumnas.inscripcion(f)]);
   }
 
-  Future<Map<String, dynamic>> _importar(String instanciaId, List<Map<String, Object?>> filas, bool soloValidar) async =>
+  Future<Map<String, dynamic>> _importar(
+    String instanciaId,
+    List<FilaNomina> filas, {
+    required bool soloValidar,
+    String? archivo,
+  }) async =>
       await _client.rpc(
             'importar_alumnas',
-            params: {'p_instancia_id': instanciaId, 'p_filas': filas, 'p_solo_validar': soloValidar},
+            params: {
+              'p_instancia_id': instanciaId,
+              'p_filas': [for (final f in filas) f.paraEnviar],
+              'p_solo_validar': soloValidar,
+              'p_archivo': archivo,
+            },
           )
           as Map<String, dynamic>;
 
   @override
-  Future<ResultadoAlumnas<ResultadoImportacion>> previsualizarImportacion({
+  Future<ResultadoAlumnas<RevisionNomina>> revisarImportacion({
     required String instanciaId,
-    required String nombreArchivo,
-    required List<Map<String, Object?>> filas,
+    required String archivo,
+    required List<FilaNomina> filas,
   }) async {
     try {
-      final r = await _importar(instanciaId, filas, true);
-      return ResultadoAlumnas.ok(MapeoAlumnas.importacion(nombreArchivo, r));
+      final r = await _importar(instanciaId, filas, soloValidar: true);
+      return ResultadoAlumnas.ok(MapeoAlumnas.revision(archivo, r, enviadas: filas));
     } on PostgrestException catch (e) {
       return ResultadoAlumnas.error(_mensaje(e));
     }
   }
 
   @override
-  Future<ResultadoAlumnas<({int inscritas, ResultadoImportacion detalle})>> confirmarImportacion({
+  Future<ResultadoAlumnas<({int inscritas, int pendientes, RevisionNomina revision})>> confirmarImportacion({
     required String instanciaId,
-    required String nombreArchivo,
-    required List<Map<String, Object?>> filas,
+    required String archivo,
+    required List<FilaNomina> filas,
   }) async {
     try {
-      final r = await _importar(instanciaId, filas, false);
+      final r = await _importar(instanciaId, filas, soloValidar: false, archivo: archivo);
       return ResultadoAlumnas.ok((
         inscritas: (r['inscritas'] as num).toInt(),
-        detalle: MapeoAlumnas.importacion(nombreArchivo, r),
+        pendientes: (r['pendientes'] as num? ?? 0).toInt(),
+        revision: MapeoAlumnas.revision(archivo, r),
       ));
     } on PostgrestException catch (e) {
       return ResultadoAlumnas.error(_mensaje(e));
@@ -536,17 +783,73 @@ class SupabaseAlumnasRepository implements AlumnasRepository {
   }
 
   @override
-  Future<ResultadoAlumnas<void>> inscribir({required String instanciaId, required DatosAlumna datos}) async {
+  Future<ResultadoAlumnas<FilaNomina>> inscribir({
+    required String instanciaId,
+    required DatosAlumna datos,
+    ResolucionFila? resolucion,
+  }) async {
+    final fila = FilaNomina(numero: 1, datos: datos.fila, resolucion: resolucion);
     try {
-      final r = MapeoAlumnas.importacion('', await _importar(instanciaId, [datos.fila], false));
-      final fila = r.filas.first;
-      return fila.estado == EstadoFilaImportacion.invalida
-          ? ResultadoAlumnas.error(fila.motivo)
-          : const ResultadoAlumnas.ok();
+      // Primero se revisa: una inscripción individual no deja pendientes
+      final revisada = MapeoAlumnas.revision('', await _importar(instanciaId, [fila], soloValidar: true)).filas.first;
+      if (!revisada.estado.seInscribe) return ResultadoAlumnas.ok(revisada);
+      final r = await _importar(instanciaId, [fila], soloValidar: false);
+      return ResultadoAlumnas.ok(MapeoAlumnas.revision('', r).filas.first);
     } on PostgrestException catch (e) {
       return ResultadoAlumnas.error(_mensaje(e));
     }
   }
+
+  @override
+  Future<List<ConflictoImportacion>> conflictosPendientes() async {
+    final filas = await _client
+        .from('conflictos_importacion')
+        .select(
+          'id, instancia_curso_id, archivo, numero_fila, fila, motivo, created_at, '
+          'instancias_curso(periodo_academico, cursos(codigo), sedes(nombre))',
+        )
+        .order('created_at')
+        .order('numero_fila');
+    return [for (final f in filas) MapeoAlumnas.conflicto(f)];
+  }
+
+  @override
+  Future<ResultadoAlumnas<List<FilaNomina>>> revisarConflictos(List<ConflictoImportacion> conflictos) async {
+    // Se revisan juntos los de cada curso, así se detectan los RUT repetidos entre pendientes
+    final porId = <String, FilaNomina>{};
+    try {
+      for (final instanciaId in {for (final c in conflictos) c.instanciaId}) {
+        final grupo = [for (final c in conflictos) if (c.instanciaId == instanciaId) c.fila];
+        final r = await _importar(instanciaId, grupo, soloValidar: true);
+        for (final f in MapeoAlumnas.revision('', r, enviadas: grupo).filas) {
+          porId[f.conflictoId!] = f;
+        }
+      }
+      return ResultadoAlumnas.ok([for (final c in conflictos) porId[c.id]!]);
+    } on PostgrestException catch (e) {
+      return ResultadoAlumnas.error(_mensaje(e));
+    }
+  }
+
+  @override
+  Future<ResultadoAlumnas<FilaNomina>> resolverConflicto(ConflictoImportacion conflicto, FilaNomina fila) async {
+    try {
+      final enviada = FilaNomina(
+        numero: conflicto.numeroFila,
+        datos: fila.datos,
+        resolucion: fila.resolucion,
+        conflictoId: conflicto.id,
+      );
+      final r = await _importar(conflicto.instanciaId, [enviada], soloValidar: false);
+      return ResultadoAlumnas.ok(MapeoAlumnas.revision(conflicto.archivo ?? '', r).filas.first);
+    } on PostgrestException catch (e) {
+      return ResultadoAlumnas.error(_mensaje(e));
+    }
+  }
+
+  @override
+  Future<ResultadoAlumnas<void>> descartarConflicto(String conflictoId) =>
+      _rpc('descartar_conflicto_importacion', {'p_conflicto_id': conflictoId});
 
   @override
   Future<ResultadoAlumnas<void>> registrarAutorizaciones({

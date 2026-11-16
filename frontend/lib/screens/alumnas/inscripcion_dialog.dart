@@ -9,7 +9,8 @@ import '../directorio/directorio_widgets.dart';
 
 /// Inscripción individual fuera de la carga masiva (US-09 escenario 2).
 /// Si el RUT ya tiene ficha, la base la reutiliza y solo agrega la inscripción.
-/// Devuelve true si se inscribió.
+/// Si esa ficha tiene otros datos o el correo ya está en uso, avisa el
+/// conflicto y deja elegir qué hacer antes de inscribir. Devuelve true si se inscribió.
 Future<bool?> mostrarInscripcionAlumna(
   BuildContext context, {
   required AlumnasRepository repository,
@@ -47,6 +48,9 @@ class _DialogoInscripcionState extends State<_DialogoInscripcion> {
   DateTime? _fechaNacimiento;
   bool _guardando = false;
   String? _error;
+
+  /// Conflicto que la base informó en el último intento
+  FilaNomina? _conflicto;
 
   List<TextEditingController> get _controladores => [
     _rut,
@@ -96,15 +100,17 @@ class _DialogoInscripcionState extends State<_DialogoInscripcion> {
     if (fecha != null) setState(() => _fechaNacimiento = fecha);
   }
 
-  Future<void> _guardar() async {
+  Future<void> _guardar([ResolucionFila? resolucion]) async {
     final formOk = _formKey.currentState!.validate();
     if (_fechaNacimiento == null) setState(() => _error = 'Indica la fecha de nacimiento.');
     if (!formOk || _fechaNacimiento == null) return;
     setState(() {
       _guardando = true;
       _error = null;
+      _conflicto = null;
     });
     final r = await widget.repository.inscribir(
+      resolucion: resolucion,
       instanciaId: _instanciaId,
       datos: DatosAlumna(
         rut: _rut.text,
@@ -123,14 +129,62 @@ class _DialogoInscripcionState extends State<_DialogoInscripcion> {
       ),
     );
     if (!mounted) return;
-    if (r.ok) {
+    final fila = r.valor;
+    if (fila != null && fila.estado.seInscribe) {
       Navigator.pop(context, true);
-    } else {
-      setState(() {
-        _guardando = false;
-        _error = r.error;
-      });
+      return;
     }
+    setState(() {
+      _guardando = false;
+      if (fila != null && fila.estado == EstadoFilaNomina.conflicto && !fila.conflictos.contains(TipoConflicto.rutRepetido)) {
+        _conflicto = fila;
+      } else {
+        _error = r.error ?? fila?.motivo;
+      }
+    });
+  }
+
+  /// Diferencias con la ficha existente o correo en uso, con las opciones para seguir
+  Widget _buildConflicto(FilaNomina f) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? NinasProColors.warning900 : NinasProColors.warning100,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(f.motivo ?? '', style: const TextStyle(fontWeight: FontWeight.w700)),
+          for (final d in f.diferencias)
+            Text('${d.campo}: «${d.ficha}» en la ficha, «${d.planilla}» en el formulario'),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (f.conflictos.contains(TipoConflicto.fichaDistinta)) ...[
+                OutlinedButton(
+                  onPressed: () => _guardar(ResolucionFila.mantenerFicha),
+                  child: const Text('Mantener la ficha e inscribir'),
+                ),
+                OutlinedButton(
+                  onPressed: () => _guardar(ResolucionFila.actualizarFicha),
+                  child: const Text('Actualizar la ficha e inscribir'),
+                ),
+              ],
+              if (f.conflictos.contains(TipoConflicto.correoEnUso))
+                OutlinedButton(
+                  onPressed: () => _guardar(ResolucionFila.sinCorreo),
+                  child: const Text('Inscribir sin correo'),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _seccion(String texto) => Padding(
@@ -221,6 +275,7 @@ class _DialogoInscripcionState extends State<_DialogoInscripcion> {
                   validator: _correoObligatorio,
                 ),
                 CampoFormulario(controller: _parentesco, etiqueta: 'Parentesco (opcional)'),
+                if (_conflicto != null) _buildConflicto(_conflicto!),
                 if (_error != null) Text(_error!, style: const TextStyle(color: NinasProColors.error700)),
               ],
             ),
@@ -229,7 +284,7 @@ class _DialogoInscripcionState extends State<_DialogoInscripcion> {
       ),
       actions: [
         TextButton(onPressed: _guardando ? null : () => Navigator.pop(context), child: const Text('Cancelar')),
-        FilledButton(onPressed: _guardando ? null : _guardar, child: const Text('Inscribir')),
+        FilledButton(onPressed: _guardando ? null : () => _guardar(), child: const Text('Inscribir')),
       ],
     );
   }

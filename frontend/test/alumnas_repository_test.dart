@@ -134,12 +134,19 @@ void main() {
         http.Response(jsonEncode({'code': code, 'message': message, 'details': null, 'hint': null}), status,
             headers: json);
 
-    final respuestaImportacion = {
-      'inscritas': 1,
-      'filas': [
-        {'fila': 2, 'rut': '22.341.890-2', 'nombre': 'Ana Pérez', 'apoderado': 'Marta Pérez', 'estado': 'nueva', 'motivo': null},
-        {'fila': 3, 'rut': '1-1', 'nombre': 'Bea', 'apoderado': '', 'estado': 'invalida', 'motivo': 'RUT inválido'},
-      ],
+    Map<String, Object?> filaRpc(int fila, String estado, {List<String> conflictos = const [], String? motivo}) => {
+      'fila': fila,
+      'datos': {'fila': fila, 'rut': '22.341.890-2', 'nombres': 'Ana'},
+      'rut': '22.341.890-2',
+      'nombre': 'Ana Pérez',
+      'apoderado': 'Marta Pérez',
+      'estado': estado,
+      'motivo': motivo,
+      'errores': const [],
+      'conflictos': conflictos,
+      'diferencias': const [],
+      'filas_repetidas': const [],
+      'resolucion': null,
     };
 
     test('la nómina se lee de la vista y se puede filtrar por sede', () async {
@@ -168,63 +175,165 @@ void main() {
       expect(pedidos.last.url.queryParameters['alumna_id'], 'eq.alumna-1');
     });
 
-    test('la previsualización llama a la RPC sin guardar y clasifica las filas', () async {
-      final repo = crear((_) => ok(respuestaImportacion));
-      final r = await repo.previsualizarImportacion(
+    test('la revisión llama a la RPC sin guardar y envía las resoluciones y pendientes', () async {
+      final repo = crear((_) => ok({
+            'inscritas': 0,
+            'pendientes': 0,
+            'filas': [
+              {
+                ...filaRpc(2, 'conflicto', conflictos: ['ficha_distinta', 'otro'], motivo: 'El RUT ya tiene ficha'),
+                'diferencias': [
+                  {'campo': 'Nombres', 'ficha': 'Antonia', 'planilla': 'Antonella'},
+                ],
+              },
+              {...filaRpc(3, 'descartada'), 'resolucion': 'descartar', 'filas_repetidas': [3, 4]},
+            ],
+          }));
+      final r = await repo.revisarImportacion(
         instanciaId: 'inst-1',
-        nombreArchivo: 'nomina.csv',
-        filas: [
-          {'fila': 2, 'rut': '22.341.890-2'},
+        archivo: 'nomina.csv',
+        filas: const [
+          FilaNomina(numero: 2, datos: {'rut': '22.341.890-2'}, conflictoId: 'conf-1'),
+          FilaNomina(numero: 3, datos: {'rut': '22.341.890-2'}, resolucion: ResolucionFila.descartar),
         ],
       );
       expect(pedidos.single.url.path, '/rest/v1/rpc/importar_alumnas');
       final cuerpo = jsonDecode(pedidos.single.body) as Map<String, dynamic>;
       expect(cuerpo['p_solo_validar'], isTrue);
-      expect(cuerpo['p_instancia_id'], 'inst-1');
-      expect(r.valor!.nombreArchivo, 'nomina.csv');
-      expect(r.valor!.contar(EstadoFilaImportacion.nueva), 1);
-      expect(r.valor!.filas.last.motivo, 'RUT inválido');
-      expect(r.valor!.filas.first.detalle, 'Marta Pérez');
+      expect(cuerpo['p_filas'], [
+        {'rut': '22.341.890-2', 'fila': 2, 'conflicto_id': 'conf-1'},
+        {'rut': '22.341.890-2', 'fila': 3, 'resolucion': 'descartar'},
+      ]);
+      final filas = r.valor!.filas;
+      expect(filas.first.estado, EstadoFilaNomina.conflicto);
+      expect(filas.first.conflictos, [TipoConflicto.fichaDistinta], reason: 'los tipos desconocidos se ignoran');
+      expect(filas.first.diferencias.single.planilla, 'Antonella');
+      expect(filas.first.conflictoId, 'conf-1', reason: 'se conserva el pendiente que resuelve');
+      expect(filas.last.resolucion, ResolucionFila.descartar);
+      expect(filas.last.filasRepetidas, [3, 4]);
+      expect(r.valor!.porResolver, 1);
+      expect(r.valor!.contar(EstadoFilaNomina.descartada), 1);
     });
 
-    test('confirmar la carga inscribe y devuelve cuántas quedaron', () async {
-      final repo = crear((_) => ok(respuestaImportacion));
-      final r = await repo.confirmarImportacion(instanciaId: 'inst-1', nombreArchivo: 'n.csv', filas: const []);
-      expect((jsonDecode(pedidos.single.body) as Map)['p_solo_validar'], isFalse);
+    test('confirmar la carga inscribe y devuelve cuántas quedaron pendientes', () async {
+      final repo = crear((_) => ok({
+            'inscritas': 1,
+            'pendientes': 1,
+            'filas': [filaRpc(2, 'nueva'), filaRpc(3, 'pendiente')],
+          }));
+      final r = await repo.confirmarImportacion(instanciaId: 'inst-1', archivo: 'n.csv', filas: const []);
+      final cuerpo = jsonDecode(pedidos.single.body) as Map;
+      expect(cuerpo['p_solo_validar'], isFalse);
+      expect(cuerpo['p_archivo'], 'n.csv');
       expect(r.valor!.inscritas, 1);
-      expect(r.valor!.detalle.contar(EstadoFilaImportacion.invalida), 1);
+      expect(r.valor!.pendientes, 1);
+      expect(r.valor!.revision.filas.last.estado, EstadoFilaNomina.pendiente);
     });
 
-    test('la inscripción individual informa el motivo si la fila es inválida', () async {
+    final datosAna = DatosAlumna(
+      rut: ' 22.341.890-2 ',
+      nombres: 'Ana',
+      apellidos: 'Pérez',
+      fechaNacimiento: DateTime(2011, 4, 5),
+      nombresApoderado: 'Marta',
+      apellidosApoderado: 'Pérez',
+      telefonoApoderado: '+56 9 1234 5678',
+      correoApoderado: 'marta@correo.cl',
+    );
+
+    test('la inscripción individual no inscribe si hay un conflicto y lo devuelve', () async {
       final repo = crear((_) => ok({
             'inscritas': 0,
-            'filas': [
-              {'fila': 1, 'rut': '22.341.890-2', 'nombre': 'Ana', 'apoderado': '', 'estado': 'invalida', 'motivo': 'Ya está inscrita en este curso'},
-            ],
+            'filas': [filaRpc(1, 'conflicto', conflictos: ['correo_en_uso'], motivo: 'El correo ya lo usa otra persona')],
           }));
-      final r = await repo.inscribir(
-        instanciaId: 'inst-1',
-        datos: DatosAlumna(
-          rut: ' 22.341.890-2 ',
-          nombres: 'Ana',
-          apellidos: 'Pérez',
-          fechaNacimiento: DateTime(2011, 4, 5),
-          nombresApoderado: 'Marta',
-          apellidosApoderado: 'Pérez',
-          telefonoApoderado: '+56 9 1234 5678',
-          correoApoderado: 'marta@correo.cl',
-        ),
-      );
-      expect(r.error, 'Ya está inscrita en este curso');
+      final r = await repo.inscribir(instanciaId: 'inst-1', datos: datosAna);
+      expect(r.valor!.conflictos, [TipoConflicto.correoEnUso]);
+      expect(pedidos, hasLength(1), reason: 'solo se revisa');
       final fila = ((jsonDecode(pedidos.single.body) as Map)['p_filas'] as List).single as Map;
       expect(fila['rut'], '22.341.890-2');
       expect(fila['fecha_nacimiento'], '2011-04-05');
     });
 
+    test('la inscripción individual inscribe con la resolución elegida', () async {
+      final repo = crear((r) => ok({
+            'inscritas': 1,
+            'filas': [filaRpc(1, 'existente')],
+          }));
+      final r = await repo.inscribir(instanciaId: 'inst-1', datos: datosAna, resolucion: ResolucionFila.mantenerFicha);
+      expect(r.valor!.estado, EstadoFilaNomina.existente);
+      expect(pedidos, hasLength(2));
+      expect((jsonDecode(pedidos.last.body) as Map)['p_solo_validar'], isFalse);
+      expect((((jsonDecode(pedidos.last.body) as Map)['p_filas'] as List).single as Map)['resolucion'], 'mantener_ficha');
+    });
+
+    final conflicto = ConflictoImportacion(
+      id: 'conf-1',
+      instanciaId: 'inst-1',
+      cursoEtiqueta: 'PCB · 2026-2 · Sede Beauchef',
+      archivo: 'nomina.csv',
+      numeroFila: 7,
+      datos: const {'fila': 7, 'rut': '22.341.890-2'},
+      motivo: 'RUT repetido',
+      creadoEn: DateTime(2026, 11, 16),
+    );
+
+    test('los conflictos pendientes traen su curso, archivo y datos', () async {
+      final repo = crear((_) => ok([
+            {
+              'id': 'conf-1',
+              'instancia_curso_id': 'inst-1',
+              'archivo': 'nomina.csv',
+              'numero_fila': 7,
+              'fila': {'fila': 7, 'rut': '22.341.890-2'},
+              'motivo': 'RUT repetido',
+              'created_at': '2026-11-16T12:00:00+00:00',
+              'instancias_curso': {'periodo_academico': '2026-2', 'cursos': {'codigo': 'PCB'}, 'sedes': {'nombre': 'Sede Beauchef'}},
+            },
+          ]));
+      final c = (await repo.conflictosPendientes()).single;
+      expect(pedidos.single.url.path, '/rest/v1/conflictos_importacion');
+      expect(c.cursoEtiqueta, 'PCB · 2026-2 · Sede Beauchef');
+      expect(c.fila.conflictoId, 'conf-1');
+      expect(c.fila.numero, 7);
+    });
+
+    test('los pendientes se revisan juntos por curso y se resuelven reemplazándolos', () async {
+      final repo = crear((r) {
+        final filas = ((jsonDecode(r.body) as Map)['p_filas'] as List);
+        return ok({'inscritas': 1, 'filas': [for (final f in filas) filaRpc((f as Map)['fila'] as int, 'nueva')]});
+      });
+      final otro = ConflictoImportacion(
+        id: 'conf-2',
+        instanciaId: 'inst-2',
+        cursoEtiqueta: 'WEB',
+        numeroFila: 3,
+        datos: const {'rut': '1-9'},
+        motivo: 'x',
+        creadoEn: DateTime(2026, 11, 16),
+      );
+      final revision = await repo.revisarConflictos([conflicto, otro]);
+      expect(pedidos, hasLength(2), reason: 'una revisión por curso');
+      expect(revision.valor!.map((f) => f.conflictoId), ['conf-1', 'conf-2']);
+
+      final r = await repo.resolverConflicto(conflicto, conflicto.fila.conResolucion(ResolucionFila.sinCorreo));
+      final cuerpo = jsonDecode(pedidos.last.body) as Map;
+      expect(cuerpo['p_solo_validar'], isFalse);
+      expect((cuerpo['p_filas'] as List).single, containsPair('conflicto_id', 'conf-1'));
+      expect((cuerpo['p_filas'] as List).single, containsPair('resolucion', 'sin_correo'));
+      expect(r.valor!.estado, EstadoFilaNomina.nueva);
+    });
+
+    test('descartar un pendiente llama a su RPC', () async {
+      final repo = crear((_) => http.Response('', 204));
+      final r = await repo.descartarConflicto('conf-1');
+      expect(r.ok, isTrue);
+      expect(pedidos.single.url.path, '/rest/v1/rpc/descartar_conflicto_importacion');
+    });
+
     test('sin permiso la RPC responde con el mensaje de la base', () async {
-      final repo = crear((_) => error(403, '42501', 'Solo la Directiva o el Equipo de Gestión de la sede inscriben alumnas.'));
-      final r = await repo.previsualizarImportacion(instanciaId: 'inst-1', nombreArchivo: 'n.csv', filas: const []);
-      expect(r.error, 'Solo la Directiva o el Equipo de Gestión de la sede inscriben alumnas.');
+      final repo = crear((_) => error(403, '42501', 'Solo la Directiva inscribe alumnas.'));
+      final r = await repo.revisarImportacion(instanciaId: 'inst-1', archivo: 'n.csv', filas: const []);
+      expect(r.error, 'Solo la Directiva inscribe alumnas.');
     });
 
     test('las autorizaciones suben el respaldo al bucket privado y luego llaman a la RPC', () async {
