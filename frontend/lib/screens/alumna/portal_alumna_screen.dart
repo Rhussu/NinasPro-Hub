@@ -3,10 +3,12 @@ import '../../config/ninaspro_colors.dart';
 import '../../config/ninaspro_theme.dart';
 import '../../models/hub_models.dart';
 import '../../repositories/hub_repository.dart';
+import '../../repositories/justificativos_repository.dart';
 import '../../widgets/ninaspro_mascot.dart';
 import '../../widgets/ninaspro_planificacion_hoy.dart';
 import '../../widgets/ninaspro_recursos_curso.dart';
 import '../../widgets/ninaspro_skeleton.dart';
+import 'justificativos_alumna.dart';
 
 /// Portal Móvil de la Alumna en NiñasPro Hub.
 ///
@@ -14,16 +16,22 @@ import '../../widgets/ninaspro_skeleton.dart';
 /// - US-25: Dashboard de asistencia % y progreso académico vs. meta mínima (80% o 70% justificada).
 /// - US-26: Cronograma de clases de sábados y recursos del curso (Classroom y Juez Virtual, únicos por curso).
 /// - US-29: Historial acumulado de podios Kahoot (conteo de 1°, 2° y 3° lugar).
-/// - US-35: Justificación de inasistencia especificando sábado/clase a faltar (sin advertencias médicas).
+/// - US-35/US-36: Justificación de inasistencia eligiendo la clase, con respaldo opcional, y
+///   la lista de sus justificativos con la observación de Gestión (con [JustificativosRepository]).
 /// - Recuperación de clases justificadas mediante ejercicios resueltos (25 ej. = +1 clase, 50 ej. = +2 clases).
 class PortalAlumnaScreen extends StatefulWidget {
+  /// Repositorio del mockup: asistencia, recursos y podios (se conectan en el PR 7)
   final HubRepository repository;
   final String alumnaId;
+
+  /// Justificativos reales de la alumna autenticada (US-35, US-36)
+  final JustificativosRepository? justificativos;
 
   const PortalAlumnaScreen({
     super.key,
     required this.repository,
     this.alumnaId = 'alumna-1', // Valentina Soto Morales por defecto
+    this.justificativos,
   });
 
   @override
@@ -63,191 +71,21 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
     setState(() => _recargando = false);
   }
 
-  // Modal para justificar inasistencia especificando clase y fecha (US-35)
-  void _abrirModalJustificativo(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final motivoCtrl = TextEditingController();
-    String motivoSeleccionado = 'Salud';
+  // Al enviar uno nuevo se recarga la lista de "Mis Justificativos"
+  int _versionJustificativos = 0;
 
-    // Lista de sesiones para seleccionar
-    final sesionesDisponibles = _data.sesiones;
-    String sesionSeleccionadaId = sesionesDisponibles.firstOrNull?.id ?? 'sesion-4';
-    String? errorDetalle;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: isDark ? NinasProColors.dark800 : NinasProColors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setModalState) {
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 20,
-                right: 20,
-                top: 20,
-                bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: isDark ? NinasProColors.dark600 : NinasProColors.neutral300,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Justificar Inasistencia (US-35)',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Indica la fecha y clase a la que faltarás. El Equipo de Gestión evaluará tu solicitud.',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        color: isDark ? NinasProColors.neutral300 : NinasProColors.neutral500,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-
-                    // Selector obligatorio de clase / sábado a faltar
-                    const Text(
-                      '¿A qué clase faltarás? (Fecha del Sábado):',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: isDark ? NinasProColors.dark700 : NinasProColors.neutral100,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isDark ? NinasProColors.dark600 : NinasProColors.neutral100,
-                        ),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          isExpanded: true,
-                          value: sesionSeleccionadaId,
-                          dropdownColor: isDark ? NinasProColors.dark800 : NinasProColors.white,
-                          items: sesionesDisponibles.map((s) {
-                            final f = s.fecha;
-                            final fechaStr = '${f.day.toString().padLeft(2, '0')}/${f.month.toString().padLeft(2, '0')}/${f.year}';
-                            return DropdownMenuItem<String>(
-                              value: s.id,
-                              child: Text(
-                                'Clase #${s.numeroSesion} ($fechaStr) - ${s.tema}',
-                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: (val) {
-                            if (val != null) {
-                              setModalState(() => sesionSeleccionadaId = val);
-                            }
-                          },
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    const Text(
-                      'Motivo tipificado:',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      children: ['Salud', 'Familiar', 'Escolar', 'Transporte', 'Otro'].map((m) {
-                        final sel = motivoSeleccionado == m;
-                        return ChoiceChip(
-                          label: Text(m),
-                          selected: sel,
-                          selectedColor: NinasProColors.primary700,
-                          labelStyle: TextStyle(
-                            color: sel ? Colors.white : (isDark ? Colors.white : Colors.black),
-                            fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                          ),
-                          onSelected: (val) {
-                            if (val) setModalState(() => motivoSeleccionado = m);
-                          },
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 16),
-
-                    const Text(
-                      'Detalle de la justificación:',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: motivoCtrl,
-                      maxLines: 3,
-                      onChanged: (_) {
-                        if (errorDetalle != null) {
-                          setModalState(() => errorDetalle = null);
-                        }
-                      },
-                      decoration: InputDecoration(
-                        hintText: 'Explica brevemente la razón de tu ausencia...',
-                        errorText: errorDetalle,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: FilledButton.icon(
-                        style: NinasProTheme.brandButton,
-                        onPressed: () async {
-                          if (motivoCtrl.text.trim().isEmpty) {
-                            setModalState(
-                              () => errorDetalle = 'Debes ingresar el detalle de la justificación.',
-                            );
-                            return;
-                          }
-                          Navigator.pop(ctx);
-                          await widget.repository.enviarJustificativo(
-                            alumnaId: widget.alumnaId,
-                            sesionId: sesionSeleccionadaId,
-                            motivoTipificado: motivoSeleccionado,
-                            detalle: motivoCtrl.text.trim(),
-                          );
-                          await _cargarDatos();
-                          if (!context.mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              backgroundColor: NinasProColors.success700,
-                              content: Text('✅ Justificativo enviado al Equipo de Gestión.'),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.send_rounded, size: 18),
-                        label: const Text('Enviar Justificativo'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
+  // Justificar una inasistencia eligiendo la clase (US-35)
+  Future<void> _justificarFalta() async {
+    final repo = widget.justificativos;
+    if (repo == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Los justificativos necesitan la conexión con la base de datos.')),
+      );
+      return;
+    }
+    if (await mostrarModalJustificarFalta(context, repo) && mounted) {
+      setState(() => _versionJustificativos++);
+    }
   }
 
   @override
@@ -283,7 +121,7 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: NinasProColors.brandPink,
         foregroundColor: NinasProColors.neutral900,
-        onPressed: () => _abrirModalJustificativo(context),
+        onPressed: _justificarFalta,
         icon: const Icon(Icons.edit_calendar_rounded, size: 20),
         label: const Text(
           'Justificar Falta',
@@ -483,6 +321,14 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
               ),
             ),
             const SizedBox(height: 16),
+
+            if (widget.justificativos != null) ...[
+              MisJustificativosCard(
+                key: ValueKey(_versionJustificativos),
+                repository: widget.justificativos!,
+              ),
+              const SizedBox(height: 16),
+            ],
 
             // Recuperación por Ejercicios + Podios Kahoot (US-29), lado a lado
             IntrinsicHeight(

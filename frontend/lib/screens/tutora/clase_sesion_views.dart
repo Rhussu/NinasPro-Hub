@@ -9,7 +9,7 @@ import 'clase_sesion_controller.dart';
 ///
 /// - [AsistenciaClaseView]: US-13, pase de lista táctil Presente ↔ Ausente, con historial por semana.
 /// - [EjerciciosClaseView]: US-28, ejercicios resueltos y participación activa.
-/// - [FotosClaseView]: US-18 y US-19, evidencia fotográfica y consentimientos de imagen.
+/// - [FotosClaseView] (en fotos_clase_view.dart): US-18 y US-19, evidencia fotográfica.
 /// - [mostrarModalRegistroKahoot]: US-29, podio Kahoot de la clase.
 
 /// Muestra el resultado de un guardado de la clase: en la nube, pendiente de envío o rechazado
@@ -193,10 +193,7 @@ class _AsistenciaClaseViewState extends State<AsistenciaClaseView> {
   void _empezarCorreccion() {
     setState(() {
       _corrigiendo = true;
-      _registrosHistorial = [
-        for (final r in _historial.registros)
-          r.estado == EstadoAsistencia.pendiente ? r.copyWith(estado: EstadoAsistencia.presente) : r,
-      ];
+      _registrosHistorial = [for (final r in _historial.registros) precargarRegistro(r)];
     });
   }
 
@@ -346,6 +343,7 @@ class _AsistenciaClaseViewState extends State<AsistenciaClaseView> {
                                 ),
                               ),
                             ),
+                          if (reg.justificativo != null) ChipJustificativo(registro: reg),
                         ],
                       ),
                     );
@@ -386,6 +384,47 @@ class _AsistenciaClaseViewState extends State<AsistenciaClaseView> {
 }
 
 DateTime _dia(DateTime d) => DateTime(d.year, d.month, d.day);
+
+/// Estado del justificativo de la alumna en el pase de lista, de solo lectura:
+/// al tocarlo muestra el motivo general, sin aprobar ni rechazar (US-38)
+class ChipJustificativo extends StatelessWidget {
+  final RegistroAsistencia registro;
+
+  const ChipJustificativo({super.key, required this.registro});
+
+  @override
+  Widget build(BuildContext context) {
+    final estado = registro.justificativo!;
+    final (fondo, texto) = switch (estado) {
+      EstadoJustificativo.pendiente => (NinasProColors.warning100, NinasProColors.warning900),
+      EstadoJustificativo.aceptado => (NinasProColors.info100, NinasProColors.info900),
+      EstadoJustificativo.rechazado => (NinasProColors.neutral100, NinasProColors.neutral700),
+    };
+    return InkWell(
+      borderRadius: BorderRadius.circular(4),
+      onTap: () => showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text('Justificativo ${estado.label.toLowerCase()}'),
+          content: Text(
+            '${registro.alumnaNombre}\n'
+            'Motivo: ${registro.motivoJustificativo?.label ?? 'Sin motivo'}\n\n'
+            'Los justificativos los revisa y resuelve el Equipo de Gestión de la sede.',
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Entendido'))],
+        ),
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+        decoration: BoxDecoration(color: fondo, borderRadius: BorderRadius.circular(4)),
+        child: Text(
+          'Justificativo ${estado.label.toLowerCase()}',
+          style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: texto),
+        ),
+      ),
+    );
+  }
+}
 
 /// Selector para recorrer semana a semana las clases del curso.
 /// La clase en curso es editable; las demás se muestran como historial de solo lectura.
@@ -939,158 +978,6 @@ class _EjerciciosClaseViewState extends State<EjerciciosClaseView> {
           );
         }),
       ],
-    );
-  }
-}
-
-// Evidencia Fotográfica y Consentimientos de Imagen (US-18, US-19)
-class FotosClaseView extends StatelessWidget {
-  final ClaseSesionController controller;
-
-  const FotosClaseView({super.key, required this.controller});
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return ListenableBuilder(
-      listenable: controller,
-      builder: (context, _) {
-        if (controller.cargando) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        final alumnasSinFoto = controller.alumnasPresentes.where((r) => !r.autorizaImagen).toList();
-
-        final todasConFoto = alumnasSinFoto.isEmpty;
-        final fotoSubida = controller.fotoSubida;
-
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
-          children: [
-            Card(
-              elevation: 0,
-              color: isDark ? NinasProColors.dark800 : NinasProColors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(
-                  color: isDark ? NinasProColors.dark700 : NinasProColors.neutral100,
-                ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          todasConFoto ? Icons.check_circle_rounded : Icons.warning_amber_rounded,
-                          color: todasConFoto ? NinasProColors.success700 : NinasProColors.warning700,
-                          size: 24,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            todasConFoto
-                                ? 'Foto 100% Apta para Redes / Sponsors'
-                                : 'Atención: Restricción de Imagen',
-                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    if (todasConFoto)
-                      Text(
-                        'Todas las alumnas presentes cuentan con autorización de imagen firmada por sus apoderados (US-19).',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: isDark ? NinasProColors.neutral300 : NinasProColors.neutral700,
-                        ),
-                      )
-                    else ...[
-                      Text(
-                        'Las siguientes alumnas presentes NO tienen consentimiento de imagen:',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? NinasProColors.neutral300 : NinasProColors.neutral700,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      ...alumnasSinFoto.map((a) => Padding(
-                            padding: const EdgeInsets.only(left: 8, bottom: 4),
-                            child: Text(
-                              '• ${a.alumnaNombre} (${a.alumnaRut})',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: NinasProColors.error700,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          )),
-                      const SizedBox(height: 6),
-                      const Text(
-                        '⚠️ La fotografía de la clase debe tomarse de espaldas o difuminar los rostros.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontStyle: FontStyle.italic,
-                          color: NinasProColors.warning900,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            Container(
-              height: 180,
-              decoration: BoxDecoration(
-                color: isDark ? NinasProColors.dark800 : NinasProColors.neutral50,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: isDark ? NinasProColors.dark700 : NinasProColors.neutral300,
-                ),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    fotoSubida ? Icons.photo_library_rounded : Icons.cloud_upload_outlined,
-                    size: 48,
-                    color: NinasProColors.brandPink,
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    fotoSubida
-                        ? 'Evidencia fotográfica lista y comprimida en cliente'
-                        : 'Subir foto de la sesión desde el celular (US-18)',
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                  ),
-                  const SizedBox(height: 12),
-                  FilledButton.icon(
-                    style: NinasProTheme.brandButton,
-                    onPressed: () {
-                      controller.marcarFotoSubida();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          backgroundColor: NinasProColors.success700,
-                          content: Text('📸 Foto comprimida (< 1.5 MB) y vinculada a la sesión.'),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.add_a_photo_rounded, size: 18),
-                    label: Text(fotoSubida ? 'Reemplazar Foto' : 'Tomar / Seleccionar Foto'),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
     );
   }
 }

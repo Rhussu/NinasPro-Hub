@@ -3,12 +3,14 @@ import '../../config/ninaspro_colors.dart';
 import '../../config/ninaspro_theme.dart';
 import '../../models/sesion_usuario.dart';
 import '../../repositories/clase_repository.dart';
+import '../../repositories/evidencias_repository.dart';
 import '../../repositories/hub_repository.dart';
 import '../../widgets/ninaspro_recursos_curso.dart';
 import '../../widgets/ninaspro_skeleton.dart';
 import '../../widgets/ninaspro_speed_dial.dart';
 import 'clase_sesion_controller.dart';
 import 'clase_sesion_views.dart';
+import 'fotos_clase_view.dart';
 import 'inicio_tutora_widgets.dart';
 
 /// Pantalla móvil de inicio de la Tutora en NiñasPro Hub.
@@ -18,7 +20,8 @@ import 'inicio_tutora_widgets.dart';
 /// - Resumen: alumnas presentes, mi asistencia como tutora y mi rol de la semana (solo lectura).
 /// - Recursos del curso (Classroom y Juez Virtual).
 /// - Speed Dial con la operación de la clase: US-13 asistencia, US-28 ejercicios,
-///   US-18/US-19 fotos y US-29 podio Kahoot (vistas en [clase_sesion_views.dart]).
+///   US-18/US-19 fotos ([FotosClaseView]) y US-29 podio Kahoot (vistas en [clase_sesion_views.dart]).
+/// - En el pase de lista ve el estado de los justificativos, sin resolverlos (US-38).
 class TutoraMobileScreen extends StatefulWidget {
   /// Repositorio del mockup: solo para los roles semanales (US-43, se conectan en su PR)
   final HubRepository repository;
@@ -29,6 +32,9 @@ class TutoraMobileScreen extends StatefulWidget {
   /// Tutora autenticada
   final SesionUsuario sesion;
 
+  /// Fotos de evidencia de la clase (US-18, US-19)
+  final EvidenciasRepository? evidencias;
+
   /// Id de la tutora en el mockup, para mostrar su rol semanal mientras tanto
   final String tutoraIdRoles;
 
@@ -37,6 +43,7 @@ class TutoraMobileScreen extends StatefulWidget {
     required this.repository,
     required this.clase,
     required this.sesion,
+    this.evidencias,
     this.tutoraIdRoles = 'tutora-3', // Daniela Valenzuela Castro en el mockup
   });
 
@@ -135,7 +142,7 @@ class _TutoraMobileScreenState extends State<TutoraMobileScreen> {
             tooltip: 'Fotos',
             backgroundColor: NinasProColors.accent100,
             foregroundColor: NinasProColors.accent900,
-            onTap: () => _abrirPantallaClase('Fotos', FotosClaseView(controller: _clase)),
+            onTap: () => _abrirPantallaClase('Fotos', FotosClaseView(controller: _clase, evidencias: widget.evidencias)),
           ),
           AccionRapida(
             icon: Icons.code_rounded,

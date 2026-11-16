@@ -6,7 +6,9 @@ import '../../repositories/accesos_repository.dart';
 import '../../repositories/alumnas_repository.dart';
 import '../../repositories/catalogo_repository.dart';
 import '../../repositories/clase_repository.dart';
+import '../../repositories/evidencias_repository.dart';
 import '../../repositories/hub_repository.dart';
+import '../../repositories/justificativos_repository.dart';
 import '../../services/health_service.dart';
 import '../../widgets/db_health_checker.dart';
 import '../../widgets/ninaspro_sync_indicator.dart';
@@ -49,6 +51,12 @@ class HubShellScreen extends StatefulWidget {
   /// La clase en el aula con su cola sin conexión (US-13..15, US-28, US-29, US-33, US-34)
   final ClaseRepository? claseRepository;
 
+  /// Justificativos de inasistencia: bandeja de Gestión y envío de la alumna (US-16, US-17, US-35..38)
+  final JustificativosRepository? justificativosRepository;
+
+  /// Fotos de evidencia de las clases (US-18..US-20)
+  final EvidenciasRepository? evidenciasRepository;
+
   const HubShellScreen({
     super.key,
     required this.repository,
@@ -60,6 +68,8 @@ class HubShellScreen extends StatefulWidget {
     this.catalogoRepository,
     this.alumnasRepository,
     this.claseRepository,
+    this.justificativosRepository,
+    this.evidenciasRepository,
   });
 
   @override
@@ -169,9 +179,23 @@ class _HubShellScreenState extends State<HubShellScreen> {
       return const Center(child: Text('La clase necesita la conexión con la base de datos.'));
     }
     return switch (_rol) {
-      RolUsuario.equipoGestion => GestionMobileScreen(repository: widget.repository, clase: clase!, sesion: widget.sesion),
-      RolUsuario.tutora => TutoraMobileScreen(repository: widget.repository, clase: clase!, sesion: widget.sesion),
-      RolUsuario.alumna => PortalAlumnaScreen(repository: widget.repository),
+      RolUsuario.equipoGestion => GestionMobileScreen(
+        repository: widget.repository,
+        clase: clase!,
+        sesion: widget.sesion,
+        justificativos: widget.justificativosRepository,
+        evidencias: widget.evidenciasRepository,
+      ),
+      RolUsuario.tutora => TutoraMobileScreen(
+        repository: widget.repository,
+        clase: clase!,
+        sesion: widget.sesion,
+        evidencias: widget.evidenciasRepository,
+      ),
+      RolUsuario.alumna => PortalAlumnaScreen(
+        repository: widget.repository,
+        justificativos: widget.justificativosRepository,
+      ),
       _ => _RolSinVista(sesion: widget.sesion, onCerrarSesion: widget.onCerrarSesion),
     };
   }

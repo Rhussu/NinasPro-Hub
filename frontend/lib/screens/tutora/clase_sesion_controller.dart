@@ -27,6 +27,12 @@ EstadoAsistencia? alternarEstado(EstadoAsistencia estado) => switch (estado) {
   _ => EstadoAsistencia.presente,
 };
 
+/// Estado con que entra una alumna al pase de lista que aún no se guarda:
+/// presente, o justificada si tiene un justificativo aprobado (US-13 escenario 1, US-16 escenario 2)
+RegistroAsistencia precargarRegistro(RegistroAsistencia r) => r.estado != EstadoAsistencia.pendiente
+    ? r
+    : r.copyWith(estado: r.justificadaPorAdelantado ? EstadoAsistencia.justificada : EstadoAsistencia.presente);
+
 /// Estado compartido de la clase en curso (asistencia, ejercicios, fotos y podio Kahoot).
 ///
 /// Lo usan tanto la Tutora ([TutoraMobileScreen]) como el Equipo de Gestión,
@@ -65,7 +71,6 @@ class ClaseSesionController extends ChangeNotifier {
   bool pendienteDeEnvio = false;
 
   List<ParticipacionClase> participaciones = [];
-  bool fotoSubida = false;
 
   /// Podio Kahoot de la sesión: ids de alumna del 1° lugar en adelante (1 a 3)
   List<String> podioAlumnas = const [];
@@ -141,7 +146,6 @@ class ClaseSesionController extends ChangeNotifier {
     sesiones = c == null ? [] : await repository.sesiones(c.id);
     _sesionActual = elegirSesionActual(sesiones, hoy());
     final s = _sesionActual;
-    fotoSubida = false;
     _aplicarLista(s == null ? const ListaClase() : await repository.lista(s.id));
   }
 
@@ -150,10 +154,7 @@ class ClaseSesionController extends ChangeNotifier {
     pendienteDeEnvio = lista.conPendientes;
     _guardados = lista.registros;
     // Sin pase de lista, todas parten presentes salvo las justificadas (US-13 escenario 1)
-    registros = [
-      for (final r in lista.registros)
-        r.estado == EstadoAsistencia.pendiente && puedeRegistrar ? r.copyWith(estado: EstadoAsistencia.presente) : r,
-    ];
+    registros = [for (final r in lista.registros) puedeRegistrar ? precargarRegistro(r) : r];
     participaciones = List.of(lista.participaciones);
     podioAlumnas = lista.podioAlumnas;
   }
@@ -243,11 +244,6 @@ class ClaseSesionController extends ChangeNotifier {
     if (resultado.pendiente) pendienteDeEnvio = true;
     notifyListeners();
     return resultado;
-  }
-
-  void marcarFotoSubida() {
-    fotoSubida = true;
-    notifyListeners();
   }
 
   /// Guarda el podio con los ids de alumna en orden, del 1° lugar en adelante (US-29).

@@ -7,7 +7,9 @@ import 'repositories/accesos_repository.dart';
 import 'repositories/alumnas_repository.dart';
 import 'repositories/catalogo_repository.dart';
 import 'repositories/clase_repository.dart';
+import 'repositories/evidencias_repository.dart';
 import 'repositories/hub_repository.dart';
+import 'repositories/justificativos_repository.dart';
 import 'repositories/mock_hub_repository.dart';
 import 'screens/auth/auth_gate.dart';
 import 'screens/hub_shell_screen.dart';
@@ -38,6 +40,8 @@ Future<void> main() async {
     catalogoRepository: SupabaseCatalogoRepository(Supabase.instance.client),
     alumnasRepository: SupabaseAlumnasRepository(Supabase.instance.client),
     claseRepository: SupabaseClaseRepository.enNavegador(Supabase.instance.client),
+    justificativosRepository: SupabaseJustificativosRepository(Supabase.instance.client),
+    evidenciasRepository: SupabaseEvidenciasRepository(Supabase.instance.client),
   ));
 }
 
@@ -50,6 +54,8 @@ class NinasProApp extends StatefulWidget {
   final CatalogoRepository? catalogoRepository;
   final AlumnasRepository? alumnasRepository;
   final ClaseRepository? claseRepository;
+  final JustificativosRepository? justificativosRepository;
+  final EvidenciasRepository? evidenciasRepository;
 
   const NinasProApp({
     super.key,
@@ -61,6 +67,8 @@ class NinasProApp extends StatefulWidget {
     this.catalogoRepository,
     this.alumnasRepository,
     this.claseRepository,
+    this.justificativosRepository,
+    this.evidenciasRepository,
   });
 
   @override
@@ -109,6 +117,8 @@ class _NinasProAppState extends State<NinasProApp> {
               catalogoRepository: widget.catalogoRepository,
               alumnasRepository: widget.alumnasRepository,
               claseRepository: widget.claseRepository,
+              justificativosRepository: widget.justificativosRepository,
+              evidenciasRepository: widget.evidenciasRepository,
             ),
           ),
         );
