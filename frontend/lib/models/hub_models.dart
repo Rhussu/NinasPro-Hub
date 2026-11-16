@@ -208,6 +208,10 @@ class Curso {
   final DateTime? fechaInicio;
   final DateTime? fechaTermino;
   final int diaSemana; // DateTime.monday..DateTime.sunday
+  // Sección paralela del mismo curso, sede y período: 1 = A, 2 = B… (US-02)
+  final int seccion;
+  final String? horaInicio; // 'HH:mm'
+  final String? horaFin;
 
   const Curso({
     required this.id,
@@ -224,7 +228,13 @@ class Curso {
     this.fechaInicio,
     this.fechaTermino,
     this.diaSemana = DateTime.saturday,
+    this.seccion = 1,
+    this.horaInicio,
+    this.horaFin,
   });
+
+  /// 'A', 'B', … según la sección
+  String get seccionLetra => String.fromCharCode(64 + seccion);
 
   Curso copyWith({String? sedeNombre, String? nombre}) {
     return Curso(
@@ -242,6 +252,9 @@ class Curso {
       fechaInicio: fechaInicio,
       fechaTermino: fechaTermino,
       diaSemana: diaSemana,
+      seccion: seccion,
+      horaInicio: horaInicio,
+      horaFin: horaFin,
     );
   }
 }
@@ -408,9 +421,14 @@ class SesionClase {
   final int numeroSesion;
   final DateTime fecha;
   final String tema;
-  final String estado; // 'programada' | 'realizada'
+  final String estado; // 'programada' | 'realizada' | 'suspendida'
   final List<RecursoEducativo> recursos;
   final PodioKahootSesion? podioKahoot;
+  // Calendario de la sede (US-03)
+  final String? motivoSuspension;
+  final bool esEspecial;
+  final String? horaInicio; // 'HH:mm'
+  final String? horaFin;
 
   const SesionClase({
     required this.id,
@@ -421,7 +439,13 @@ class SesionClase {
     required this.estado,
     this.recursos = const [],
     this.podioKahoot,
+    this.motivoSuspension,
+    this.esEspecial = false,
+    this.horaInicio,
+    this.horaFin,
   });
+
+  bool get suspendida => estado == 'suspendida';
 
   SesionClase copyWith({
     String? id,
@@ -442,6 +466,10 @@ class SesionClase {
       estado: estado ?? this.estado,
       recursos: recursos ?? this.recursos,
       podioKahoot: podioKahoot ?? this.podioKahoot,
+      motivoSuspension: motivoSuspension,
+      esEspecial: esEspecial,
+      horaInicio: horaInicio,
+      horaFin: horaFin,
     );
   }
 }
