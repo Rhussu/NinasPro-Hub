@@ -247,11 +247,15 @@ SELECT throws_ok(
   '22023', NULL,
   'La inscripción no pasa a activa sin el consentimiento de datos (TC-06)'
 );
-SELECT throws_ok(
-  $$ INSERT INTO public.asistencia_alumnas (clase_id, inscripcion_id, estado, registrado_por)
-     SELECT '29a00000-0000-0000-0000-000000000002', i.id, 'presente', auth.uid()
-     FROM public.inscripciones i WHERE i.alumna_id = (SELECT id FROM _alumna) AND i.instancia_curso_id = '19a00000-0000-0000-0000-000000000001' $$,
-  '22023', NULL,
+-- Desde la migración 15 la asistencia se guarda con la RPC, que omite a las alumnas sin matrícula activa
+SELECT is(
+  (SELECT (public.guardar_asistencia_clase(
+       '29a00000-0000-0000-0000-000000000002',
+       jsonb_build_array(jsonb_build_object('inscripcion_id', i.id, 'estado', 'presente'))
+     ) ->> 'omitidas')::int
+   FROM public.inscripciones i
+   WHERE i.alumna_id = (SELECT id FROM _alumna) AND i.instancia_curso_id = '19a00000-0000-0000-0000-000000000001'),
+  1,
   'No se registra asistencia de una alumna sin consentimiento'
 );
 SELECT pg_temp.actuar_como('99a00000-0000-0000-0000-000000000001');
