@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
 import 'package:ninas_pro_hub/config/ninaspro_theme.dart';
+import 'package:ninas_pro_hub/repositories/alumnas_repository.dart' show ArchivoAdjunto;
+import 'package:ninas_pro_hub/repositories/evidencias_repository.dart';
+import 'package:ninas_pro_hub/repositories/justificativos_repository.dart';
+import 'package:ninas_pro_hub/screens/gestion/justificativos_gestion.dart' show avisoPrivacidadRespaldo;
+import 'package:ninas_pro_hub/services/compresion_imagen.dart' as compresion;
+import 'package:ninas_pro_hub/services/selector_archivos.dart' as selector;
 import 'package:ninas_pro_hub/models/sesion_usuario.dart';
 import 'package:ninas_pro_hub/repositories/clase_repository.dart';
 import 'package:ninas_pro_hub/repositories/mock_hub_repository.dart';
@@ -18,18 +25,30 @@ import 'package:ninas_pro_hub/widgets/ninaspro_stat_card.dart';
 
 import 'fakes/fake_auth_service.dart';
 import 'fakes/fake_clase_repository.dart';
+import 'fakes/fake_evidencias_repository.dart';
+import 'fakes/fake_justificativos_repository.dart';
 
 void main() {
   group('Mockup Screens & Widgets Tests', () {
     late MockHubRepository repository;
     late FakeClaseRepository clase;
+    late FakeJustificativosRepository justificativos;
+    late FakeEvidenciasRepository evidencias;
+    final elegirFotoOriginal = selector.elegirFoto;
+    final comprimirOriginal = compresion.comprimirFoto;
 
     setUp(() {
       repository = MockHubRepository();
       clase = FakeClaseRepository();
+      justificativos = FakeJustificativosRepository(clase: clase);
+      evidencias = FakeEvidenciasRepository(clasesSinAutorizacion: {'clase-4'});
     });
 
-    tearDown(() => clase.cerrar());
+    tearDown(() {
+      selector.elegirFoto = elegirFotoOriginal;
+      compresion.comprimirFoto = comprimirOriginal;
+      return clase.cerrar();
+    });
 
     // Deja pasar los avisos (SnackBar) para que no tapen la barra inferior de la siguiente pantalla
     Future<void> cerrarAvisos(WidgetTester tester) async {
@@ -151,7 +170,7 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
 
       await tester.pumpWidget(createTestApp(
-        TutoraMobileScreen(repository: repository, clase: clase, sesion: SesionesDemo.tutora),
+        TutoraMobileScreen(repository: repository, clase: clase, sesion: SesionesDemo.tutora, evidencias: evidencias),
       ));
       await tester.pumpAndSettle();
 
@@ -161,6 +180,12 @@ void main() {
         await tester.tap(find.byTooltip(tooltip));
         await tester.pumpAndSettle();
       }
+
+      // Antes del pase de lista no hay foto (US-18: se vincula a la clase realizada)
+      await abrirAccion('Fotos');
+      expect(find.text('Primero el pase de lista'), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
 
       // Antes del pase de lista no hay podio ni ejercicios
       await abrirAccion('Registrar Kahoot');
@@ -205,12 +230,45 @@ void main() {
       await tester.pumpAndSettle();
 
       // Fotos (US-18, US-19): Josefa está presente y no autoriza fotos
+      final jpeg = img.encodeJpg(img.Image(width: 8, height: 6));
+      selector.elegirFoto = () async => ArchivoAdjunto(nombre: 'IMG_0001.HEIC.jpg', bytes: Uint8List(12 * 1000 * 1000));
+      compresion.comprimirFoto = (original) async => jpeg;
       await abrirAccion('Fotos');
-      expect(find.textContaining('Restricción de Imagen'), findsOneWidget);
-      expect(find.textContaining('Josefa Muñoz Vera'), findsOneWidget);
-      await tester.tap(find.textContaining('Tomar / Seleccionar Foto'));
+      expect(find.text('Atención: alumnas sin autorización de imagen'), findsOneWidget);
+      expect(find.text('• Josefa Muñoz Vera'), findsOneWidget);
+      await tester.tap(find.text('Agregar Foto de Evidencia'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('Reemplazar Foto'), findsOneWidget);
+      expect(find.text('Foto de evidencia'), findsOneWidget);
+      expect(find.textContaining('Sin autorización de imagen: Josefa Muñoz Vera'), findsOneWidget);
+      // Sin la declaración de censura no se puede marcar apta (US-19 escenario 2)
+      expect(tester.widget<SwitchListTile>(find.byKey(const Key('foto-apta'))).onChanged, isNull);
+      await tester.tap(find.byKey(const Key('declaracion-censura')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('foto-apta')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Subir foto'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Foto comprimida'), findsOneWidget);
+      final foto = evidencias.fotosPorClase['clase-4']!.single;
+      expect((foto.apta, foto.rostrosCensurados, foto.tamanoBytes), (true, true, jpeg.length));
+      expect(find.text('APTA · ROSTROS CUBIERTOS'), findsOneWidget);
+      expect(find.text('1 foto de esta clase'), findsOneWidget);
+      await cerrarAvisos(tester);
+
+      // Sin la declaración, la segunda queda como respaldo interno (US-19 escenario 3)
+      await tester.tap(find.text('Agregar Foto de Evidencia'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Subir foto'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('vinculada a la clase como respaldo interno'), findsOneWidget);
+      expect(find.text('RESPALDO INTERNO'), findsOneWidget);
+      await cerrarAvisos(tester);
+
+      // Una foto que el navegador no puede leer se informa
+      compresion.comprimirFoto = (original) async => null;
+      await tester.tap(find.text('Agregar Foto de Evidencia'));
+      await tester.pumpAndSettle();
+      expect(find.text('No pudimos leer la foto. Elige una imagen JPG o PNG.'), findsOneWidget);
     });
 
     testWidgets('El podio Kahoot lleva un lugar por alumna presente: con una sola, queda primera (US-29)', (WidgetTester tester) async {
@@ -272,8 +330,13 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
+      justificativos.clases.addAll([
+        claseJustificable(3, asistencia: EstadoAsistencia.ausente),
+        claseJustificable(4),
+        claseJustificable(5),
+      ]);
       await tester.pumpWidget(createTestApp(
-        PortalAlumnaScreen(repository: repository),
+        PortalAlumnaScreen(repository: repository, justificativos: justificativos),
       ));
       await tester.pumpAndSettle();
 
@@ -325,22 +388,39 @@ void main() {
       expect(find.text('Cronograma de Clases (Sábados)'), findsOneWidget);
       expect(find.textContaining('Ver Recursos'), findsNothing);
 
-      // Open justification bottom sheet (US-35)
+      // Mis justificativos: aún ninguno
+      expect(find.text('Mis Justificativos'), findsOneWidget);
+      expect(find.textContaining('Aún no has enviado justificativos'), findsOneWidget);
+
+      // Justificar la próxima clase eligiendo clase y motivo (US-35)
       final justificarButton = find.text('Justificar Falta');
       expect(justificarButton, findsOneWidget);
       await tester.tap(justificarButton);
       await tester.pumpAndSettle();
 
-      expect(find.text('Justificar Inasistencia (US-35)'), findsOneWidget);
-      expect(find.text('¿A qué clase faltarás? (Fecha del Sábado):'), findsOneWidget);
-      expect(find.text('Motivo tipificado:'), findsOneWidget);
+      expect(find.text('Justificar Inasistencia'), findsOneWidget);
+      expect(find.text('¿A qué clase?'), findsOneWidget);
+      expect(find.textContaining('Clase #4 · '), findsOneWidget); // por defecto, la de hoy
+      expect(find.text('Transporte / Clima'), findsOneWidget);
+      expect(find.text(avisoPrivacidadRespaldo), findsOneWidget); // US-36 escenario 2
 
-      // Fill and submit
-      await tester.enterText(find.byType(TextField), 'Motivo verificado por la alumna');
+      await tester.tap(find.text('Enviar Justificativo'));
+      await tester.pumpAndSettle();
+      expect(find.text('Elige el motivo de tu inasistencia.'), findsOneWidget);
+      await tester.tap(find.text('Transporte / Clima'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Enviar Justificativo'));
+      await tester.pumpAndSettle();
+      expect(find.text('Cuéntanos brevemente qué pasó.'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'No hay micro por el paro');
       await tester.tap(find.text('Enviar Justificativo'));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('Justificativo enviado'), findsOneWidget);
+      final enviado = justificativos.lista.single;
+      expect((enviado.claseId, enviado.motivo, enviado.estado), ('clase-4', MotivoJustificativo.transporte, EstadoJustificativo.pendiente));
+      expect(find.text('PENDIENTE'), findsOneWidget);
     });
 
     testWidgets('GestionMobileScreen main page shows pending justifications and alerts (US-37, US-39)', (WidgetTester tester) async {
@@ -349,8 +429,28 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
+      await justificativos.enviar(
+        clase: claseJustificable(3, asistencia: EstadoAsistencia.ausente),
+        motivo: MotivoJustificativo.salud,
+        explicacion: 'Control médico',
+      );
+      evidencias.listaPendientes.add(EvidenciaPendiente(
+        claseId: 'clase-2',
+        cursoNombre: 'Programación Competitiva Básica (Python)',
+        sedeNombre: 'Sede Beauchef',
+        numeroSesion: 2,
+        fecha: DateTime(2026, 11, 7),
+        horasSinFoto: 75,
+        tutoras: 'Daniela Valenzuela Castro',
+      ));
       await tester.pumpWidget(createTestApp(
-        GestionMobileScreen(repository: repository, clase: clase, sesion: SesionesDemo.gestion),
+        GestionMobileScreen(
+          repository: repository,
+          clase: clase,
+          sesion: SesionesDemo.gestion,
+          justificativos: justificativos,
+          evidencias: evidencias,
+        ),
       ));
       await tester.pumpAndSettle();
 
@@ -382,15 +482,41 @@ void main() {
       expect(find.text('Google Classroom'), findsOneWidget);
       expect(find.text('Juez Virtual'), findsOneWidget);
 
-      // Justificativos pendientes (US-37)
-      expect(find.text('Justificativos pendientes'), findsOneWidget);
-      expect(find.text('Evaluar Justificativo'), findsWidgets);
-      await tester.tap(find.text('Evaluar Justificativo').first);
+      // Evidencias pendientes tras 48 horas, con las tutoras a quienes recordar (US-20)
+      expect(find.text('Evidencias pendientes (> 48 h)'), findsOneWidget);
+      expect(find.text('Hace 3 días'), findsOneWidget);
+      expect(find.text('Recordar a: Daniela Valenzuela Castro'), findsOneWidget);
+
+      // Bandeja de justificativos con filtros (US-37)
+      expect(find.text('Justificativos'), findsOneWidget);
+      expect(find.text('Pendientes (1)'), findsOneWidget);
+      expect(find.text('"Control médico"'), findsOneWidget);
+      await tester.tap(find.text('Evaluar Justificativo'));
       await tester.pumpAndSettle();
-      expect(find.text('Revisar Justificativo (US-37)'), findsOneWidget);
+      expect(find.text('Revisar Justificativo'), findsOneWidget);
+      // El rechazo exige la observación (US-37 escenario 3)
+      await tester.tap(find.text('Rechazar'));
+      await tester.pumpAndSettle();
+      expect(find.text('Indica el motivo del rechazo para que la alumna lo sepa.'), findsOneWidget);
       await tester.tap(find.text('Aprobar'));
       await tester.pumpAndSettle();
       expect(find.textContaining('Justificativo aprobado'), findsOneWidget);
+      expect(justificativos.lista.single.estado, EstadoJustificativo.aceptado);
+      expect(clase.estadoAlumna('clase-3', 'insc-1'), EstadoAsistencia.justificada);
+      expect(find.text('Pendientes (0)'), findsOneWidget);
+      await tester.tap(find.text('Aprobados (1)'));
+      await tester.pumpAndSettle();
+      expect(find.text('APROBADO'), findsOneWidget);
+      await cerrarAvisos(tester);
+
+      // Eliminar lo vinculado por error devuelve la asistencia a ausente (US-16 escenario 3)
+      await tester.tap(find.text('Eliminar'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('volverá a Ausente'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Eliminar'));
+      await tester.pumpAndSettle();
+      expect(justificativos.lista, isEmpty);
+      expect(clase.estadoAlumna('clase-3', 'insc-1'), EstadoAsistencia.ausente);
 
       // Alertas de deserción activas (US-39)
       expect(find.text('Alertas de deserción'), findsOneWidget);
@@ -405,7 +531,13 @@ void main() {
 
       clase.perfilId = 'perfil-camila';
       await tester.pumpWidget(createTestApp(
-        GestionMobileScreen(repository: repository, clase: clase, sesion: SesionesDemo.gestion),
+        GestionMobileScreen(
+          repository: repository,
+          clase: clase,
+          sesion: SesionesDemo.gestion,
+          justificativos: justificativos,
+          evidencias: evidencias,
+        ),
       ));
       await tester.pumpAndSettle();
 
@@ -490,16 +622,33 @@ void main() {
       expect(find.textContaining('Guarda primero el pase de lista: el podio Kahoot'), findsOneWidget);
       await tester.pumpAndSettle(const Duration(seconds: 5));
 
-      // Justificativo manual aprobado de inmediato (US-37, aún del mockup)
+      // Aviso de la apoderada: queda aprobado y la alumna entra justificada al pase de lista (US-16)
       await abrirAccion('Ingresar justificativo');
       expect(find.text('Ingresar Justificativo'), findsOneWidget);
+      expect(find.text('Valentina Soto Morales'), findsOneWidget);
       await tester.tap(find.text('Registrar y Aprobar'));
       await tester.pumpAndSettle();
-      expect(find.text('Debes ingresar la descripción del justificativo.'), findsOneWidget);
+      expect(find.text('Elige el motivo de la inasistencia.'), findsOneWidget);
+      await tester.tap(find.text('Salud'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Registrar y Aprobar'));
+      await tester.pumpAndSettle();
+      expect(find.text('Escribe la descripción o adjunta un respaldo.'), findsOneWidget);
       await tester.enterText(find.byType(TextField), 'Apoderada avisó por WhatsApp.');
       await tester.tap(find.text('Registrar y Aprobar'));
       await tester.pumpAndSettle();
       expect(find.textContaining('Justificativo registrado y aprobado'), findsOneWidget);
+      expect(justificativos.lista.single.estado, EstadoJustificativo.aceptado);
+      await cerrarAvisos(tester);
+
+      await abrirAccion('Asistencia');
+      final valentina = find.ancestor(of: find.text('Valentina Soto Morales'), matching: find.byType(TarjetaAsistencia));
+      expect(tester.widget<TarjetaAsistencia>(valentina).estado, EstadoAsistencia.justificada);
+      expect(find.text('Justificativo aprobado'), findsOneWidget);
+      await tester.tap(find.text('Justificativo aprobado'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Motivo: Salud'), findsOneWidget);
+      expect(find.text('Aprobar'), findsNothing);
     });
 
     testWidgets('AjustesGestionScreen muestra perfil de la tutora sin sección de apoderado', (WidgetTester tester) async {

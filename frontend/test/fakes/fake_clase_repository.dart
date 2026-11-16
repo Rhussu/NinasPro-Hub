@@ -53,6 +53,9 @@ class FakeClaseRepository implements ClaseRepository {
   final _participacion = <String, Map<String, (int, bool)>>{};
   final _podio = <String, List<String>>{};
 
+  /// Justificativo de cada alumna por clase: estado y motivo (como `resumen_justificativo`)
+  final _justificativos = <String, Map<String, (EstadoJustificativo, MotivoJustificativo)>>{};
+
   /// Cada RPC que llegó a la "nube" (para comprobar reintentos)
   final envios = <String>[];
 
@@ -180,6 +183,30 @@ class FakeClaseRepository implements ClaseRepository {
     (_asistencia[claseId] ??= {})[inscripcionId] = _Fila(estado, autora, en ?? DateTime.now());
   }
 
+  /// Vincula un justificativo; uno aprobado deja justificada la asistencia ya registrada (migración 18)
+  void fijarJustificativo(
+    String claseId,
+    String inscripcionId,
+    EstadoJustificativo estado, {
+    MotivoJustificativo motivo = MotivoJustificativo.salud,
+  }) {
+    (_justificativos[claseId] ??= {})[inscripcionId] = (estado, motivo);
+    final fila = _asistencia[claseId]?[inscripcionId];
+    if (estado == EstadoJustificativo.aceptado && fila != null) fila.estado = EstadoAsistencia.justificada;
+  }
+
+  /// Quita el justificativo; si estaba aprobado, la asistencia justificada vuelve a ausente
+  void quitarJustificativo(String claseId, String inscripcionId) {
+    final quitado = _justificativos[claseId]?.remove(inscripcionId);
+    final fila = _asistencia[claseId]?[inscripcionId];
+    if (quitado?.$1 == EstadoJustificativo.aceptado && fila?.estado == EstadoAsistencia.justificada) {
+      fila!.estado = EstadoAsistencia.ausente;
+    }
+  }
+
+  bool _aceptado(String claseId, String inscripcionId) =>
+      _justificativos[claseId]?[inscripcionId]?.$1 == EstadoJustificativo.aceptado;
+
   @override
   ValueListenable<EstadoSincronizacion> get estadoSincronizacion => cola.estadoSincronizacion;
 
@@ -229,6 +256,8 @@ class FakeClaseRepository implements ClaseRepository {
           'ejercicios': part[a.id]?.$1,
           'participo_activa': part[a.id]?.$2,
           'podio_kahoot': podio == null || !podio.contains(a.id) ? null : podio.indexOf(a.id) + 1,
+          'justificativo_estado': _justificativos[claseId]?[a.id]?.$1.name,
+          'justificativo_motivo': _justificativos[claseId]?[a.id]?.$2.name,
         },
     ];
     return MapeoClase.conPendientes(
@@ -325,12 +354,16 @@ class FakeClaseRepository implements ClaseRepository {
         var justificadas = 0, posteriores = 0;
         for (final r in op.datos['registros'] as List) {
           final id = r['inscripcion_id'] as String;
-          final nuevo = MapeoClase.estado(r['estado']);
+          final pedido = MapeoClase.estado(r['estado']);
           final actual = filas[id];
+          // Con un justificativo aprobado queda justificada, la pida quien la pida
+          final nuevo = _aceptado(claseId, id) ? EstadoAsistencia.justificada : pedido;
+          if (nuevo != pedido) justificadas++;
           if (actual != null && actual.estado == nuevo) continue;
           if (actual != null && actual.editadoEn.isAfter(op.guardadoEn)) {
             posteriores++;
           } else if (!esGestion &&
+              !_aceptado(claseId, id) &&
               (nuevo == EstadoAsistencia.justificada || actual?.estado == EstadoAsistencia.justificada)) {
             justificadas++;
           } else {
