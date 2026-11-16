@@ -32,7 +32,7 @@ ninas-pro-hub/
 │   │   ├── config/               # Configuración dinámica y resolución de entornos
 │   │   ├── models/               # Modelos de dominio y sesión de la usuaria
 │   │   ├── repositories/         # Acceso a datos (Supabase y mock del mockup)
-│   │   ├── screens/              # Vistas por rol, acceso (auth/) y Accesos (accesos/)
+│   │   ├── screens/              # Vistas por rol, acceso (auth/), Accesos (accesos/) y calendario de clases (calendario/)
 │   │   ├── services/             # Autenticación (Supabase Auth) y salud del BaaS
 │   │   ├── widgets/              # Componentes de UI y Healthchecker en tiempo real
 │   │   └── main.dart             # Punto de entrada de la aplicación
@@ -134,6 +134,16 @@ Los correos que envía Auth (activación y códigos de recuperación) llegan a *
    - OTP de 6 dígitos con vencimiento de 3600 s.
    - Contraseña mínima de 10 caracteres con minúsculas, mayúsculas y dígitos.
 6. **SMTP propio** (*Authentication → SMTP Settings*). El SMTP de Supabase solo envía unos pocos correos por hora y únicamente al equipo del proyecto.
+
+---
+
+## 🗓️ Catálogo, instancias y calendario
+
+Estas vistas ya leen y escriben en Supabase (`CatalogoRepository`). El resto de las vistas sigue con los datos del mockup hasta sus PR.
+
+- **Sedes y cursos (US-01):** la Directiva los administra en *Ajustes → Sedes* y *Ajustes → Cursos*. El nombre de la sede y el código del curso son únicos, sin distinguir mayúsculas. La coordinadora que se muestra es la líder de sede del Equipo de Gestión, asignada al autorizar su correo en **Accesos**.
+- **Instancias (US-02):** en *Ajustes → Instancias y sesiones* la Directiva elige sede, curso, fechas, día y horario. La RPC `crear_instancia_curso` genera en la misma transacción una sesión `programada` por semana. No se pueden insertar instancias ni clases directamente. Si ya existe la misma instancia (curso, sede y período), la app pide confirmación y la crea como **sección paralela** (B, C…), con su propio cronograma.
+- **Calendario (US-03):** Gestión lo abre desde *Ajustes → Administración → Calendario de clases* y ve solo los cursos vigentes de su sede. La Directiva lo abre al tocar una instancia. Una sesión programada se puede suspender con un motivo, y queda fuera del pase de lista y del porcentaje de asistencia (`asistencia_inscripcion`). También se puede reanudar o sumar una **sesión especial** con fecha y horario propios (RPC `agregar_sesion_especial`).
 
 ---
 
