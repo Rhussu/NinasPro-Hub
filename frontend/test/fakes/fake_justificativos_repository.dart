@@ -1,5 +1,4 @@
 import 'package:ninas_pro_hub/config/ninaspro_theme.dart';
-import 'package:ninas_pro_hub/repositories/alumnas_repository.dart' show ArchivoAdjunto;
 import 'package:ninas_pro_hub/repositories/justificativos_repository.dart';
 
 import 'fake_clase_repository.dart';
@@ -20,12 +19,6 @@ class FakeJustificativosRepository implements JustificativosRepository {
   /// Si no es null, la base rechaza las escrituras con este mensaje
   String? rechazo;
 
-  /// Respaldos subidos al "bucket"
-  final subidos = <String, ArchivoAdjunto>{};
-
-  /// Rutas que se pidieron con URL firmada
-  final firmadas = <String>[];
-
   var _secuencia = 0;
 
   FakeJustificativosRepository({this.clase, List<JustificativoDetalle>? lista, List<ClaseJustificable>? clases})
@@ -40,10 +33,9 @@ class FakeJustificativosRepository implements JustificativosRepository {
   @override
   Future<List<ClaseJustificable>> clasesParaJustificar() async => List.of(clases);
 
-  Resultado<void>? _validar({required String claseId, required String inscripcionId, ArchivoAdjunto? respaldo}) {
+  Resultado<void>? _validar({required String claseId, required String inscripcionId, required String explicacion}) {
     if (rechazo != null) return Resultado.error(rechazo);
-    final errorArchivo = respaldo?.error;
-    if (errorArchivo != null) return Resultado.error(errorArchivo);
+    if (explicacion.trim().isEmpty) return const Resultado.error('Escribe la explicación de la inasistencia.');
     final vigente = lista.where(
       (j) => j.claseId == claseId && j.inscripcionId == inscripcionId && j.estado != EstadoJustificativo.rechazado,
     );
@@ -61,12 +53,9 @@ class FakeJustificativosRepository implements JustificativosRepository {
     required String explicacion,
     required EstadoJustificativo estado,
     required bool porAlumna,
-    ArchivoAdjunto? respaldo,
     String alumnaNombre = 'Valentina Soto Morales',
     int numeroSesion = 4,
   }) {
-    final ruta = respaldo == null ? null : '$inscripcionId/$claseId/${respaldo.nombre}';
-    if (ruta != null) subidos[ruta] = respaldo!;
     return JustificativoDetalle(
       id: 'just-${++_secuencia}',
       claseId: claseId,
@@ -80,7 +69,6 @@ class FakeJustificativosRepository implements JustificativosRepository {
       sedeNombre: 'Sede Beauchef',
       motivo: motivo,
       explicacion: explicacion.trim().isEmpty ? null : explicacion.trim(),
-      respaldo: ruta,
       estado: estado,
       enviadoPorAlumna: porAlumna,
       creadoEn: DateTime.now(),
@@ -92,9 +80,8 @@ class FakeJustificativosRepository implements JustificativosRepository {
     required ClaseJustificable clase,
     required MotivoJustificativo motivo,
     required String explicacion,
-    ArchivoAdjunto? respaldo,
   }) async {
-    final error = _validar(claseId: clase.claseId, inscripcionId: clase.inscripcionId, respaldo: respaldo);
+    final error = _validar(claseId: clase.claseId, inscripcionId: clase.inscripcionId, explicacion: explicacion);
     if (error != null) return error;
     lista.insert(
       0,
@@ -105,7 +92,6 @@ class FakeJustificativosRepository implements JustificativosRepository {
         explicacion: explicacion,
         estado: EstadoJustificativo.pendiente,
         porAlumna: true,
-        respaldo: respaldo,
         numeroSesion: clase.numeroSesion,
       ),
     );
@@ -132,9 +118,8 @@ class FakeJustificativosRepository implements JustificativosRepository {
     required String inscripcionId,
     required MotivoJustificativo motivo,
     required String explicacion,
-    ArchivoAdjunto? respaldo,
   }) async {
-    final error = _validar(claseId: claseId, inscripcionId: inscripcionId, respaldo: respaldo);
+    final error = _validar(claseId: claseId, inscripcionId: inscripcionId, explicacion: explicacion);
     if (error != null) return error;
     final nombre = clase?.alumnas.where((a) => a.id == inscripcionId).firstOrNull?.nombre;
     lista.insert(
@@ -146,7 +131,6 @@ class FakeJustificativosRepository implements JustificativosRepository {
         explicacion: explicacion,
         estado: EstadoJustificativo.aceptado,
         porAlumna: false,
-        respaldo: respaldo,
         alumnaNombre: nombre ?? 'Alumna',
       ),
     );
@@ -169,7 +153,6 @@ class FakeJustificativosRepository implements JustificativosRepository {
         sedeNombre: j.sedeNombre,
         motivo: j.motivo,
         explicacion: j.explicacion,
-        respaldo: j.respaldo,
         estado: estado,
         observacion: observacion,
         resueltoPor: 'Camila Sepúlveda Rivas',
@@ -199,15 +182,8 @@ class FakeJustificativosRepository implements JustificativosRepository {
     if (rechazo != null) return Resultado.error(rechazo);
     final j = porId(id);
     lista.remove(j);
-    if (j.respaldo != null) subidos.remove(j.respaldo);
     clase?.quitarJustificativo(j.claseId, j.inscripcionId);
     return const Resultado.ok();
-  }
-
-  @override
-  Future<Resultado<String>> urlRespaldo(String ruta) async {
-    firmadas.add(ruta);
-    return Resultado.ok('https://storage.test/sign/justificativos/$ruta?token=t');
   }
 }
 

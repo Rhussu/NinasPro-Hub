@@ -6,7 +6,7 @@ import 'package:ninas_pro_hub/config/ninaspro_theme.dart';
 import 'package:ninas_pro_hub/repositories/alumnas_repository.dart' show ArchivoAdjunto;
 import 'package:ninas_pro_hub/repositories/evidencias_repository.dart';
 import 'package:ninas_pro_hub/repositories/justificativos_repository.dart';
-import 'package:ninas_pro_hub/screens/gestion/justificativos_gestion.dart' show avisoPrivacidadRespaldo;
+import 'package:ninas_pro_hub/screens/gestion/justificativos_gestion.dart' show avisoPrivacidadJustificativo;
 import 'package:ninas_pro_hub/services/compresion_imagen.dart' as compresion;
 import 'package:ninas_pro_hub/services/selector_archivos.dart' as selector;
 import 'package:ninas_pro_hub/models/sesion_usuario.dart';
@@ -402,7 +402,8 @@ void main() {
       expect(find.text('¿A qué clase?'), findsOneWidget);
       expect(find.textContaining('Clase #4 · '), findsOneWidget); // por defecto, la de hoy
       expect(find.text('Transporte / Clima'), findsOneWidget);
-      expect(find.text(avisoPrivacidadRespaldo), findsOneWidget); // US-36 escenario 2
+      expect(find.text(avisoPrivacidadJustificativo), findsOneWidget);
+      expect(find.text('Adjuntar respaldo'), findsNothing); // solo texto, sin archivos
 
       await tester.tap(find.text('Enviar Justificativo'));
       await tester.pumpAndSettle();
@@ -633,7 +634,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Registrar y Aprobar'));
       await tester.pumpAndSettle();
-      expect(find.text('Escribe la descripción o adjunta un respaldo.'), findsOneWidget);
+      expect(find.text('Escribe la descripción del aviso.'), findsOneWidget);
       await tester.enterText(find.byType(TextField), 'Apoderada avisó por WhatsApp.');
       await tester.tap(find.text('Registrar y Aprobar'));
       await tester.pumpAndSettle();

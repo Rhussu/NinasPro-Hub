@@ -7,7 +7,6 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:image/image.dart' as img;
 import 'package:ninas_pro_hub/config/ninaspro_theme.dart';
-import 'package:ninas_pro_hub/repositories/alumnas_repository.dart' show ArchivoAdjunto;
 import 'package:ninas_pro_hub/repositories/clase_repository.dart';
 import 'package:ninas_pro_hub/repositories/evidencias_repository.dart';
 import 'package:ninas_pro_hub/repositories/justificativos_repository.dart';
@@ -59,7 +58,6 @@ void main() {
     'curso_nombre': 'Programación Competitiva Básica',
     'motivo': 'transporte',
     'explicacion': 'Paro de micros',
-    'archivo_adjunto_url': 'insc-1/clase-3/1731700000000_constancia.pdf',
     'estado': 'rechazado',
     'observacion_resolucion': 'Falta la constancia',
     'fecha_resolucion': '2026-11-08T12:00:00+00:00',
@@ -78,7 +76,6 @@ void main() {
       expect(j.estado, EstadoJustificativo.rechazado);
       expect(j.estado.label, 'Rechazado');
       expect(j.observacion, 'Falta la constancia');
-      expect(j.nombreRespaldo, 'constancia.pdf');
       expect(j.enviadoPorAlumna, isTrue);
     });
 
@@ -116,11 +113,8 @@ void main() {
       expect(pedidos.single.url.queryParameters['order'], startsWith('created_at.desc'));
     });
 
-    test('la alumna envía con su respaldo en la carpeta de la inscripción y la clase', () async {
-      final repo = SupabaseJustificativosRepository(
-        cliente((r) => r.url.path.startsWith('/storage') ? ok({'Key': 'justificativos/x'}) : ok({'id': 'just-2'})),
-        ahora: () => ahora,
-      );
+    test('la alumna envía su explicación en texto, sin archivo adjunto', () async {
+      final repo = SupabaseJustificativosRepository(cliente((_) => ok({'id': 'just-2'})));
       final r = await repo.enviar(
         clase: MapeoJustificativos.clase({
           'clase_id': 'clase-5',
@@ -131,54 +125,29 @@ void main() {
         }),
         motivo: MotivoJustificativo.salud,
         explicacion: '  Control médico  ',
-        respaldo: ArchivoAdjunto(nombre: 'Constancia de atención.pdf', bytes: Uint8List(3)),
       );
       expect(r.ok, isTrue);
-      expect(
-        pedidos.first.url.path,
-        '/storage/v1/object/justificativos/insc-1/clase-5/1731700000000_constancia_de_atencion.pdf',
-      );
-      expect(pedidos.last.url.path, '/rest/v1/rpc/enviar_justificativo');
-      expect(jsonDecode(pedidos.last.body), {
+      expect(pedidos.single.url.path, '/rest/v1/rpc/enviar_justificativo');
+      expect(jsonDecode(pedidos.single.body), {
         'p_clase_id': 'clase-5',
         'p_motivo': 'salud',
         'p_explicacion': 'Control médico',
-        'p_archivo': 'insc-1/clase-5/1731700000000_constancia_de_atencion.pdf',
       });
     });
 
-    test('si la base rechaza el justificativo, el respaldo subido se borra', () async {
+    test('Gestión registra el aviso y recibe el mensaje de la base si ya hay uno pendiente', () async {
       final repo = SupabaseJustificativosRepository(
-        cliente(
-          (r) => r.url.path.startsWith('/storage')
-              ? ok(r.method == 'DELETE' ? [] : {'Key': 'justificativos/x'})
-              : error(409, '23505', 'Ya hay un justificativo pendiente para esa clase.'),
-        ),
-        ahora: () => ahora,
+        cliente((_) => error(409, '23505', 'Ya hay un justificativo pendiente para esa clase.')),
       );
       final r = await repo.registrar(
         claseId: 'clase-3',
         inscripcionId: 'insc-2',
         motivo: MotivoJustificativo.familiar,
         explicacion: 'Aviso',
-        respaldo: ArchivoAdjunto(nombre: 'aviso.png', bytes: Uint8List(3)),
       );
       expect(r.error, 'Ya hay un justificativo pendiente para esa clase.');
-      expect(pedidos.last.method, 'DELETE');
-      expect(pedidos.last.body, contains('insc-2/clase-3/1731700000000_aviso.png'));
-    });
-
-    test('un respaldo no admitido no se sube (US-36 escenario 3)', () async {
-      final repo = SupabaseJustificativosRepository(cliente((_) => ok({})));
-      final r = await repo.registrar(
-        claseId: 'clase-3',
-        inscripcionId: 'insc-2',
-        motivo: MotivoJustificativo.otro,
-        explicacion: 'x',
-        respaldo: ArchivoAdjunto(nombre: 'virus.exe', bytes: Uint8List(3)),
-      );
-      expect(r.error, contains('PDF, PNG o JPG'));
-      expect(pedidos, isEmpty);
+      expect(pedidos.single.url.path, '/rest/v1/rpc/registrar_justificativo');
+      expect(jsonDecode(pedidos.single.body), containsPair('p_inscripcion_id', 'insc-2'));
     });
 
     test('la tutora recibe el 403 de la base al intentar resolver (US-38 escenario 3)', () async {
@@ -190,31 +159,17 @@ void main() {
       expect(jsonDecode(pedidos.single.body), {'p_id': 'just-1', 'p_aprobar': true, 'p_observacion': null});
     });
 
-    test('al eliminar, borra el respaldo que devuelve la base', () async {
-      final repo = SupabaseJustificativosRepository(
-        cliente((r) => r.url.path.startsWith('/storage') ? ok([]) : ok('insc-1/clase-3/constancia.pdf')),
-      );
+    test('eliminar llama a su RPC', () async {
+      final repo = SupabaseJustificativosRepository(cliente((_) => http.Response('', 204)));
       final r = await repo.eliminar('just-1');
       expect(r.ok, isTrue);
-      expect(pedidos.first.url.path, '/rest/v1/rpc/eliminar_justificativo');
-      expect(pedidos.last.method, 'DELETE');
-      expect(pedidos.last.body, contains('insc-1/clase-3/constancia.pdf'));
+      expect(pedidos.single.url.path, '/rest/v1/rpc/eliminar_justificativo');
     });
 
     test('un error inesperado se informa con un mensaje genérico', () async {
       final repo = SupabaseJustificativosRepository(cliente((_) => error(500, 'XX000', 'internal')));
       final r = await repo.resolver('just-1', aprobar: false, observacion: 'x');
       expect(r.error, startsWith('No pudimos guardar'));
-    });
-
-    test('el respaldo se abre con una URL firmada de un minuto (US-17 escenario 1)', () async {
-      final repo = SupabaseJustificativosRepository(
-        cliente((_) => ok({'signedURL': '/object/sign/justificativos/insc-1/clase-3/c.pdf?token=t'})),
-      );
-      final r = await repo.urlRespaldo('insc-1/clase-3/c.pdf');
-      expect(pedidos.single.url.path, '/storage/v1/object/sign/justificativos/insc-1/clase-3/c.pdf');
-      expect(jsonDecode(pedidos.single.body), {'expiresIn': 60});
-      expect(r.valor, contains('token=t'));
     });
 
     test('las clases para justificar vienen de su RPC', () async {
