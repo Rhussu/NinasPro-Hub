@@ -139,11 +139,23 @@ Los correos que envía Auth (activación y códigos de recuperación) llegan a *
 
 ## 🗓️ Catálogo, instancias y calendario
 
-Estas vistas ya leen y escriben en Supabase (`CatalogoRepository`). El resto de las vistas sigue con los datos del mockup hasta sus PR.
+Estas vistas ya leen y escriben en Supabase (`CatalogoRepository`). Las vistas sin repositorio propio siguen con los datos del mockup hasta sus PR.
 
 - **Sedes y cursos (US-01):** la Directiva los administra en *Ajustes → Sedes* y *Ajustes → Cursos*. El nombre de la sede y el código del curso son únicos sin distinguir mayúsculas, tildes, espacios ni signos (`clave_nombre`). Si un nombre nuevo se parece mucho a otro (un error de tipeo o el prefijo "Sede"), la app pide confirmación. Una sede o un curso se puede eliminar mientras no tenga instancias, personas asignadas ni accesos pendientes. Si los tiene, el botón queda deshabilitado y explica qué lo usa. La coordinadora que se muestra es la líder de sede del Equipo de Gestión, asignada al autorizar su correo en **Accesos**.
 - **Instancias (US-02):** en *Ajustes → Instancias y sesiones* la Directiva elige sede, curso, fechas, día y horario. La RPC `crear_instancia_curso` genera en la misma transacción una sesión `programada` por semana. No se pueden insertar instancias ni clases directamente. Si ya existe la misma instancia (curso, sede y período), la app pide confirmación y la crea como **sección paralela** (B, C…), con su propio cronograma.
 - **Calendario (US-03):** Gestión lo abre desde *Ajustes → Administración → Calendario de clases* y ve solo los cursos vigentes de su sede. La Directiva lo abre al tocar una instancia. Una sesión programada se puede suspender con un motivo, y queda fuera del pase de lista y del porcentaje de asistencia (`asistencia_inscripcion`). También se puede reanudar o sumar una **sesión especial** con fecha y horario propios (RPC `agregar_sesion_especial`).
+
+---
+
+## 👧 Alumnas, cargas masivas y autorizaciones
+
+La sección **Alumnas** de la Directiva y la tarjeta de pendientes del panel de Gestión ya usan Supabase (`AlumnasRepository`).
+
+- **Nómina:** una fila por inscripción (vista `nomina_alumnas`, con `security_invoker`, así que cada rol ve solo sus sedes). Muestra asistencia, consentimiento de datos, aptitud para fotos y estado.
+- **Carga masiva (US-07, US-08):** *Carga masiva* acepta CSV UTF-8 (con coma o punto y coma) y XLSX. La app revisa la estructura: si las columnas no son exactamente las de la plantilla (*Descargar plantilla*), el archivo se rechaza completo y se informa qué falta o qué está desalineado. Luego la RPC `importar_alumnas` con `p_solo_validar` clasifica cada fila sin guardar nada: **nueva**, **ya existente** (el RUT ya tiene ficha) o **inválida** con su motivo (RUT con dígito verificador incorrecto, RUT repetido en el archivo, sin correo o teléfono del apoderado/a, fecha de nacimiento no válida, ya inscrita en ese curso). Las inválidas se descargan como CSV. *Confirmar carga* inscribe todas las válidas en una sola transacción como `preinscrita`.
+- **Ficha única por RUT e inscripción individual (US-09):** el RUT se valida con módulo 11 y se compara sin puntos ni guion (`normalizar_rut`). Si ya existe, se reutiliza la ficha sin sobrescribir sus datos y solo se agrega la inscripción. Si la fila trae el correo de la alumna, ese correo queda autorizado para crear su cuenta. Alumnas, apoderados e inscripciones solo se crean con la RPC. El retiro (RPC `retirar_inscripcion`) exige fecha y motivo, y conserva la asistencia.
+- **Autorizaciones (US-10, US-11):** en la ficha se registra el tratamiento de datos y cada canal de imagen (RPC `registrar_autorizaciones`). Un canal sin respuesta queda no autorizado. Para otorgar algo hay que adjuntar el documento firmado (PDF, PNG o JPG de hasta 5 MB). El documento se guarda en el bucket privado `autorizaciones` (`<alumna_id>/<archivo>`), que Storage cifra en reposo, y se abre con una URL firmada de 60 s. Al otorgar el tratamiento de datos, las preinscripciones pasan solas a `activa`. Sin él, la inscripción no puede activarse ni registrar asistencia. Las preinscritas que siguen sin consentimiento tras 2 sesiones aparecen destacadas en el panel de Gestión y en la nómina.
+- **Revocación (US-12):** *Revocar autorización* desactiva uno o varios canales desde la fecha de la solicitud y guarda el motivo. `evidencia_apta_canal(evidencia, canal)` calcula la aptitud de cada foto: las de clases desde esa fecha dejan de ser aptas para el canal revocado (salvo que los rostros estén censurados), y las anteriores conservan su aptitud.
 
 ---
 
