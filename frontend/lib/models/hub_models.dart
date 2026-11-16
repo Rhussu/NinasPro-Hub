@@ -133,6 +133,8 @@ class Sede {
   final String modalidad; // 'Presencial' | 'Online'
   final String coordinadoraNombre;
   final String estado; // 'activa' | 'inactiva'
+  // Lo que impide eliminarla: '2 instancias de curso', '3 personas asignadas'… (US-01)
+  final List<String> usos;
 
   const Sede({
     required this.id,
@@ -142,6 +144,7 @@ class Sede {
     required this.modalidad,
     required this.coordinadoraNombre,
     this.estado = 'activa',
+    this.usos = const [],
   });
 
   Sede copyWith({
@@ -160,6 +163,7 @@ class Sede {
       modalidad: modalidad ?? this.modalidad,
       coordinadoraNombre: coordinadoraNombre ?? this.coordinadoraNombre,
       estado: estado ?? this.estado,
+      usos: usos,
     );
   }
 }
@@ -171,12 +175,15 @@ class CursoCatalogo {
   final String codigo;
   final String nombre;
   final String descripcion;
+  // Lo que impide eliminarlo: '2 instancias de curso' (US-01)
+  final List<String> usos;
 
   const CursoCatalogo({
     required this.id,
     required this.codigo,
     required this.nombre,
     this.descripcion = '',
+    this.usos = const [],
   });
 
   CursoCatalogo copyWith({String? codigo, String? nombre, String? descripcion}) {
@@ -185,6 +192,7 @@ class CursoCatalogo {
       codigo: codigo ?? this.codigo,
       nombre: nombre ?? this.nombre,
       descripcion: descripcion ?? this.descripcion,
+      usos: usos,
     );
   }
 }

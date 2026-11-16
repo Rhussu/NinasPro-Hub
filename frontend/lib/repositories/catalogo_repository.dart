@@ -79,9 +79,15 @@ abstract class CatalogoRepository {
   Future<ResultadoCatalogo<void>> crearSede(DatosSede datos);
   Future<ResultadoCatalogo<void>> actualizarSede(String id, DatosSede datos);
 
+  /// Elimina una sede sin uso; si tiene instancias, personas o accesos pendientes la base lo impide
+  Future<ResultadoCatalogo<void>> eliminarSede(String id);
+
   Future<List<CursoCatalogo>> cursos();
   Future<ResultadoCatalogo<void>> crearCurso(DatosCurso datos);
   Future<ResultadoCatalogo<void>> actualizarCurso(String id, DatosCurso datos);
+
+  /// Elimina un curso del catálogo que aún no tiene instancias
+  Future<ResultadoCatalogo<void>> eliminarCurso(String id);
 
   /// Instancias visibles para la usuaria (la RLS acota a sus sedes), de la más reciente a la más antigua
   Future<List<Curso>> instancias({String? sedeId});
@@ -105,6 +111,7 @@ abstract class CatalogoRepository {
 
 const _mensajeErrorCatalogo = 'No pudimos guardar los cambios. Revisa tu conexión e inténtalo nuevamente.';
 const _mensajeSinPermiso = 'No tienes permiso para hacer este cambio.';
+const _sedeRepetida = 'Ya existe una sede con ese nombre. Los nombres no distinguen tildes, mayúsculas ni signos.';
 
 /// Código visible de una instancia: PCB-2026-S2-BEAUCHEF (y -B, -C… en secciones paralelas)
 String codigoInstancia({
@@ -151,8 +158,20 @@ class MapeoCatalogo {
       modalidad: f['modalidad'] == 'online' ? 'Online' : 'Presencial',
       coordinadoraNombre: lider == null ? '' : '${lider['nombres']} ${lider['apellidos']}'.trim(),
       estado: f['activa'] == false ? 'inactiva' : 'activa',
+      usos: [
+        ?_uso(_conteo(f['instancias_curso']), 'instancia de curso', 'instancias de curso'),
+        ?_uso(asignaciones.length, 'persona asignada', 'personas asignadas'),
+        ?_uso(_conteo(f['correos_autorizados']), 'acceso pendiente', 'accesos pendientes'),
+      ],
     );
   }
+
+  /// `[{count: 3}]` de un conteo embebido de PostgREST
+  static int _conteo(Object? valor) =>
+      valor is List && valor.isNotEmpty ? ((valor.first as Map)['count'] as num).toInt() : 0;
+
+  static String? _uso(int cantidad, String singular, String plural) =>
+      cantidad == 0 ? null : '$cantidad ${cantidad == 1 ? singular : plural}';
 
   static Map<String, dynamic> filaSede(DatosSede d) => {
     'nombre': d.nombre.trim(),
@@ -167,6 +186,7 @@ class MapeoCatalogo {
     codigo: f['codigo'] as String,
     nombre: f['nombre'] as String,
     descripcion: f['descripcion'] as String? ?? '',
+    usos: [?_uso(_conteo(f['instancias_curso']), 'instancia de curso', 'instancias de curso')],
   );
 
   static Map<String, dynamic> filaCurso(DatosCurso d) => {
@@ -240,7 +260,8 @@ class SupabaseCatalogoRepository implements CatalogoRepository {
   SupabaseCatalogoRepository(this._client);
 
   static const _columnasSede =
-      'id, nombre, region, modalidad, institucion_anfitriona, activa, usuarios_sedes(es_lider_sede, perfiles(nombres, apellidos))';
+      'id, nombre, region, modalidad, institucion_anfitriona, activa, usuarios_sedes(es_lider_sede, perfiles(nombres, apellidos)), '
+      'instancias_curso(count), correos_autorizados(count)';
   static const _columnasInstancia =
       'id, curso_id, sede_id, periodo_academico, seccion, fecha_inicio, fecha_termino, dia_semana, hora_inicio, hora_fin, '
       'classroom_url, juez_virtual_url, cursos(codigo, nombre), sedes(nombre), clases(count)';
@@ -250,25 +271,37 @@ class SupabaseCatalogoRepository implements CatalogoRepository {
 
   @override
   Future<List<Sede>> sedes() async {
-    final filas = await _client.from('sedes').select(_columnasSede).order('nombre');
+    // Solo los accesos pendientes impiden eliminar la sede (los usados ya tienen su persona asignada)
+    final filas = await _client
+        .from('sedes')
+        .select(_columnasSede)
+        .isFilter('correos_autorizados.usado_en', null)
+        .order('nombre');
     return [for (final f in filas) MapeoCatalogo.sede(f)];
   }
 
   @override
   Future<ResultadoCatalogo<void>> crearSede(DatosSede datos) => _escribir(
     () => _client.from('sedes').insert(MapeoCatalogo.filaSede(datos)).select('id'),
-    duplicado: 'Ya existe una sede llamada "${datos.nombre.trim()}".',
+    duplicado: _sedeRepetida,
   );
 
   @override
   Future<ResultadoCatalogo<void>> actualizarSede(String id, DatosSede datos) => _escribir(
     () => _client.from('sedes').update(MapeoCatalogo.filaSede(datos)).eq('id', id).select('id'),
-    duplicado: 'Ya existe una sede llamada "${datos.nombre.trim()}".',
+    duplicado: _sedeRepetida,
   );
 
   @override
+  Future<ResultadoCatalogo<void>> eliminarSede(String id) =>
+      _escribir(() => _client.from('sedes').delete().eq('id', id).select('id'));
+
+  @override
   Future<List<CursoCatalogo>> cursos() async {
-    final filas = await _client.from('cursos').select('id, codigo, nombre, descripcion').order('codigo');
+    final filas = await _client
+        .from('cursos')
+        .select('id, codigo, nombre, descripcion, instancias_curso(count)')
+        .order('codigo');
     return [for (final f in filas) MapeoCatalogo.curso(f)];
   }
 
@@ -283,6 +316,10 @@ class SupabaseCatalogoRepository implements CatalogoRepository {
     () => _client.from('cursos').update(MapeoCatalogo.filaCurso(datos)).eq('id', id).select('id'),
     duplicado: 'El código "${datos.codigo.trim().toUpperCase()}" ya está en uso.',
   );
+
+  @override
+  Future<ResultadoCatalogo<void>> eliminarCurso(String id) =>
+      _escribir(() => _client.from('cursos').delete().eq('id', id).select('id'));
 
   @override
   Future<List<Curso>> instancias({String? sedeId}) async {
@@ -390,6 +427,8 @@ class SupabaseCatalogoRepository implements CatalogoRepository {
     '42501' =>
       e.message.startsWith('new row') || e.message.startsWith('permission denied') ? _mensajeSinPermiso : e.message,
     '23514' => 'Revisa los datos: hay campos vacíos o con un formato no válido.',
+    // El trigger de eliminación explica qué está usando la sede o el curso
+    '23503' => e.message.startsWith('No se puede') ? e.message : 'No se puede eliminar: hay registros que lo usan.',
     _ => _mensajeErrorCatalogo,
   };
 }
