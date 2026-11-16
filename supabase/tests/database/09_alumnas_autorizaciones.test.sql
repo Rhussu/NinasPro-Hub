@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(62);
+SELECT plan(66);
 
 -- =============================================================================
 -- Datos de prueba: Directiva, Gestión y Tutora de la sede A, Gestión de la sede B
@@ -162,29 +162,34 @@ SELECT is(
     jsonb_build_array(pg_temp.fila(2, pg_temp.rut(25000101)), pg_temp.fila(3, pg_temp.rut(25000102)), pg_temp.fila(4, replace(pg_temp.rut(25000101), '.', ''))),
     true
   ))->'filas') f),
-  '["invalida", "nueva", "invalida"]'::jsonb,
-  'Un RUT repetido en la planilla (con o sin puntos) rechaza sus filas'
+  '["conflicto", "nueva", "conflicto"]'::jsonb,
+  'Un RUT repetido en la planilla (con o sin puntos) se avisa como conflicto en sus filas'
 );
 
 -- Una alumna ya inscrita en el curso no se inscribe dos veces
 SELECT is(
   (public.importar_alumnas('19a00000-0000-0000-0000-000000000001', jsonb_build_array(pg_temp.fila(2, pg_temp.rut(25000003))), true))->'filas'->0->>'motivo',
   'Ya está inscrita en este curso',
-  'Una alumna ya inscrita en el curso se rechaza'
+  'Una alumna ya inscrita en el curso se informa'
 );
 
 -- =============================================================================
 -- Ficha única por RUT en otra sede (US-09, TC-05)
 -- =============================================================================
 SELECT is(
-  (public.importar_alumnas('19b00000-0000-0000-0000-000000000001', jsonb_build_array(pg_temp.fila(2, replace(pg_temp.rut(25000003), '.', ''), 'Otro', 'Nombre')), true))->'filas'->0->>'estado',
+  (public.importar_alumnas('19b00000-0000-0000-0000-000000000001', jsonb_build_array(pg_temp.fila(2, replace(pg_temp.rut(25000003), '.', ''))), true))->'filas'->0->>'estado',
   'existente',
   'El RUT de una alumna de otra sede se reconoce como ficha existente'
 );
 SELECT is(
-  ((public.importar_alumnas('19b00000-0000-0000-0000-000000000001', jsonb_build_array(pg_temp.fila(2, replace(pg_temp.rut(25000003), '.', ''), 'Otro', 'Nombre'))))->>'inscritas')::int,
+  (public.importar_alumnas('19b00000-0000-0000-0000-000000000001', jsonb_build_array(pg_temp.fila(2, replace(pg_temp.rut(25000003), '.', ''), 'Otro', 'Nombre')), true))->'filas'->0->'conflictos',
+  '["ficha_distinta"]'::jsonb,
+  'Si la planilla trae otros datos para esa ficha, se avisa el conflicto'
+);
+SELECT is(
+  ((public.importar_alumnas('19b00000-0000-0000-0000-000000000001', jsonb_build_array(pg_temp.fila(2, replace(pg_temp.rut(25000003), '.', ''), 'Otro', 'Nombre') || '{"resolucion": "mantener_ficha"}')))->>'inscritas')::int,
   1,
-  'La alumna existente se inscribe en la sede B'
+  'Al mantener la ficha, la alumna existente se inscribe en la sede B'
 );
 SELECT is(
   (SELECT count(*)::int FROM public.alumnas WHERE public.normalizar_rut(rut) = public.normalizar_rut(pg_temp.rut(25000003))),
@@ -205,11 +210,11 @@ SELECT is(
 -- =============================================================================
 -- Permisos de la carga
 -- =============================================================================
-SELECT pg_temp.actuar_como('99b00000-0000-0000-0000-000000000001');
+SELECT pg_temp.actuar_como('99a00000-0000-0000-0000-000000000001');
 SELECT throws_ok(
   $$ SELECT public.importar_alumnas('19a00000-0000-0000-0000-000000000001', jsonb_build_array(pg_temp.fila(1, pg_temp.rut(25000201)))) $$,
   '42501', NULL,
-  'Gestión de otra sede no inscribe alumnas en la sede A'
+  'Gestión no inscribe alumnas, ni siquiera en su sede'
 );
 SELECT pg_temp.actuar_como('79a00000-0000-0000-0000-000000000001');
 SELECT throws_ok(
@@ -224,10 +229,11 @@ SELECT throws_ok(
   '42501', NULL,
   'Nadie crea fichas sin pasar por la validación de la RPC'
 );
+SELECT pg_temp.actuar_como('d9000000-0000-0000-0000-000000000001', 'aal2');
 SELECT is(
-  ((public.importar_alumnas('19a00000-0000-0000-0000-000000000001', jsonb_build_array(pg_temp.fila(1, pg_temp.rut(25000201), 'Individual', 'Gestión'))))->>'inscritas')::int,
+  ((public.importar_alumnas('19a00000-0000-0000-0000-000000000001', jsonb_build_array(pg_temp.fila(1, pg_temp.rut(25000201), 'Individual', 'Directiva'))))->>'inscritas')::int,
   1,
-  'Gestión inscribe individualmente una alumna en su sede'
+  'La Directiva inscribe individualmente una alumna'
 );
 
 -- =============================================================================
@@ -248,6 +254,13 @@ SELECT throws_ok(
   '22023', NULL,
   'No se registra asistencia de una alumna sin consentimiento'
 );
+SELECT pg_temp.actuar_como('99a00000-0000-0000-0000-000000000001');
+SELECT throws_ok(
+  $$ SELECT public.registrar_autorizaciones((SELECT id FROM _alumna), 'otorgada', '{}'::jsonb, (SELECT id FROM _alumna)::text || '/firma.pdf') $$,
+  '42501', NULL,
+  'Gestión no registra autorizaciones'
+);
+SELECT pg_temp.actuar_como('d9000000-0000-0000-0000-000000000001', 'aal2');
 SELECT throws_ok(
   $$ SELECT public.registrar_autorizaciones((SELECT id FROM _alumna), 'otorgada', '{}'::jsonb) $$,
   '22023', NULL,
@@ -269,7 +282,7 @@ SELECT lives_ok(
        '{"redes_sociales": true, "prensa": true}'::jsonb,
        (SELECT id FROM _alumna)::text || '/firma.pdf', current_date - 20
      ) $$,
-  'Gestión registra las autorizaciones con su respaldo'
+  'La Directiva registra las autorizaciones con su respaldo'
 );
 SELECT is(
   (SELECT estado::text FROM public.inscripciones WHERE alumna_id = (SELECT id FROM _alumna) AND instancia_curso_id = '19a00000-0000-0000-0000-000000000001'),
@@ -278,7 +291,7 @@ SELECT is(
 );
 SELECT is(
   (SELECT registrado_por FROM public.autorizaciones_apoderado WHERE alumna_id = (SELECT id FROM _alumna)),
-  '99a00000-0000-0000-0000-000000000001'::uuid,
+  'd9000000-0000-0000-0000-000000000001'::uuid,
   'El registro guarda a la usuaria responsable'
 );
 SELECT is(
@@ -288,7 +301,6 @@ SELECT is(
   'Los canales sin respuesta quedan no autorizados (RB-2)'
 );
 
-SELECT pg_temp.actuar_como('d9000000-0000-0000-0000-000000000001', 'aal2');
 SELECT is(
   (SELECT estado::text FROM public.inscripciones WHERE alumna_id = (SELECT id FROM _alumna) AND instancia_curso_id = '19b00000-0000-0000-0000-000000000001'),
   'activa',
@@ -315,18 +327,15 @@ SELECT '29a00000-0000-0000-0000-000000000001', id, 'presente', '99a00000-0000-00
 FROM public.inscripciones WHERE alumna_id = (SELECT id FROM _alumna) AND instancia_curso_id = '19a00000-0000-0000-0000-000000000001';
 
 SELECT pg_temp.actuar_como('99a00000-0000-0000-0000-000000000001');
+SELECT is_empty($$ SELECT 1 FROM public.nomina_alumnas $$, 'Gestión no ve la nómina administrativa');
+SELECT pg_temp.actuar_como('d9000000-0000-0000-0000-000000000001', 'aal2');
 SELECT is(
-  (SELECT count(*)::int FROM public.nomina_alumnas WHERE regularizacion_urgente),
+  (SELECT count(*)::int FROM public.nomina_alumnas WHERE regularizacion_urgente AND sede_nombre = 'Sede Nómina A'),
   28,
   'Las 28 preinscritas de la sede A figuran destacadas tras 2 sesiones sin consentimiento'
 );
 SELECT is(
-  (SELECT sede_nombre FROM public.nomina_alumnas GROUP BY sede_nombre),
-  'Sede Nómina A',
-  'Gestión solo ve la nómina de su sede'
-);
-SELECT is(
-  (SELECT clases_asistidas || '/' || clases_computables || ' ' || tratamiento_datos || ' ' || autoriza_fotos FROM public.nomina_alumnas WHERE alumna_id = (SELECT id FROM _alumna)),
+  (SELECT clases_asistidas || '/' || clases_computables || ' ' || tratamiento_datos || ' ' || autoriza_fotos FROM public.nomina_alumnas WHERE alumna_id = (SELECT id FROM _alumna) AND sede_nombre = 'Sede Nómina A'),
   '1/2 otorgada true',
   'La nómina trae asistencia, consentimiento y aptitud para fotos'
 );
@@ -344,6 +353,12 @@ SELECT '29a00000-0000-0000-0000-000000000002', id, 'presente', '99a00000-0000-00
 FROM public.inscripciones WHERE alumna_id = (SELECT id FROM _alumna) AND instancia_curso_id = '19a00000-0000-0000-0000-000000000001';
 
 SELECT pg_temp.actuar_como('99a00000-0000-0000-0000-000000000001');
+SELECT throws_ok(
+  $$ SELECT public.revocar_autorizacion_imagen((SELECT id FROM _alumna), ARRAY['prensa']::public.tipo_canal_imagen[], current_date, 'Solicitud') $$,
+  '42501', NULL,
+  'Gestión no revoca autorizaciones'
+);
+SELECT pg_temp.actuar_como('d9000000-0000-0000-0000-000000000001', 'aal2');
 SELECT ok(
   public.evidencia_apta_canal('e9000000-0000-0000-0000-000000000002', 'prensa'),
   'Antes de revocar, la foto es apta para prensa'
@@ -420,18 +435,18 @@ SELECT throws_ok(
 SELECT is(
   (SELECT estado::text || ' ' || motivo_retiro FROM public.retirar_inscripcion((SELECT id FROM _insc), current_date, 'Cambio de colegio')),
   'retirada Cambio de colegio',
-  'Gestión registra el retiro con fecha y motivo'
+  'La Directiva registra el retiro con fecha y motivo'
 );
 SELECT is(
   (SELECT count(*)::int FROM public.asistencia_alumnas WHERE inscripcion_id = (SELECT id FROM _insc)),
   2,
   'El retiro conserva su historial de asistencia'
 );
-SELECT pg_temp.actuar_como('99b00000-0000-0000-0000-000000000001');
+SELECT pg_temp.actuar_como('99a00000-0000-0000-0000-000000000001');
 SELECT throws_ok(
-  $$ SELECT public.retirar_inscripcion((SELECT id FROM _insc), current_date, 'Intento ajeno') $$,
+  $$ SELECT public.retirar_inscripcion((SELECT id FROM _insc), current_date, 'Intento de Gestión') $$,
   '42501', NULL,
-  'Gestión de otra sede no registra retiros en la sede A'
+  'Gestión no registra retiros'
 );
 
 -- =============================================================================
@@ -445,16 +460,21 @@ SELECT is(
 );
 CREATE TEMP TABLE _alumna_a AS SELECT id FROM public.alumnas WHERE rut = pg_temp.rut(25000005);
 GRANT SELECT ON _alumna_a TO authenticated;
-SELECT pg_temp.actuar_como('99b00000-0000-0000-0000-000000000001');
+SELECT pg_temp.actuar_como('99a00000-0000-0000-0000-000000000001');
 SELECT throws_ok(
   $$ INSERT INTO storage.objects (bucket_id, name) VALUES ('autorizaciones', (SELECT id FROM _alumna_a)::text || '/ajeno.pdf') $$,
   '42501', NULL,
-  'Gestión de otra sede no sube respaldos de alumnas que no gestiona'
+  'Gestión no sube respaldos de alumnas'
 );
-SELECT pg_temp.actuar_como('99a00000-0000-0000-0000-000000000001');
+SELECT pg_temp.actuar_como('d9000000-0000-0000-0000-000000000001', 'aal2');
+SELECT throws_ok(
+  $$ INSERT INTO storage.objects (bucket_id, name) VALUES ('autorizaciones', 'cualquiera/firma.pdf') $$,
+  '42501', NULL,
+  'Un respaldo fuera de la carpeta de una alumna se rechaza'
+);
 SELECT lives_ok(
   $$ INSERT INTO storage.objects (bucket_id, name) VALUES ('autorizaciones', (SELECT id FROM _alumna)::text || '/firma.pdf') $$,
-  'Gestión de la sede sube el respaldo a la carpeta de la alumna'
+  'La Directiva sube el respaldo a la carpeta de la alumna'
 );
 
 SELECT * FROM finish();

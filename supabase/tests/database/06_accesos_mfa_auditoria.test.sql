@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(31);
+SELECT plan(33);
 
 -- =============================================================================
 -- Datos de prueba: Directiva, Gestión de la sede A y alumnas en las sedes A y B
@@ -139,31 +139,40 @@ SELECT ok(
   'La líder de sede queda marcada como tal al crear su cuenta'
 );
 
--- Gestión de la sede A
-SELECT pg_temp.actuar_como('96000000-0000-0000-0000-000000000001');
+-- La Directiva autoriza a las alumnas (las gestiona ella, no el Equipo de Gestión)
+SELECT pg_temp.actuar_como('d6000000-0000-0000-0000-000000000001', 'aal2');
 SELECT set_eq(
-  $$ SELECT nombres::text FROM public.alumnas_para_autorizar() $$,
-  ARRAY['Amanda'],
-  'Gestión solo ve para autorizar alumnas sin cuenta de su sede'
+  $$ SELECT nombres::text FROM public.alumnas_para_autorizar() WHERE rut LIKE '31.000.00%' $$,
+  ARRAY['Amanda', 'Bárbara'],
+  'La Directiva ve para autorizar las alumnas sin cuenta de todas las sedes'
 );
 SELECT is(
   public.autorizar_correo('acc.amanda@gmail.com', 'alumna', 'a6000000-0000-0000-0000-00000000000a', 'a6a00000-0000-0000-0000-00000000000a') ->> 'rol',
   'alumna',
-  'Gestión autoriza a una alumna inscrita en su sede (US-04 escenario 2)'
+  'La Directiva autoriza a una alumna inscrita en la sede (US-04 escenario 2)'
 );
-SELECT is_empty(
-  $$ SELECT 1 FROM public.alumnas_para_autorizar() $$,
+SELECT set_eq(
+  $$ SELECT nombres::text FROM public.alumnas_para_autorizar() WHERE rut LIKE '31.000.00%' $$,
+  ARRAY['Bárbara'],
   'Una alumna con autorización pendiente ya no aparece para autorizar'
 );
+
+-- Gestión de la sede A
+SELECT pg_temp.actuar_como('96000000-0000-0000-0000-000000000001');
+SELECT is_empty(
+  $$ SELECT 1 FROM public.alumnas_para_autorizar() $$,
+  'Gestión no ve alumnas para autorizar'
+);
+SELECT is_empty($$ SELECT 1 FROM public.correos_autorizados $$, 'Gestión no ve los correos autorizados');
 SELECT is(
   public.autorizar_correo('acc.intrusa@ninaspro.cl', 'tutora', 'a6000000-0000-0000-0000-00000000000a', NULL, '30.111.111-1', 'Intrusa', 'Tutora') ->> 'code',
   '42501',
   'Gestión no puede autorizar cuentas de voluntariado (US-04 escenario 3)'
 );
 SELECT is(
-  public.autorizar_correo('acc.barbara@gmail.com', 'alumna', 'b6000000-0000-0000-0000-00000000000b', 'a6a00000-0000-0000-0000-00000000000b') ->> 'code',
+  public.autorizar_correo('acc.barbara@gmail.com', 'alumna', 'a6000000-0000-0000-0000-00000000000a', 'a6a00000-0000-0000-0000-00000000000a') ->> 'code',
   '42501',
-  'Gestión no puede autorizar alumnas de otra sede'
+  'Gestión no autoriza alumnas, ni siquiera de su sede'
 );
 SELECT is_empty($$ SELECT 1 FROM public.auditoria_seguridad $$, 'Gestión no ve la bitácora de seguridad');
 
