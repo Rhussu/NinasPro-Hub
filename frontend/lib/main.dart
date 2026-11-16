@@ -11,6 +11,8 @@ import 'repositories/evidencias_repository.dart';
 import 'repositories/hub_repository.dart';
 import 'repositories/justificativos_repository.dart';
 import 'repositories/mock_hub_repository.dart';
+import 'repositories/roles_repository.dart';
+import 'repositories/voluntariado_repository.dart';
 import 'screens/auth/auth_gate.dart';
 import 'screens/hub_shell_screen.dart';
 import 'services/auth_service.dart';
@@ -42,6 +44,8 @@ Future<void> main() async {
     claseRepository: SupabaseClaseRepository.enNavegador(Supabase.instance.client),
     justificativosRepository: SupabaseJustificativosRepository(Supabase.instance.client),
     evidenciasRepository: SupabaseEvidenciasRepository(Supabase.instance.client),
+    voluntariadoRepository: SupabaseVoluntariadoRepository(Supabase.instance.client),
+    rolesRepository: SupabaseRolesRepository(Supabase.instance.client),
   ));
 }
 
@@ -56,6 +60,8 @@ class NinasProApp extends StatefulWidget {
   final ClaseRepository? claseRepository;
   final JustificativosRepository? justificativosRepository;
   final EvidenciasRepository? evidenciasRepository;
+  final VoluntariadoRepository? voluntariadoRepository;
+  final RolesRepository? rolesRepository;
 
   const NinasProApp({
     super.key,
@@ -69,6 +75,8 @@ class NinasProApp extends StatefulWidget {
     this.claseRepository,
     this.justificativosRepository,
     this.evidenciasRepository,
+    this.voluntariadoRepository,
+    this.rolesRepository,
   });
 
   @override
@@ -119,6 +127,8 @@ class _NinasProAppState extends State<NinasProApp> {
               claseRepository: widget.claseRepository,
               justificativosRepository: widget.justificativosRepository,
               evidenciasRepository: widget.evidenciasRepository,
+              voluntariadoRepository: widget.voluntariadoRepository,
+              rolesRepository: widget.rolesRepository,
             ),
           ),
         );

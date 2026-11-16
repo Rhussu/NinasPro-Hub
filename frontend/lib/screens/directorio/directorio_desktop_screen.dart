@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../repositories/alumnas_repository.dart';
+import '../../repositories/catalogo_repository.dart';
 import '../../repositories/hub_repository.dart';
+import '../../repositories/voluntariado_repository.dart';
 import 'directorio_alumnas_view.dart';
 import 'directorio_auditoria_view.dart';
 import 'directorio_dashboard_view.dart';
@@ -20,7 +22,17 @@ class DirectorioDesktopScreen extends StatefulWidget {
   /// Nómina real de alumnas (US-07..US-12); sin ella la sección pide conexión
   final AlumnasRepository? alumnasRepository;
 
-  const DirectorioDesktopScreen({super.key, required this.repository, this.alumnasRepository});
+  /// Fichas del voluntariado (US-30..US-32) y el catálogo para sus sedes y cursos
+  final VoluntariadoRepository? voluntariadoRepository;
+  final CatalogoRepository? catalogoRepository;
+
+  const DirectorioDesktopScreen({
+    super.key,
+    required this.repository,
+    this.alumnasRepository,
+    this.voluntariadoRepository,
+    this.catalogoRepository,
+  });
 
   @override
   State<DirectorioDesktopScreen> createState() => _DirectorioDesktopScreenState();
@@ -51,7 +63,10 @@ class _DirectorioDesktopScreenState extends State<DirectorioDesktopScreen> {
         final alumnas? => DirectorioAlumnasView(repository: alumnas),
         null => const Center(child: Text('La nómina de alumnas necesita la conexión con la base de datos.')),
       },
-      SeccionDirectorio.voluntariado => DirectorioVoluntariadoView(repository: widget.repository),
+      SeccionDirectorio.voluntariado => switch ((widget.voluntariadoRepository, widget.catalogoRepository)) {
+        (final voluntariado?, final catalogo?) => DirectorioVoluntariadoView(repository: voluntariado, catalogo: catalogo),
+        _ => const Center(child: Text('El voluntariado necesita la conexión con la base de datos.')),
+      },
       SeccionDirectorio.exportar => DirectorioExportarView(repository: widget.repository),
       SeccionDirectorio.auditoria => DirectorioAuditoriaView(repository: widget.repository),
     };

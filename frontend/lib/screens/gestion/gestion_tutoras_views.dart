@@ -3,14 +3,14 @@ import '../../config/ninaspro_colors.dart';
 import '../../config/ninaspro_theme.dart';
 import '../../models/hub_models.dart';
 import '../../repositories/clase_repository.dart';
-import '../../repositories/hub_repository.dart';
+import '../../repositories/roles_repository.dart';
 import '../tutora/clase_sesion_controller.dart';
 import '../tutora/clase_sesion_views.dart';
 
 /// Vistas exclusivas del Equipo de Gestión sobre las tutoras de la sede.
 ///
 /// - [AsistenciaTutorasView]: US-33 y US-34, pase de lista de tutoras con historial y corrección por semana.
-/// - [RolesSemanalesView]: US-43, asignación de roles a tutoras para una semana elegida.
+/// - [RolesSemanalesView]: US-43 y US-44, roles de cada tutora por clase (varios por tutora) y su cumplimiento.
 
 // Pase de lista de Tutoras (US-33, US-34) con historial semana a semana y corrección posterior
 class AsistenciaTutorasView extends StatefulWidget {
@@ -262,19 +262,34 @@ class _AsistenciaTutorasViewState extends State<AsistenciaTutorasView> {
   }
 }
 
-// Asignación de Roles a Tutoras por semana (US-43)
+/// Clase para la que se reparten los roles: la próxima que no está suspendida
+/// (hoy incluida), o la última del curso si ya terminó (US-43 escenario 2, US-44 escenario 1).
+SesionClase? claseParaRoles(List<SesionClase> sesiones, DateTime hoy) {
+  final dia = DateTime(hoy.year, hoy.month, hoy.day);
+  final activas = sesiones.where((s) => !s.suspendida).toList()..sort((a, b) => a.fecha.compareTo(b.fecha));
+  return activas.where((s) => !DateTime(s.fecha.year, s.fecha.month, s.fecha.day).isBefore(dia)).firstOrNull ??
+      activas.lastOrNull;
+}
+
+/// Roles del equipo en cada clase del curso (US-43 escenarios 2..4, US-44).
+///
+/// Con [editable] (Equipo de Gestión de la sede) se eligen los roles de cada
+/// tutora (0, 1, 2 o más) y se marca el cumplimiento de cualquiera. Sin él
+/// (tutora) es de solo lectura, salvo sus propios roles, que puede marcar.
 class RolesSemanalesView extends StatefulWidget {
-  final HubRepository repository;
-  final String sedeId;
-  final int semanaInicial;
-  final int totalSemanas;
+  final ClaseSesionController controller;
+  final RolesRepository roles;
+
+  /// Usuaria autenticada: marca sus propios roles
+  final String perfilId;
+  final bool editable;
 
   const RolesSemanalesView({
     super.key,
-    required this.repository,
-    this.sedeId = 'sede-beauchef',
-    this.semanaInicial = 4,
-    this.totalSemanas = 10,
+    required this.controller,
+    required this.roles,
+    required this.perfilId,
+    this.editable = false,
   });
 
   @override
@@ -283,202 +298,139 @@ class RolesSemanalesView extends StatefulWidget {
 
 class _RolesSemanalesViewState extends State<RolesSemanalesView> {
   bool _cargando = true;
-  late int _semana;
+  String? _error;
+  SesionClase? _clase;
+  List<RolTarea> _catalogo = [];
+  List<TutoraRolesClase> _equipo = [];
 
-  List<Tutora> _tutoras = [];
-  List<RolTutorConfig> _rolesConfig = [];
-  List<AsignacionSemanalTutora> _asignaciones = [];
+  List<SesionClase> get _sesiones => widget.controller.sesiones;
+  SesionClase? get _sugerida => claseParaRoles(_sesiones, widget.controller.hoy());
 
   @override
   void initState() {
     super.initState();
-    _semana = widget.semanaInicial;
-    _cargarDatos();
+    _clase = _sugerida;
+    _cargar();
   }
 
-  Future<void> _cargarDatos() async {
-    setState(() => _cargando = true);
-    final tuts = await widget.repository.getTutoras(sedeId: widget.sedeId);
-    final roles = await widget.repository.getRolesTutora();
-    final asigs = await widget.repository.getAsignacionesSemanales(semanaNumero: _semana);
-    if (!mounted) return;
-    setState(() {
-      _tutoras = tuts;
-      _rolesConfig = roles;
-      _asignaciones = asigs;
-      _cargando = false;
-    });
-  }
-
-  void _cambiarSemana(int nueva) {
-    if (nueva < 1 || nueva > widget.totalSemanas) return;
-    _semana = nueva;
-    _cargarDatos();
-  }
-
-  // Diálogo para asignar rol a una tutora en la semana seleccionada
-  void _mostrarDialogoAsignarRol(Tutora tutora) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final semana = _semana;
-    String rolSeleccionado = _rolesConfig.firstOrNull?.codigo ?? '';
-
-    // Buscar si ya tiene asignación previa
-    final asignacionActual = _asignaciones.where((a) => a.tutoraId == tutora.id).firstOrNull;
-    if (asignacionActual != null) {
-      rolSeleccionado = asignacionActual.rolCodigo;
+  Future<void> _cargar() async {
+    final clase = _clase;
+    if (clase == null) {
+      setState(() => _cargando = false);
+      return;
     }
+    setState(() {
+      _cargando = true;
+      _error = null;
+    });
+    try {
+      final catalogo = await widget.roles.roles(incluirInactivos: true);
+      final equipo = await widget.roles.equipoClase(clase.id);
+      if (!mounted || _clase?.id != clase.id) return;
+      setState(() {
+        _catalogo = catalogo;
+        _equipo = equipo;
+        _cargando = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _cargando = false;
+        _error = 'No pudimos cargar los roles. Revisa tu conexión.';
+      });
+    }
+  }
 
-    showDialog(
+  void _cambiarClase(int delta) {
+    final i = _sesiones.indexWhere((s) => s.id == _clase?.id) + delta;
+    if (i < 0 || i >= _sesiones.length) return;
+    _clase = _sesiones[i];
+    _cargar();
+  }
+
+  RolTarea? _rol(String id) => _catalogo.where((r) => r.id == id).firstOrNull;
+
+  Future<void> _marcar(TareaClase tarea, bool completada) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final r = await widget.roles.marcarCumplido(tarea.id, completada);
+    if (!r.ok) messenger.showSnackBar(SnackBar(backgroundColor: NinasProColors.error700, content: Text(r.error!)));
+    await _cargar();
+  }
+
+  Future<void> _elegirRoles(TutoraRolesClase tutora) async {
+    final clase = _clase!;
+    final actuales = tutora.rolIds;
+    // Se ofrecen los activos y los inactivos que ya tiene (para poder quitarlos)
+    final opciones = _catalogo.where((r) => r.activo || actuales.contains(r.id)).toList();
+    final elegidos = await showDialog<Set<String>>(
       context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setDialogState) {
-            return AlertDialog(
-              backgroundColor: isDark ? NinasProColors.dark800 : NinasProColors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              title: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: NinasProColors.primary700.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(Icons.assignment_ind_rounded, color: NinasProColors.brandPink, size: 22),
-                  ),
-                  const SizedBox(width: 10),
-                  const Expanded(
-                    child: Text(
-                      'Asignar Rol Semanal',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-                    ),
-                  ),
-                ],
-              ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      tutora.nombre,
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-                    ),
-                    Text(
-                      'Semana $semana · Sede Beauchef',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isDark ? NinasProColors.neutral300 : NinasProColors.neutral500,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Selecciona la responsabilidad para esta semana (US-43):',
-                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 10),
-                    ..._rolesConfig.map((rol) {
-                      final sel = rolSeleccionado == rol.codigo;
-                      return InkWell(
-                        onTap: () => setDialogState(() => rolSeleccionado = rol.codigo),
-                        borderRadius: BorderRadius.circular(10),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-                          child: Row(
-                            children: [
-                              Icon(
-                                sel ? Icons.radio_button_checked : Icons.radio_button_off,
-                                color: sel ? NinasProColors.brandPink : NinasProColors.neutral500,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(rol.nombre, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                                    Text(rol.descripcion, style: const TextStyle(fontSize: 11)),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Cancelar'),
-                ),
-                FilledButton(
-                  style: NinasProTheme.brandButton,
-                  onPressed: () async {
-                    final messenger = ScaffoldMessenger.of(context);
-                    Navigator.pop(ctx);
-                    await widget.repository.asignarRolSemanal(
-                      tutoraId: tutora.id,
-                      semanaNumero: semana,
-                      rolCodigo: rolSeleccionado,
-                    );
-                    await _cargarDatos();
-                    messenger.showSnackBar(
-                      SnackBar(
-                        backgroundColor: NinasProColors.success700,
-                        content: Text('✅ Rol de la semana $semana asignado a ${tutora.nombre}.'),
-                      ),
-                    );
-                  },
-                  child: const Text('Confirmar Asignación'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      builder: (_) => _DialogoRolesTutora(tutora: tutora, clase: clase, opciones: opciones, iniciales: actuales),
     );
+    if (elegidos == null || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final r = await widget.roles.guardarRoles(claseId: clase.id, tutoraId: tutora.tutoraId, rolIds: elegidos);
+    messenger.showSnackBar(
+      SnackBar(
+        backgroundColor: r.ok ? NinasProColors.success700 : NinasProColors.error700,
+        content: Text(
+          r.ok
+              ? (elegidos.isEmpty
+                    ? '${tutora.nombre} queda sin roles en la clase ${clase.numeroSesion}.'
+                    : '✅ ${elegidos.length} ${elegidos.length == 1 ? 'rol' : 'roles'} para ${tutora.nombre} en la clase ${clase.numeroSesion}.')
+              : r.error!,
+        ),
+      ),
+    );
+    await _cargar();
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final clase = _clase;
+    if (clase == null) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text('El curso aún no tiene clases programadas.', textAlign: TextAlign.center),
+        ),
+      );
+    }
+    final i = _sesiones.indexWhere((s) => s.id == clase.id);
+    final f = clase.fecha;
+    final fecha = '${f.day.toString().padLeft(2, '0')}/${f.month.toString().padLeft(2, '0')}';
+    final esSugerida = clase.id == _sugerida?.id;
 
     return Column(
       children: [
-        // Selector de semana
+        // Selector de clase
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           decoration: BoxDecoration(
             color: isDark ? NinasProColors.dark800 : NinasProColors.white,
-            border: Border(
-              bottom: BorderSide(
-                color: isDark ? NinasProColors.dark700 : NinasProColors.neutral100,
-              ),
-            ),
+            border: Border(bottom: BorderSide(color: isDark ? NinasProColors.dark700 : NinasProColors.neutral100)),
           ),
           child: Row(
             children: [
               IconButton(
-                tooltip: 'Semana anterior',
+                tooltip: 'Clase anterior',
                 icon: const Icon(Icons.chevron_left_rounded),
-                onPressed: _semana > 1 ? () => _cambiarSemana(_semana - 1) : null,
+                onPressed: i > 0 ? () => _cambiarClase(-1) : null,
               ),
               Expanded(
                 child: Column(
                   children: [
+                    Text('Clase ${clase.numeroSesion} · $fecha', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
                     Text(
-                      'Semana $_semana',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-                    ),
-                    Text(
-                      _semana == widget.semanaInicial ? 'Semana actual' : 'de ${widget.totalSemanas} del programa',
+                      clase.suspendida
+                          ? 'Suspendida'
+                          : esSugerida
+                          ? 'Próxima clase'
+                          : 'de ${_sesiones.length} del curso',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: _semana == widget.semanaInicial
+                        color: esSugerida
                             ? NinasProColors.brandPink
                             : (isDark ? NinasProColors.neutral300 : NinasProColors.neutral500),
                       ),
@@ -487,9 +439,9 @@ class _RolesSemanalesViewState extends State<RolesSemanalesView> {
                 ),
               ),
               IconButton(
-                tooltip: 'Semana siguiente',
+                tooltip: 'Clase siguiente',
                 icon: const Icon(Icons.chevron_right_rounded),
-                onPressed: _semana < widget.totalSemanas ? () => _cambiarSemana(_semana + 1) : null,
+                onPressed: i < _sesiones.length - 1 ? () => _cambiarClase(1) : null,
               ),
             ],
           ),
@@ -497,138 +449,249 @@ class _RolesSemanalesViewState extends State<RolesSemanalesView> {
         Expanded(
           child: _cargando
               ? const Center(child: CircularProgressIndicator())
-              : _buildListaTutoras(isDark),
+              : _error != null
+              ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(_error!)))
+              : _buildEquipo(isDark, clase),
         ),
       ],
     );
   }
 
-  Widget _buildListaTutoras(bool isDark) {
-    final asignadas = _tutoras.where((t) => _asignaciones.any((a) => a.tutoraId == t.id)).length;
-    final obligatoriosSinCubrir = _rolesConfig
-        .where((r) => r.esRequerido && !_asignaciones.any((a) => a.rolCodigo == r.codigo))
-        .toList();
+  Widget _buildEquipo(bool isDark, SesionClase clase) {
+    final conRol = _equipo.where((t) => t.tareas.isNotEmpty).length;
+    final asignados = {for (final t in _equipo) ...t.rolIds};
+    final obligatoriosSinCubrir = _catalogo.where((r) => r.activo && r.esRequerido && !asignados.contains(r.id)).toList();
+    final editable = widget.editable && !clase.suspendida;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
       children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: NinasProColors.primary700.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.diversity_3_rounded, color: NinasProColors.brandPink, size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  '$asignadas de ${_tutoras.length} tutoras con rol asignado esta semana. '
-                  'Los roles obligatorios deben quedar cubiertos antes del sábado (US-43).',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (obligatoriosSinCubrir.isNotEmpty) ...[
-          const SizedBox(height: 10),
+        if (clase.suspendida)
+          _Aviso(
+            icono: Icons.event_busy_rounded,
+            texto: 'Esta clase está suspendida${clase.motivoSuspension == null ? '' : ' (${clase.motivoSuspension})'}: no lleva roles.',
+          )
+        else
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: NinasProColors.warning100,
+              color: NinasProColors.primary700.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.warning_amber_rounded, color: NinasProColors.warning900, size: 20),
+                const Icon(Icons.diversity_3_rounded, color: NinasProColors.brandPink, size: 20),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Roles obligatorios sin cubrir: '
-                    '${obligatoriosSinCubrir.map((r) => r.nombre).join(', ')}.',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: NinasProColors.warning900,
-                    ),
+                    '$conRol de ${_equipo.length} tutoras con rol en esta clase. '
+                    '${widget.editable ? 'Cada tutora puede tener uno o varios roles.' : 'Los roles los asigna el Equipo de Gestión.'}',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                   ),
                 ),
               ],
             ),
           ),
+        if (!clase.suspendida && obligatoriosSinCubrir.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          _Aviso(
+            icono: Icons.warning_amber_rounded,
+            texto: 'Roles obligatorios sin cubrir: ${obligatoriosSinCubrir.map((r) => r.nombre).join(', ')}.',
+          ),
         ],
         const SizedBox(height: 14),
-        ..._tutoras.map((tutora) {
-          final asignacion = _asignaciones.where((a) => a.tutoraId == tutora.id).firstOrNull;
-          final rolActual = _rolesConfig.where((r) => r.codigo == asignacion?.rolCodigo).firstOrNull;
-
-          return Card(
-            elevation: 0,
-            margin: const EdgeInsets.only(bottom: 8),
-            color: isDark ? NinasProColors.dark800 : NinasProColors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-              side: BorderSide(
-                color: isDark ? NinasProColors.dark700 : NinasProColors.neutral100,
-              ),
-            ),
-            child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-              onTap: () => _mostrarDialogoAsignarRol(tutora),
-              leading: CircleAvatar(
-                backgroundColor: isDark ? NinasProColors.dark700 : NinasProColors.primary100,
-                child: Text(
-                  tutora.nombre[0],
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? NinasProColors.primary300 : NinasProColors.primary900,
-                  ),
-                ),
-              ),
-              title: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      tutora.nombre,
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
-                    ),
-                  ),
-                  if (tutora.esEquipoGestion)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: NinasProColors.accent700.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Text(
-                        'Gestión',
-                        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: NinasProColors.accent700),
-                      ),
-                    ),
-                ],
-              ),
-              subtitle: Text(
-                rolActual != null ? rolActual.nombre : 'Sin rol asignado',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: rolActual != null ? FontWeight.w700 : FontWeight.w400,
-                  color: rolActual != null
-                      ? NinasProColors.brandPink
-                      : (isDark ? NinasProColors.neutral300 : NinasProColors.neutral500),
-                ),
-              ),
-              trailing: IconButton(
-                icon: const Icon(Icons.edit_calendar_rounded, size: 20),
-                tooltip: 'Asignar o Cambiar Rol',
-                onPressed: () => _mostrarDialogoAsignarRol(tutora),
-              ),
-            ),
-          );
-        }),
+        if (_equipo.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(24),
+            child: Text('El curso aún no tiene tutoras asignadas.', textAlign: TextAlign.center),
+          ),
+        for (final tutora in _equipo) _buildTutora(isDark, tutora, editable),
       ],
+    );
+  }
+
+  Widget _buildTutora(bool isDark, TutoraRolesClase tutora, bool editable) {
+    final propia = tutora.tutoraId == widget.perfilId;
+    final puedeMarcar = widget.editable || propia;
+
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 8),
+      color: isDark ? NinasProColors.dark800 : NinasProColors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: propia ? NinasProColors.brandPink : (isDark ? NinasProColors.dark700 : NinasProColors.neutral100)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 8, 6, 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 16,
+                  backgroundColor: isDark ? NinasProColors.dark700 : NinasProColors.primary100,
+                  child: Text(
+                    tutora.nombre.isEmpty ? '?' : tutora.nombre[0],
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? NinasProColors.primary300 : NinasProColors.primary900,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    propia ? '${tutora.nombre} (tú)' : tutora.nombre,
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
+                  ),
+                ),
+                if (tutora.esEquipoGestion)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: NinasProColors.accent700.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text(
+                      'Gestión',
+                      style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: NinasProColors.accent700),
+                    ),
+                  ),
+                if (editable)
+                  IconButton(
+                    icon: const Icon(Icons.edit_calendar_rounded, size: 20),
+                    tooltip: 'Elegir los roles de ${tutora.nombre}',
+                    onPressed: () => _elegirRoles(tutora),
+                  )
+                else
+                  const SizedBox(height: 40),
+              ],
+            ),
+            if (tutora.tareas.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(left: 42, bottom: 6),
+                child: Text(
+                  'Sin rol asignado',
+                  style: TextStyle(fontSize: 11.5, color: isDark ? NinasProColors.neutral300 : NinasProColors.neutral500),
+                ),
+              ),
+            for (final t in tutora.tareas)
+              CheckboxListTile(
+                dense: true,
+                contentPadding: const EdgeInsets.only(left: 30),
+                controlAffinity: ListTileControlAffinity.leading,
+                activeColor: _rol(t.rolId)?.color,
+                value: t.completada,
+                onChanged: puedeMarcar ? (v) => _marcar(t, v ?? false) : null,
+                title: Text(
+                  _rol(t.rolId)?.nombre ?? 'Rol',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: _rol(t.rolId)?.color,
+                    decoration: t.completada ? TextDecoration.lineThrough : null,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Selección múltiple de los roles de una tutora en una clase
+class _DialogoRolesTutora extends StatefulWidget {
+  final TutoraRolesClase tutora;
+  final SesionClase clase;
+  final List<RolTarea> opciones;
+  final Set<String> iniciales;
+
+  const _DialogoRolesTutora({required this.tutora, required this.clase, required this.opciones, required this.iniciales});
+
+  @override
+  State<_DialogoRolesTutora> createState() => _DialogoRolesTutoraState();
+}
+
+class _DialogoRolesTutoraState extends State<_DialogoRolesTutora> {
+  late final Set<String> _elegidos = {...widget.iniciales};
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return AlertDialog(
+      backgroundColor: isDark ? NinasProColors.dark800 : NinasProColors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: const Text('Roles de la clase', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+      content: SizedBox(
+        width: 420,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(widget.tutora.nombre, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+              Text(
+                'Clase ${widget.clase.numeroSesion} · elige uno o varios roles, o ninguno.',
+                style: TextStyle(fontSize: 12, color: isDark ? NinasProColors.neutral300 : NinasProColors.neutral500),
+              ),
+              const SizedBox(height: 8),
+              for (final rol in widget.opciones)
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  activeColor: rol.color,
+                  value: _elegidos.contains(rol.id),
+                  onChanged: (v) => setState(() => v == true ? _elegidos.add(rol.id) : _elegidos.remove(rol.id)),
+                  title: Text(
+                    '${rol.nombre}${rol.esRequerido ? ' · obligatorio' : ''}${rol.activo ? '' : ' · inactivo'}',
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                  ),
+                  subtitle: rol.descripcion.isEmpty ? null : Text(rol.descripcion, style: const TextStyle(fontSize: 11)),
+                ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+        FilledButton(
+          style: NinasProTheme.brandButton,
+          onPressed: () => Navigator.pop(context, _elegidos),
+          child: Text(_elegidos.isEmpty ? 'Dejar sin roles' : 'Guardar (${_elegidos.length})'),
+        ),
+      ],
+    );
+  }
+}
+
+class _Aviso extends StatelessWidget {
+  final IconData icono;
+  final String texto;
+
+  const _Aviso({required this.icono, required this.texto});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: NinasProColors.warning100, borderRadius: BorderRadius.circular(12)),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icono, color: NinasProColors.warning900, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              texto,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: NinasProColors.warning900),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

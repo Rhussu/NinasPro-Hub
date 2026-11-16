@@ -3,6 +3,7 @@ import '../../config/ninaspro_colors.dart';
 import '../../repositories/accesos_repository.dart';
 import '../../repositories/catalogo_repository.dart';
 import '../../repositories/hub_repository.dart';
+import '../../repositories/roles_repository.dart';
 import '../../models/sesion_usuario.dart';
 import '../../widgets/ninaspro_ajustes.dart';
 import '../accesos/accesos_view.dart';
@@ -28,6 +29,9 @@ class AjustesDirectivaScreen extends StatefulWidget {
   final AccesosRepository? accesosRepository;
   final CatalogoRepository? catalogoRepository;
 
+  /// Catálogo de roles de las tutoras (US-43)
+  final RolesRepository? rolesRepository;
+
   const AjustesDirectivaScreen({
     super.key,
     required this.repository,
@@ -36,6 +40,7 @@ class AjustesDirectivaScreen extends StatefulWidget {
     this.onCerrarSesion,
     this.accesosRepository,
     this.catalogoRepository,
+    this.rolesRepository,
   });
 
   @override
@@ -62,10 +67,8 @@ class _AjustesDirectivaScreenState extends State<AjustesDirectivaScreen> {
           () => AjustesInstanciasView(repository: catalogo),
         ),
       ],
-      (
-        const OpcionMenuLateral(Icons.assignment_ind_rounded, 'Roles de tutoras'),
-        () => AjustesRolesView(repository: widget.repository),
-      ),
+      if (widget.rolesRepository case final roles?)
+        (const OpcionMenuLateral(Icons.assignment_ind_rounded, 'Roles de tutoras'), () => AjustesRolesView(repository: roles)),
       if (_conAccesos)
         (
           const OpcionMenuLateral(Icons.how_to_reg_rounded, 'Accesos'),

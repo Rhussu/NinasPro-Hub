@@ -7,6 +7,7 @@ import '../../repositories/clase_repository.dart';
 import '../../repositories/evidencias_repository.dart';
 import '../../repositories/hub_repository.dart';
 import '../../repositories/justificativos_repository.dart';
+import '../../repositories/roles_repository.dart';
 import '../../widgets/ninaspro_recursos_curso.dart';
 import '../../widgets/ninaspro_skeleton.dart';
 import '../../widgets/ninaspro_speed_dial.dart';
@@ -28,7 +29,7 @@ import 'justificativos_gestion.dart';
 /// - US-16/US-37: Aprobación, rechazo, registro y eliminación exclusiva de justificativos.
 /// - US-37/US-39: Alertas tempranas de deserción e inasistencias en la sede.
 class GestionMobileScreen extends StatefulWidget {
-  /// Repositorio del mockup: alertas y roles semanales (se conectan en sus PR)
+  /// Repositorio del mockup: alertas de deserción (se conectan en el PR 7)
   final HubRepository repository;
 
   /// La clase real: cursos de la sede, pase de lista de alumnas y de tutoras
@@ -43,8 +44,8 @@ class GestionMobileScreen extends StatefulWidget {
   /// Fotos de evidencia y clases sin foto tras 48 horas (US-18..US-20)
   final EvidenciasRepository? evidencias;
 
-  /// Id de la tutora en el mockup, para mostrar su rol semanal mientras tanto
-  final String tutoraIdRoles;
+  /// Roles de cada clase del curso y su cumplimiento (US-43, US-44)
+  final RolesRepository? roles;
 
   const GestionMobileScreen({
     super.key,
@@ -53,7 +54,7 @@ class GestionMobileScreen extends StatefulWidget {
     required this.sesion,
     this.justificativos,
     this.evidencias,
-    this.tutoraIdRoles = 'tutora-1', // Camila Sepúlveda Rivas en el mockup
+    this.roles,
   });
 
   @override
@@ -64,16 +65,14 @@ class _GestionMobileScreenState extends State<GestionMobileScreen> {
   bool _cargando = true;
   bool _recargando = false;
 
-  // Datos del mockup hasta conectar roles (PR 6) y alertas (PR 7)
+  // Datos del mockup hasta conectar las alertas (PR 7)
   List<AlertaDesercion> _alertas = [];
-  List<RolTutorConfig> _rolesConfig = [];
 
   /// Bandeja de justificativos; null sin conexión con la base
   BandejaJustificativosController? _bandeja;
 
   /// Clases realizadas hace más de 48 horas sin foto (US-20)
   List<EvidenciaPendiente> _evidenciasPendientes = const [];
-  List<AsignacionSemanalTutora> _asignaciones = [];
 
   // Mi registro como tutora: asistencia y rol de cada clase del curso
   List<ClaseTutoraResumen> _miHistorial = [];
@@ -108,15 +107,11 @@ class _GestionMobileScreenState extends State<GestionMobileScreen> {
     await _bandeja?.cargar();
     await _cargarEvidenciasPendientes();
     final alerts = await widget.repository.getAlertasDesercion(sedeId: _sedeIdMockup);
-    final roles = await widget.repository.getRolesTutora();
-    final asigs = await widget.repository.getAsignacionesSemanales(semanaNumero: _semanaActual);
     await _cargarMiAsistencia();
 
     if (!mounted) return;
     setState(() {
       _alertas = alerts;
-      _rolesConfig = roles;
-      _asignaciones = asigs;
       _cargando = false;
     });
   }
@@ -175,7 +170,7 @@ class _GestionMobileScreenState extends State<GestionMobileScreen> {
         instanciaId: _clase.curso?.id,
         tutoraId: widget.sesion.perfilId,
         sesiones: _clase.sesiones,
-        rolDeSemana: rolesDelMockup(widget.repository, widget.tutoraIdRoles),
+        roles: widget.roles,
       );
     } catch (_) {
       // Sin conexión se mantiene el historial anterior
@@ -196,28 +191,39 @@ class _GestionMobileScreenState extends State<GestionMobileScreen> {
     setState(() {});
   }
 
-  // Semana de la clase en curso (una sesión por semana)
-  int get _semanaActual => _clase.sesionActual?.numeroSesion ?? 1;
+  // Próxima clase del curso: la de los roles que se muestran en el inicio (US-44 escenario 1)
+  SesionClase? get _claseRoles => claseParaRoles(_clase.sesiones, _clase.hoy());
 
-  RolTutorConfig? get _miRolSemana {
-    final asignacion = _asignaciones.where((a) => a.tutoraId == widget.tutoraIdRoles).firstOrNull;
-    return _rolesConfig.where((r) => r.codigo == asignacion?.rolCodigo).firstOrNull;
+  List<RolEnClase> get _misRoles =>
+      _miHistorial.where((c) => c.sesion.id == _claseRoles?.id).firstOrNull?.roles ?? const [];
+
+  Future<void> _marcarMiRol(RolEnClase rol, bool completada) async {
+    final roles = widget.roles;
+    if (roles == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final r = await roles.marcarCumplido(rol.tarea.id, completada);
+    if (!r.ok) messenger.showSnackBar(SnackBar(backgroundColor: NinasProColors.error700, content: Text(r.error!)));
+    await _cargarMiAsistencia();
+    if (!mounted) return;
+    setState(() {});
   }
 
   Future<void> _abrirRolesSemanales() async {
+    final roles = widget.roles;
+    if (roles == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Los roles necesitan la conexión con la base de datos.')),
+      );
+      return;
+    }
     await _abrirPantallaClase(
       'Roles de Tutoras',
-      RolesSemanalesView(
-        repository: widget.repository,
-        sedeId: _sedeIdMockup,
-        semanaInicial: _semanaActual,
-        totalSemanas: _clase.sesiones.isEmpty ? 10 : _clase.sesiones.length,
-      ),
+      RolesSemanalesView(controller: _clase, roles: roles, perfilId: widget.sesion.perfilId, editable: true),
     );
-    // Refresca "Tu rol esta semana" al volver
-    final asigs = await widget.repository.getAsignacionesSemanales(semanaNumero: _semanaActual);
+    // Refresca "Tus roles" al volver
+    await _cargarMiAsistencia();
     if (!mounted) return;
-    setState(() => _asignaciones = asigs);
+    setState(() {});
   }
 
   // Abre una pantalla de la clase o de tutoras
@@ -346,11 +352,13 @@ class _GestionMobileScreenState extends State<GestionMobileScreen> {
           ],
         ),
         const SizedBox(height: 10),
-        TarjetaMiRol(
-          rol: _miRolSemana,
-          semana: _semanaActual,
-          mensajeSinRol: 'Toca para asignarte un rol en Roles de Tutoras.',
-          onTap: _abrirRolesSemanales,
+        TarjetaMisRoles(
+          roles: _misRoles,
+          numeroSesion: _claseRoles?.numeroSesion,
+          mensajeSinRol: 'Asígnate uno o varios roles en Roles de Tutoras.',
+          onMarcar: widget.roles == null ? null : _marcarMiRol,
+          onVerEquipo: _abrirRolesSemanales,
+          etiquetaVerEquipo: 'Asignar roles del equipo',
         ),
 
         const SizedBox(height: 10),

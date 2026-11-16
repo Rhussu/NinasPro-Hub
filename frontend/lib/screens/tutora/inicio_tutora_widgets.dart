@@ -3,7 +3,7 @@ import '../../config/ninaspro_colors.dart';
 import '../../config/ninaspro_theme.dart';
 import '../../models/hub_models.dart';
 import '../../repositories/clase_repository.dart';
-import '../../repositories/hub_repository.dart';
+import '../../repositories/roles_repository.dart';
 import 'clase_sesion_controller.dart';
 import '../../widgets/ninaspro_mascot.dart';
 import '../../widgets/ninaspro_stat_card.dart';
@@ -25,48 +25,56 @@ Future<void> abrirPantallaSecundaria(BuildContext context, String titulo, Widget
   );
 }
 
-/// Una clase del curso vista desde la tutora: si asistió y qué rol tuvo (US-33, US-43).
+/// Un rol de la tutora en una clase, con su cumplimiento (US-43, US-44)
+class RolEnClase {
+  final RolTarea rol;
+  final TareaClase tarea;
+
+  const RolEnClase({required this.rol, required this.tarea});
+
+  RolEnClase conCumplimiento(bool completada) => RolEnClase(rol: rol, tarea: tarea.copyWith(completada: completada));
+}
+
+/// Una clase del curso vista desde la tutora: si asistió y qué roles tuvo (US-33, US-43).
 class ClaseTutoraResumen {
   final SesionClase sesion;
   final EstadoAsistencia estado;
-  final RolTutorConfig? rol;
 
-  const ClaseTutoraResumen({required this.sesion, required this.estado, this.rol});
+  /// 0, 1, 2 o más roles en la clase
+  final List<RolEnClase> roles;
+
+  const ClaseTutoraResumen({required this.sesion, required this.estado, this.roles = const []});
 }
 
 /// Historial de asistencia y roles de una tutora en todas las clases del curso.
-///
-/// La asistencia viene de la clase real; el rol de cada semana lo entrega
-/// [rolDeSemana] (por ahora del mockup, hasta conectar los roles semanales).
 Future<List<ClaseTutoraResumen>> cargarHistorialTutora({
   required ClaseRepository clase,
   required String? instanciaId,
   required String tutoraId,
   required List<SesionClase> sesiones,
-  Future<RolTutorConfig?> Function(int semana)? rolDeSemana,
+  RolesRepository? roles,
 }) async {
-  final asistencia = instanciaId == null
-      ? const <String, EstadoAsistencia>{}
-      : await clase.miAsistencia(instanciaId: instanciaId, tutoraId: tutoraId);
+  if (instanciaId == null) {
+    return [for (final s in sesiones) ClaseTutoraResumen(sesion: s, estado: EstadoAsistencia.pendiente)];
+  }
+  final asistencia = await clase.miAsistencia(instanciaId: instanciaId, tutoraId: tutoraId);
+  final porClase = <String, List<RolEnClase>>{};
+  if (roles != null) {
+    // Con los inactivos: un rol desactivado sigue apareciendo en las clases en que se asignó
+    final catalogo = {for (final r in await roles.roles(incluirInactivos: true)) r.id: r};
+    for (final t in await roles.misRoles(instanciaId)) {
+      final rol = catalogo[t.tarea.rolId];
+      if (rol != null) (porClase[t.claseId] ??= []).add(RolEnClase(rol: rol, tarea: t.tarea));
+    }
+  }
   return [
     for (final sesion in sesiones)
       ClaseTutoraResumen(
         sesion: sesion,
         estado: asistencia[sesion.id] ?? EstadoAsistencia.pendiente,
-        rol: await rolDeSemana?.call(sesion.numeroSesion),
+        roles: porClase[sesion.id] ?? const [],
       ),
   ];
-}
-
-/// Rol de [tutoraId] en una semana según las asignaciones del mockup (US-43, se conecta en el PR de roles)
-Future<RolTutorConfig?> Function(int semana) rolesDelMockup(HubRepository repository, String tutoraId) {
-  List<RolTutorConfig>? roles;
-  return (semana) async {
-    roles ??= await repository.getRolesTutora();
-    final asignaciones = await repository.getAsignacionesSemanales(semanaNumero: semana);
-    final codigo = asignaciones.where((a) => a.tutoraId == tutoraId).firstOrNull?.rolCodigo;
-    return roles!.where((r) => r.codigo == codigo).firstOrNull;
-  };
 }
 
 /// Aviso cuando no se pudo cargar la clase (ej. sin conexión al abrir la app)
@@ -350,85 +358,34 @@ class TarjetaMiAsistencia extends StatelessWidget {
   }
 }
 
-/// Rol asignado a la tutora esta semana (US-43).
-/// Con [onTap] es un acceso (Gestión edita roles); sin él es solo informativa (Tutora).
-class TarjetaMiRol extends StatelessWidget {
-  final RolTutorConfig? rol;
-  final int semana;
+/// Roles de la tutora en la clase de esta semana (US-43 escenario 4, US-44).
+///
+/// Con [onMarcar] cada rol tiene su casilla de cumplimiento; con [onVerEquipo]
+/// la tarjeta abre los roles de todo el equipo (Gestión los edita ahí).
+class TarjetaMisRoles extends StatelessWidget {
+  final List<RolEnClase> roles;
+  final int? numeroSesion;
   final String mensajeSinRol;
-  final VoidCallback? onTap;
+  final Future<void> Function(RolEnClase rol, bool completada)? onMarcar;
+  final VoidCallback? onVerEquipo;
+  final String etiquetaVerEquipo;
 
-  const TarjetaMiRol({
+  const TarjetaMisRoles({
     super.key,
-    required this.rol,
-    required this.semana,
+    required this.roles,
+    required this.numeroSesion,
     required this.mensajeSinRol,
-    this.onTap,
+    this.onMarcar,
+    this.onVerEquipo,
+    this.etiquetaVerEquipo = 'Ver los roles del equipo',
   });
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final color = rol?.color ?? NinasProColors.warning700;
-
-    final contenido = Padding(
-      padding: const EdgeInsets.all(14),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: isDark ? 0.22 : 0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              rol != null ? Icons.assignment_ind_rounded : Icons.help_outline_rounded,
-              size: 22,
-              color: color,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Tu rol esta semana · Semana $semana',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? NinasProColors.neutral300 : NinasProColors.neutral500,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  rol?.nombre ?? 'Sin rol asignado',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? NinasProColors.neutral100 : NinasProColors.neutral900,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  rol?.descripcion ?? mensajeSinRol,
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    color: isDark ? NinasProColors.neutral300 : NinasProColors.neutral500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (onTap != null)
-            Icon(
-              Icons.chevron_right_rounded,
-              color: isDark ? NinasProColors.neutral300 : NinasProColors.neutral500,
-            ),
-        ],
-      ),
-    );
+    final cumplidos = roles.where((r) => r.tarea.completada).length;
+    final color = roles.isEmpty ? NinasProColors.warning700 : roles.first.rol.color;
+    final secundario = isDark ? NinasProColors.neutral300 : NinasProColors.neutral500;
 
     return Card(
       elevation: 0,
@@ -436,13 +393,90 @@ class TarjetaMiRol extends StatelessWidget {
       color: isDark ? NinasProColors.dark800 : NinasProColors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: isDark ? NinasProColors.dark700 : NinasProColors.neutral100,
+        side: BorderSide(color: isDark ? NinasProColors.dark700 : NinasProColors.neutral100),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: isDark ? 0.22 : 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    roles.isEmpty ? Icons.help_outline_rounded : Icons.assignment_ind_rounded,
+                    size: 22,
+                    color: color,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        numeroSesion == null ? 'Tus roles' : 'Tus roles · Clase $numeroSesion',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: secundario),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        roles.isEmpty
+                            ? 'Sin rol asignado'
+                            : '$cumplidos de ${roles.length} ${roles.length == 1 ? 'listo' : 'listos'}',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: isDark ? NinasProColors.neutral100 : NinasProColors.neutral900,
+                        ),
+                      ),
+                      if (roles.isEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(mensajeSinRol, style: TextStyle(fontSize: 11.5, color: secundario)),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            for (final r in roles)
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                controlAffinity: ListTileControlAffinity.leading,
+                activeColor: r.rol.color,
+                value: r.tarea.completada,
+                onChanged: onMarcar == null ? null : (v) => onMarcar!(r, v ?? false),
+                title: Text(
+                  r.rol.nombre,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    decoration: r.tarea.completada ? TextDecoration.lineThrough : null,
+                  ),
+                ),
+                subtitle: r.rol.descripcion.isEmpty
+                    ? null
+                    : Text(r.rol.descripcion, style: TextStyle(fontSize: 11.5, color: secundario)),
+              ),
+            if (onVerEquipo != null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: onVerEquipo,
+                  icon: const Icon(Icons.groups_rounded, size: 18),
+                  label: Text(etiquetaVerEquipo),
+                ),
+              )
+            else
+              const SizedBox(height: 8),
+          ],
         ),
       ),
-      child: onTap == null
-          ? contenido
-          : InkWell(onTap: onTap, borderRadius: BorderRadius.circular(16), child: contenido),
     );
   }
 }
@@ -478,7 +512,7 @@ class TarjetaConsejo extends StatelessWidget {
   }
 }
 
-/// Registro individual de la tutora: a qué clases fue, a cuáles no y qué rol tuvo (US-33, US-43).
+/// Registro individual de la tutora: a qué clases fue, a cuáles no y qué roles tuvo (US-33, US-43).
 class MiHistorialTutoraView extends StatelessWidget {
   final List<ClaseTutoraResumen> historial;
   final String sesionActualId;
@@ -562,27 +596,40 @@ class MiHistorialTutoraView extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.assignment_ind_rounded,
-                              size: 13,
-                              color: c.rol?.color ?? NinasProColors.neutral500,
-                            ),
-                            const SizedBox(width: 4),
-                            Flexible(
-                              child: Text(
-                                c.rol?.nombre ?? 'Sin rol asignado',
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: c.rol != null ? FontWeight.w700 : FontWeight.w400,
-                                  color: c.rol?.color ?? NinasProColors.neutral500,
+                        if (c.roles.isEmpty)
+                          const Text(
+                            'Sin rol asignado',
+                            style: TextStyle(fontSize: 11.5, color: NinasProColors.neutral500),
+                          )
+                        else
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 2,
+                            children: [
+                              for (final r in c.roles)
+                                Text.rich(
+                                  TextSpan(
+                                    children: [
+                                      WidgetSpan(
+                                        alignment: PlaceholderAlignment.middle,
+                                        child: Padding(
+                                          padding: const EdgeInsets.only(right: 4),
+                                          child: Icon(
+                                            r.tarea.completada
+                                                ? Icons.check_circle_rounded
+                                                : Icons.assignment_ind_rounded,
+                                            size: 13,
+                                            color: r.rol.color,
+                                          ),
+                                        ),
+                                      ),
+                                      TextSpan(text: r.rol.nombre),
+                                    ],
+                                  ),
+                                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: r.rol.color),
                                 ),
-                              ),
-                            ),
-                          ],
-                        ),
+                            ],
+                          ),
                       ],
                     ),
                   ),

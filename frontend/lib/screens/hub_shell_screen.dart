@@ -9,6 +9,8 @@ import '../../repositories/clase_repository.dart';
 import '../../repositories/evidencias_repository.dart';
 import '../../repositories/hub_repository.dart';
 import '../../repositories/justificativos_repository.dart';
+import '../../repositories/roles_repository.dart';
+import '../../repositories/voluntariado_repository.dart';
 import '../../services/health_service.dart';
 import '../../widgets/db_health_checker.dart';
 import '../../widgets/ninaspro_sync_indicator.dart';
@@ -57,6 +59,12 @@ class HubShellScreen extends StatefulWidget {
   /// Fotos de evidencia de las clases (US-18..US-20)
   final EvidenciasRepository? evidenciasRepository;
 
+  /// Fichas del voluntariado y asignación a cursos (US-30..US-32)
+  final VoluntariadoRepository? voluntariadoRepository;
+
+  /// Catálogo de roles y roles de cada clase (US-43, US-44)
+  final RolesRepository? rolesRepository;
+
   const HubShellScreen({
     super.key,
     required this.repository,
@@ -70,6 +78,8 @@ class HubShellScreen extends StatefulWidget {
     this.claseRepository,
     this.justificativosRepository,
     this.evidenciasRepository,
+    this.voluntariadoRepository,
+    this.rolesRepository,
   });
 
   @override
@@ -140,7 +150,12 @@ class _HubShellScreenState extends State<HubShellScreen> {
         ),
         body: Stack(
           children: [
-            DirectorioDesktopScreen(repository: widget.repository, alumnasRepository: widget.alumnasRepository),
+            DirectorioDesktopScreen(
+              repository: widget.repository,
+              alumnasRepository: widget.alumnasRepository,
+              voluntariadoRepository: widget.voluntariadoRepository,
+              catalogoRepository: widget.catalogoRepository,
+            ),
             if (_mostrarHealthChecker)
               Positioned(bottom: 20, right: 20, child: DbHealthChecker(healthService: widget.healthService)),
           ],
@@ -185,12 +200,14 @@ class _HubShellScreenState extends State<HubShellScreen> {
         sesion: widget.sesion,
         justificativos: widget.justificativosRepository,
         evidencias: widget.evidenciasRepository,
+        roles: widget.rolesRepository,
       ),
       RolUsuario.tutora => TutoraMobileScreen(
         repository: widget.repository,
         clase: clase!,
         sesion: widget.sesion,
         evidencias: widget.evidenciasRepository,
+        roles: widget.rolesRepository,
       ),
       RolUsuario.alumna => PortalAlumnaScreen(
         repository: widget.repository,
@@ -209,15 +226,20 @@ class _HubShellScreenState extends State<HubShellScreen> {
           onCerrarSesion: widget.onCerrarSesion,
           accesosRepository: widget.accesosRepository,
           catalogoRepository: widget.catalogoRepository,
+          rolesRepository: widget.rolesRepository,
         ),
       RolUsuario.equipoGestion => AjustesGestionScreen(
-          repository: widget.repository,
+          sesion: widget.sesion,
+          voluntariado: widget.voluntariadoRepository,
+          clase: widget.claseRepository,
           themeNotifier: widget.themeNotifier,
           onCerrarSesion: widget.onCerrarSesion,
           catalogoRepository: widget.catalogoRepository,
         ),
       RolUsuario.tutora => AjustesTutoraScreen(
-          repository: widget.repository,
+          sesion: widget.sesion,
+          voluntariado: widget.voluntariadoRepository,
+          clase: widget.claseRepository,
           themeNotifier: widget.themeNotifier,
           onCerrarSesion: widget.onCerrarSesion,
         ),

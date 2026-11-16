@@ -1,15 +1,25 @@
 import 'package:flutter/material.dart';
 import '../../models/hub_models.dart';
-import '../../repositories/hub_repository.dart';
+import '../../models/sesion_usuario.dart';
+import '../../repositories/clase_repository.dart';
+import '../../repositories/voluntariado_repository.dart';
 import '../../widgets/ninaspro_ajustes.dart';
 import '../ajustes/ajustes_screen.dart';
 
-/// Ajustes de la Tutora: perfil de la tutora y su sede.
+String _fecha(DateTime f) => '${f.day.toString().padLeft(2, '0')}/${f.month.toString().padLeft(2, '0')}/${f.year}';
+
+/// Ajustes de la Tutora: su perfil, sus sedes y cursos, y su ficha del voluntariado.
 /// La estructura común (apariencia, cerrar sesión) la aporta [AjustesScreen].
 /// El Equipo de Gestión reutiliza esta pantalla con otra etiqueta de rol.
 class AjustesTutoraScreen extends StatefulWidget {
-  final HubRepository repository;
-  final String tutoraId;
+  final SesionUsuario sesion;
+
+  /// Su ficha: adhesión, institución e ingreso (US-31, US-32)
+  final VoluntariadoRepository? voluntariado;
+
+  /// Los cursos en que está asignada
+  final ClaseRepository? clase;
+
   final ValueNotifier<ThemeMode>? themeNotifier;
   final VoidCallback? onCerrarSesion;
 
@@ -17,13 +27,14 @@ class AjustesTutoraScreen extends StatefulWidget {
   final String rolEtiqueta;
   final String rolEmoji;
 
-  /// Secciones propias del rol que reutiliza la pantalla (ej. Accesos de Gestión)
+  /// Secciones propias del rol que reutiliza la pantalla (ej. Administración de Gestión)
   final List<Widget> seccionesExtra;
 
   const AjustesTutoraScreen({
     super.key,
-    required this.repository,
-    this.tutoraId = 'tutora-3', // Misma tutora por defecto que TutoraMobileScreen
+    required this.sesion,
+    this.voluntariado,
+    this.clase,
     this.themeNotifier,
     this.onCerrarSesion,
     this.rolEtiqueta = 'Tutora',
@@ -37,8 +48,8 @@ class AjustesTutoraScreen extends StatefulWidget {
 
 class _AjustesTutoraScreenState extends State<AjustesTutoraScreen> {
   bool _cargando = true;
-  Tutora? _tutora;
-  Curso? _curso;
+  FichaVoluntaria? _ficha;
+  List<Curso> _cursos = const [];
 
   @override
   void initState() {
@@ -47,54 +58,73 @@ class _AjustesTutoraScreenState extends State<AjustesTutoraScreen> {
   }
 
   Future<void> _cargarDatos() async {
-    final tutoras = await widget.repository.getTutoras();
-    final tutora = tutoras.where((t) => t.id == widget.tutoraId).firstOrNull;
-    final cursos = tutora == null
-        ? const <Curso>[]
-        : await widget.repository.getCursos(sedeId: tutora.sedeId);
+    FichaVoluntaria? ficha;
+    var cursos = const <Curso>[];
+    try {
+      ficha = await widget.voluntariado?.miFicha(widget.sesion.perfilId);
+      cursos = await widget.clase?.instancias(tutoraId: widget.sesion.perfilId) ?? const [];
+    } catch (_) {
+      // Sin conexión se muestra lo que trae la sesión
+    }
     if (!mounted) return;
     setState(() {
-      _tutora = tutora;
-      _curso = cursos.firstOrNull;
+      _ficha = ficha;
+      _cursos = cursos;
       _cargando = false;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final tutora = _tutora;
-
+    final sesion = widget.sesion;
     return AjustesScreen(
       cargando: _cargando,
       themeNotifier: widget.themeNotifier,
       onCerrarSesion: widget.onCerrarSesion,
-      perfil: tutora == null
-          ? null
-          : AjustesPerfil(
-              nombre: tutora.nombre,
-              detalle: tutora.sedeNombre,
-              rolEtiqueta: widget.rolEtiqueta,
-              rolEmoji: widget.rolEmoji,
-            ),
-      secciones: [if (tutora != null) ..._buildSecciones(tutora), ...widget.seccionesExtra],
+      perfil: AjustesPerfil(
+        nombre: sesion.nombreCompleto,
+        detalle: sesion.sedePrincipal?.nombre ?? sesion.correo,
+        rolEtiqueta: widget.rolEtiqueta,
+        rolEmoji: widget.rolEmoji,
+      ),
+      secciones: [_buildPerfil(), ...widget.seccionesExtra],
     );
   }
 
-  List<Widget> _buildSecciones(Tutora tutora) {
-    return [
-      AjustesSeccion(
-        titulo: 'Mi perfil',
-        children: [
-          AjustesTile(icono: Icons.location_on_rounded, titulo: 'Sede', subtitulo: tutora.sedeNombre),
-          if (_curso != null)
-            AjustesTile(icono: Icons.school_rounded, titulo: 'Curso', subtitulo: _curso!.nombre),
+  Widget _buildPerfil() {
+    final sesion = widget.sesion;
+    final ficha = _ficha;
+    return AjustesSeccion(
+      titulo: 'Mi perfil',
+      children: [
+        AjustesTile(icono: Icons.alternate_email_rounded, titulo: 'Correo', subtitulo: sesion.correo),
+        AjustesTile(
+          icono: Icons.location_on_rounded,
+          titulo: sesion.sedes.length > 1 ? 'Sedes' : 'Sede',
+          subtitulo: sesion.sedes.isEmpty ? 'Sin sede asignada' : sesion.sedes.map((s) => s.nombre).join(', '),
+        ),
+        AjustesTile(
+          icono: Icons.school_rounded,
+          titulo: _cursos.length > 1 ? 'Cursos' : 'Curso',
+          subtitulo: _cursos.isEmpty ? 'Aún sin cursos asignados' : _cursos.map((c) => c.nombre).toSet().join(', '),
+        ),
+        if (ficha != null) ...[
           AjustesTile(
             icono: Icons.verified_user_rounded,
-            titulo: 'Adhesión voluntaria',
-            subtitulo: tutora.adhesionFirmada ? 'Firmada' : 'Pendiente de firma',
+            titulo: 'Declaración de adhesión',
+            subtitulo: ficha.adhesionFirmada
+                ? 'Firmada${ficha.fechaFirmaAdhesion == null ? '' : ' el ${_fecha(ficha.fechaFirmaAdhesion!)}'}'
+                : 'Pendiente de firma: la registra la Directiva',
+          ),
+          if (ficha.institucion != null)
+            AjustesTile(icono: Icons.work_rounded, titulo: 'Institución u ocupación', subtitulo: ficha.institucion!),
+          AjustesTile(
+            icono: Icons.event_available_rounded,
+            titulo: 'En el voluntariado desde',
+            subtitulo: _fecha(ficha.fechaIngreso),
           ),
         ],
-      ),
-    ];
+      ],
+    );
   }
 }

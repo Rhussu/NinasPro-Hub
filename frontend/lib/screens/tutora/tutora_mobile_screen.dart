@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 import '../../config/ninaspro_colors.dart';
 import '../../config/ninaspro_theme.dart';
+import '../../models/hub_models.dart';
 import '../../models/sesion_usuario.dart';
 import '../../repositories/clase_repository.dart';
 import '../../repositories/evidencias_repository.dart';
 import '../../repositories/hub_repository.dart';
+import '../../repositories/roles_repository.dart';
 import '../../widgets/ninaspro_recursos_curso.dart';
 import '../../widgets/ninaspro_skeleton.dart';
 import '../../widgets/ninaspro_speed_dial.dart';
 import 'clase_sesion_controller.dart';
 import 'clase_sesion_views.dart';
+import '../gestion/gestion_tutoras_views.dart' show RolesSemanalesView, claseParaRoles;
 import 'fotos_clase_view.dart';
 import 'inicio_tutora_widgets.dart';
 
@@ -23,7 +26,7 @@ import 'inicio_tutora_widgets.dart';
 ///   US-18/US-19 fotos ([FotosClaseView]) y US-29 podio Kahoot (vistas en [clase_sesion_views.dart]).
 /// - En el pase de lista ve el estado de los justificativos, sin resolverlos (US-38).
 class TutoraMobileScreen extends StatefulWidget {
-  /// Repositorio del mockup: solo para los roles semanales (US-43, se conectan en su PR)
+  /// Repositorio del mockup (lo reemplazan los repositorios por dominio en el PR 7)
   final HubRepository repository;
 
   /// La clase real: cursos, pase de lista, participación y podio
@@ -35,8 +38,8 @@ class TutoraMobileScreen extends StatefulWidget {
   /// Fotos de evidencia de la clase (US-18, US-19)
   final EvidenciasRepository? evidencias;
 
-  /// Id de la tutora en el mockup, para mostrar su rol semanal mientras tanto
-  final String tutoraIdRoles;
+  /// Roles de cada clase y su cumplimiento (US-43, US-44)
+  final RolesRepository? roles;
 
   const TutoraMobileScreen({
     super.key,
@@ -44,7 +47,7 @@ class TutoraMobileScreen extends StatefulWidget {
     required this.clase,
     required this.sesion,
     this.evidencias,
-    this.tutoraIdRoles = 'tutora-3', // Daniela Valenzuela Castro en el mockup
+    this.roles,
   });
 
   @override
@@ -87,7 +90,7 @@ class _TutoraMobileScreenState extends State<TutoraMobileScreen> {
         instanciaId: _clase.curso?.id,
         tutoraId: widget.sesion.perfilId,
         sesiones: _clase.sesiones,
-        rolDeSemana: rolesDelMockup(widget.repository, widget.tutoraIdRoles),
+        roles: widget.roles,
       );
     } catch (_) {
       // Sin conexión se mantiene el historial anterior
@@ -110,8 +113,35 @@ class _TutoraMobileScreenState extends State<TutoraMobileScreen> {
     setState(() => _recargando = false);
   }
 
-  ClaseTutoraResumen? get _claseActual =>
-      _historial.where((c) => c.sesion.id == _clase.sesionId).firstOrNull;
+  // Próxima clase del curso: la de los roles que se muestran en el inicio (US-44 escenario 1)
+  SesionClase? get _claseRoles => claseParaRoles(_clase.sesiones, _clase.hoy());
+
+  List<RolEnClase> get _misRoles =>
+      _historial.where((c) => c.sesion.id == _claseRoles?.id).firstOrNull?.roles ?? const [];
+
+  Future<void> _marcarMiRol(RolEnClase rol, bool completada) async {
+    final roles = widget.roles;
+    if (roles == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final r = await roles.marcarCumplido(rol.tarea.id, completada);
+    if (!r.ok) messenger.showSnackBar(SnackBar(backgroundColor: NinasProColors.error700, content: Text(r.error!)));
+    await _cargarHistorial();
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  // Los roles de todo el equipo, en solo lectura salvo los propios (US-44 escenario 3)
+  Future<void> _abrirRolesEquipo() async {
+    final roles = widget.roles;
+    if (roles == null) return;
+    await _abrirPantallaClase(
+      'Roles del equipo',
+      RolesSemanalesView(controller: _clase, roles: roles, perfilId: widget.sesion.perfilId),
+    );
+    await _cargarHistorial();
+    if (!mounted) return;
+    setState(() {});
+  }
 
   Iterable<ClaseTutoraResumen> get _clasesRegistradas =>
       _historial.where((c) => c.estado != EstadoAsistencia.pendiente);
@@ -165,7 +195,6 @@ class _TutoraMobileScreenState extends State<TutoraMobileScreen> {
 
   // Pantalla principal: resumen de la clase, mi asistencia, mi rol y recursos del curso
   Widget _buildPantallaPrincipal() {
-    final miRol = _claseActual?.rol;
     final registradas = _clasesRegistradas;
     final curso = _clase.curso;
 
@@ -223,11 +252,13 @@ class _TutoraMobileScreenState extends State<TutoraMobileScreen> {
         ),
         const SizedBox(height: 10),
 
-        // Solo lectura: los roles los asigna el Equipo de Gestión
-        TarjetaMiRol(
-          rol: miRol,
-          semana: _clase.sesionActual?.numeroSesion ?? 1,
-          mensajeSinRol: 'El Equipo de Gestión aún no te asigna un rol esta semana.',
+        // Los roles los asigna el Equipo de Gestión; la tutora marca su cumplimiento
+        TarjetaMisRoles(
+          roles: _misRoles,
+          numeroSesion: _claseRoles?.numeroSesion,
+          mensajeSinRol: 'El Equipo de Gestión aún no te asigna roles para esta clase.',
+          onMarcar: widget.roles == null ? null : _marcarMiRol,
+          onVerEquipo: widget.roles == null ? null : _abrirRolesEquipo,
         ),
         const SizedBox(height: 10),
 
