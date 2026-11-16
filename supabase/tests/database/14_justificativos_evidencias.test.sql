@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(60);
+SELECT plan(56);
 
 -- =============================================================================
 -- Datos de prueba: un curso de la sede A con una tutora, tres alumnas (Ana y
@@ -117,18 +117,17 @@ SELECT pg_temp.actuar_como('7e400000-0000-0000-0000-000000000001');
 SELECT public.guardar_asistencia_clase(pg_temp.clase(1), pg_temp.lista(ARRAY['1:ausente', '2:ausente', '3:presente']));
 
 -- =============================================================================
--- 1. Buckets privados (US-17, US-36)
+-- 1. Bucket privado de evidencias y justificativos solo en texto (US-17, RB-8)
 -- =============================================================================
 SELECT pg_temp.como_sistema();
 SELECT is(
-  (SELECT string_agg(id || ':' || public::text || ':' || file_size_limit, ' ' ORDER BY id) FROM storage.buckets WHERE id IN ('evidencias', 'justificativos')),
-  'evidencias:false:5242880 justificativos:false:5242880',
-  'Los buckets de evidencias y justificativos son privados y admiten hasta 5 MB'
+  (SELECT public::text || ':' || file_size_limit || ':' || array_to_string(allowed_mime_types, ',') FROM storage.buckets WHERE id = 'evidencias'),
+  'false:5242880:image/jpeg,image/png',
+  'El bucket de evidencias es privado y admite fotos JPG o PNG de hasta 5 MB'
 );
-SELECT is(
-  (SELECT allowed_mime_types FROM storage.buckets WHERE id = 'justificativos'),
-  ARRAY['application/pdf', 'image/png', 'image/jpeg'],
-  'Los respaldos solo admiten PDF, PNG y JPG (US-36 escenario 3)'
+SELECT ok(
+  NOT EXISTS (SELECT 1 FROM storage.buckets WHERE id = 'justificativos'),
+  'Los justificativos no llevan archivos adjuntos: no hay bucket de respaldos'
 );
 SELECT ok(
   NOT EXISTS (
@@ -139,7 +138,7 @@ SELECT ok(
 );
 
 -- =============================================================================
--- 2. La alumna envía su justificativo (US-35, US-36)
+-- 2. La alumna envía su justificativo (US-35)
 -- =============================================================================
 SELECT pg_temp.actuar_como('5e400000-0000-0000-0000-000000000001');
 SELECT is(
@@ -164,27 +163,18 @@ SELECT throws_ok(
 );
 SELECT throws_ok(
   $$ SELECT public.enviar_justificativo(pg_temp.clase(1), 'otro', '   ') $$,
-  '22023', 'Escribe la explicación o adjunta un respaldo.',
-  'El justificativo lleva una explicación o un respaldo'
+  '22023', 'Escribe la explicación de la inasistencia.',
+  'El justificativo lleva una explicación en texto'
 );
 SELECT throws_ok(
-  $$ SELECT public.enviar_justificativo(pg_temp.clase(1), 'salud', 'Con respaldo', 'e4300000-0000-0000-0000-000000000001/e4200000-0000-0000-0000-000000000001/no-existe.pdf') $$,
-  '22023', 'No encontramos el respaldo adjunto: vuelve a adjuntarlo.',
-  'Un respaldo que no se subió se rechaza'
-);
-SELECT throws_ok(
-  $$ INSERT INTO storage.objects (bucket_id, name) VALUES ('justificativos', 'e4300000-0000-0000-0000-000000000002/e4200000-0000-0000-0000-000000000001/ajeno.pdf') $$,
-  '42501', NULL,
-  'La alumna no sube respaldos en la carpeta de otra alumna'
-);
-SELECT lives_ok(
-  $$ INSERT INTO storage.objects (bucket_id, name) VALUES ('justificativos', 'e4300000-0000-0000-0000-000000000001/e4200000-0000-0000-0000-000000000001/constancia.pdf') $$,
-  'La alumna sube su respaldo a su carpeta'
+  $$ SELECT public.enviar_justificativo(pg_temp.clase(1), 'otro', repeat('x', 501)) $$,
+  '22023', 'La explicación admite hasta 500 caracteres.',
+  'La explicación es breve (RB-8)'
 );
 SELECT is(
-  public.enviar_justificativo(pg_temp.clase(1), 'escolar', 'Tenía prueba', 'e4300000-0000-0000-0000-000000000001/e4200000-0000-0000-0000-000000000001/constancia.pdf') ->> 'archivo_adjunto_url',
-  'e4300000-0000-0000-0000-000000000001/e4200000-0000-0000-0000-000000000001/constancia.pdf',
-  'La alumna justifica una inasistencia previa con su respaldo'
+  public.enviar_justificativo(pg_temp.clase(1), 'escolar', '  Tenía prueba  ') ->> 'explicacion',
+  'Tenía prueba',
+  'La alumna justifica una inasistencia previa con su explicación'
 );
 SELECT throws_ok(
   $$ INSERT INTO public.justificativos_inasistencia (clase_id, inscripcion_id, motivo, explicacion, subido_por)
@@ -213,10 +203,6 @@ SELECT is(
   2,
   'La alumna solo ve sus propios justificativos (US-17 escenario 2)'
 );
-SELECT is_empty(
-  $$ SELECT 1 FROM storage.objects WHERE bucket_id = 'justificativos' AND name LIKE 'e4300000-0000-0000-0000-000000000001/%' $$,
-  'La alumna no accede a los respaldos de otra alumna'
-);
 
 -- =============================================================================
 -- 3. Tutoras: solo lectura del estado y el motivo (US-38)
@@ -235,10 +221,6 @@ SELECT throws_ok(
 SELECT is_empty(
   $$ SELECT 1 FROM public.justificativos_inasistencia $$,
   'La tutora no lee la explicación de los justificativos'
-);
-SELECT is_empty(
-  $$ SELECT 1 FROM storage.objects WHERE bucket_id = 'justificativos' $$,
-  'La tutora no accede a los respaldos'
 );
 SELECT is(
   (SELECT string_agg(nombres || ':' || coalesce(justificativo_estado::text || '/' || justificativo_motivo::text, '-'), ' ' ORDER BY nombres)
@@ -263,10 +245,6 @@ SELECT is(
   (SELECT count(*)::int FROM public.justificativos_detalle WHERE estado = 'pendiente'),
   4,
   'Gestión de la sede ve la bandeja de pendientes'
-);
-SELECT isnt_empty(
-  $$ SELECT 1 FROM storage.objects WHERE bucket_id = 'justificativos' AND name LIKE 'e4300000-0000-0000-0000-000000000001/%' $$,
-  'Gestión de la sede accede al respaldo (US-17 escenario 1)'
 );
 SELECT throws_ok(
   $$ SELECT public.resolver_justificativo(pg_temp.justificativo(1, 2), false, '  ') $$,
@@ -307,7 +285,7 @@ SELECT ok(
 -- Tras el rechazo, Berta puede volver a enviar
 SELECT pg_temp.actuar_como('5e400000-0000-0000-0000-000000000002');
 SELECT lives_ok(
-  $$ SELECT public.enviar_justificativo(pg_temp.clase(1), 'familiar', 'Adjunto la constancia') $$,
+  $$ SELECT public.enviar_justificativo(pg_temp.clase(1), 'familiar', 'Ahora con el detalle del viaje') $$,
   'Tras un rechazo, la alumna puede enviar un nuevo justificativo'
 );
 SELECT is(
@@ -357,9 +335,16 @@ SELECT is(
   'aceptado',
   'El pase de lista de la próxima clase ya la muestra justificada'
 );
-SELECT is(public.eliminar_justificativo(pg_temp.justificativo(1, 1)),
-  'e4300000-0000-0000-0000-000000000001/e4200000-0000-0000-0000-000000000001/constancia.pdf',
-  'Al eliminarlo devuelve la ruta del respaldo para borrarlo'
+SELECT pg_temp.actuar_como('7e400000-0000-0000-0000-000000000001');
+SELECT throws_ok(
+  $$ SELECT public.eliminar_justificativo(pg_temp.justificativo(1, 1)) $$,
+  '42501', 'Solo el Equipo de Gestión de la sede elimina justificativos.',
+  'La tutora no elimina justificativos'
+);
+SELECT pg_temp.actuar_como('9e400000-0000-0000-0000-00000000000a');
+SELECT lives_ok(
+  $$ SELECT public.eliminar_justificativo(pg_temp.justificativo(1, 1)) $$,
+  'Gestión elimina un justificativo vinculado por error'
 );
 SELECT is(pg_temp.asistencia(1, 1), 'ausente', 'Al eliminar el justificativo, la asistencia vuelve a ausente (US-16 escenario 3)');
 
