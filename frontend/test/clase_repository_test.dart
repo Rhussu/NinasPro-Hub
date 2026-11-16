@@ -94,15 +94,37 @@ void main() {
       expect(lista.registros[1].estado, EstadoAsistencia.justificada);
       expect(lista.registros[1].autorizaImagen, isFalse);
       expect(lista.participaciones.map((p) => p.ejerciciosResueltos), [4, 0, 1]);
-      expect(lista.podio?.primerLugarAlumnaId, 'alumna-i3');
-      expect(lista.podio?.segundoLugarNombre, 'Alumna I1');
+      expect(lista.podioAlumnas, ['alumna-i3', 'alumna-i1', 'alumna-i4']);
+      expect(lista.podio[1].alumnaNombre, 'Alumna I1');
     });
 
     test('una clase sin pase de lista trae a las alumnas pendientes y sin podio', () {
-      final lista = MapeoClase.lista('clase-1', [fila('i1'), fila('i2', podio: 1)]);
+      final lista = MapeoClase.lista('clase-1', [fila('i1'), fila('i2')]);
       expect(lista.tienePaseLista, isFalse);
       expect(lista.registros.every((r) => r.estado == EstadoAsistencia.pendiente), isTrue);
-      expect(lista.podio, isNull, reason: 'el podio necesita los tres lugares');
+      expect(lista.podio, isEmpty);
+    });
+
+    test('el podio puede tener menos de tres lugares y se lee en orden', () {
+      final una = MapeoClase.lista('clase-1', [fila('i1', estado: 'presente', podio: 1)]);
+      expect(una.podioAlumnas, ['alumna-i1']);
+
+      final dos = MapeoClase.lista('clase-1', [
+        fila('i1', estado: 'presente', podio: 2),
+        fila('i2', estado: 'presente', podio: 1),
+      ]);
+      expect(dos.podioAlumnas, ['alumna-i2', 'alumna-i1']);
+
+      expect(MapeoClase.datosPodio('c', ['i2', 'i1']), {
+        'clase_id': 'c',
+        'primero': 'i2',
+        'segundo': 'i1',
+        'tercero': null,
+      });
+      expect(lugaresPodio(0), 0);
+      expect(lugaresPodio(1), 1);
+      expect(lugaresPodio(2), 2);
+      expect(lugaresPodio(7), 3);
     });
 
     test('los cambios guardados sin conexión se ven sobre la lista de la nube', () {
@@ -131,7 +153,7 @@ void main() {
       expect(lista.conPendientes, isTrue);
       expect(lista.registros[1].estado, EstadoAsistencia.ausente);
       expect(lista.participaciones.single.ejerciciosResueltos, 5);
-      expect(lista.podio?.primerLugarAlumnaId, 'alumna-i3');
+      expect(lista.podioAlumnas, ['alumna-i3', 'alumna-i1', 'alumna-i2']);
       expect(MapeoClase.conPendientes(base), same(base));
     });
 
@@ -259,7 +281,7 @@ void main() {
           headers: json,
         ),
       );
-      final r = await repo.guardarPodio('clase-1', primero: 'i1', segundo: 'i2', tercero: 'i3');
+      final r = await repo.guardarPodio('clase-1', ['i1', 'i2']);
       expect(r.rechazado, isTrue);
       expect(r.mensaje, 'La clase aún no se realiza.');
 
@@ -344,20 +366,35 @@ void main() {
       expect((await clase.guardarParticipacion()).guardado, isTrue);
       expect(repo.participacion('clase-4', 'insc-2'), (5, false));
 
-      final podio = await clase.guardarPodioKahoot(
-        primerId: 'alumna-insc-4',
-        segundoId: 'alumna-insc-2',
-        tercerId: 'alumna-insc-3',
-      );
+      final podio = await clase.guardarPodioKahoot(['alumna-insc-4', 'alumna-insc-2', 'alumna-insc-3']);
       expect(podio.guardado, isTrue);
       expect(repo.podio('clase-4'), ['insc-4', 'insc-2', 'insc-3']);
 
-      final repetido = await clase.guardarPodioKahoot(
-        primerId: 'alumna-insc-4',
-        segundoId: 'alumna-insc-4',
-        tercerId: 'alumna-insc-3',
-      );
-      expect(repetido.mensaje, 'Elige tres alumnas distintas para el podio.');
+      final repetido = await clase.guardarPodioKahoot(['alumna-insc-4', 'alumna-insc-4', 'alumna-insc-3']);
+      expect(repetido.mensaje, 'Elige una alumna distinta para cada lugar del podio.');
+      final incompleto = await clase.guardarPodioKahoot(['alumna-insc-4', 'alumna-insc-2']);
+      expect(incompleto.rechazado, isTrue, reason: 'con 3 presentes el podio lleva los 3 lugares');
+    });
+
+    test('con menos de tres presentes el podio lleva un lugar por presente (US-29)', () async {
+      // Solo Catalina y Antonia presentes
+      clase.ciclarEstado(0);
+      clase.ciclarEstado(2);
+      await clase.guardarAsistencia();
+      expect(lugaresPodio(clase.alumnasPresentes.length), 2);
+
+      final dos = await clase.guardarPodioKahoot(['alumna-insc-4', 'alumna-insc-2']);
+      expect(dos.guardado, isTrue);
+      expect(repo.podio('clase-4'), ['insc-4', 'insc-2']);
+      expect(clase.podioAlumnas, ['alumna-insc-4', 'alumna-insc-2']);
+
+      // Con una sola presente, queda primera
+      clase.ciclarEstado(1);
+      await clase.guardarAsistencia();
+      expect(clase.alumnasPresentes.map((r) => r.id), ['insc-4']);
+      expect((await clase.guardarPodioKahoot(['alumna-insc-4'])).guardado, isTrue);
+      expect(repo.podio('clase-4'), ['insc-4']);
+      expect((await clase.listaDeSesion('clase-4')).podioAlumnas, ['alumna-insc-4']);
     });
 
     test('la justificada no se alterna y Gestión la conserva al guardar', () async {

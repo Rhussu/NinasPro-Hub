@@ -11,6 +11,7 @@ import 'package:ninas_pro_hub/screens/gestion/ajustes_gestion_screen.dart';
 import 'package:ninas_pro_hub/screens/gestion/gestion_mobile_screen.dart';
 import 'package:ninas_pro_hub/screens/hub_shell_screen.dart';
 import 'package:ninas_pro_hub/screens/tutora/ajustes_tutora_screen.dart';
+import 'package:ninas_pro_hub/screens/tutora/clase_sesion_views.dart';
 import 'package:ninas_pro_hub/screens/tutora/tutora_mobile_screen.dart';
 import 'package:ninas_pro_hub/widgets/ninaspro_mascot.dart';
 import 'package:ninas_pro_hub/widgets/ninaspro_stat_card.dart';
@@ -163,7 +164,7 @@ void main() {
 
       // Antes del pase de lista no hay podio ni ejercicios
       await abrirAccion('Registrar Kahoot');
-      expect(find.textContaining('Se necesitan al menos 3 alumnas presentes'), findsOneWidget);
+      expect(find.textContaining('Guarda primero el pase de lista: el podio Kahoot'), findsOneWidget);
       await tester.pumpAndSettle(const Duration(seconds: 5));
 
       // Asistencia: todas parten presentes; alternar P ↔ A y guardar (US-13)
@@ -210,6 +211,59 @@ void main() {
       await tester.tap(find.textContaining('Tomar / Seleccionar Foto'));
       await tester.pumpAndSettle();
       expect(find.textContaining('Reemplazar Foto'), findsOneWidget);
+    });
+
+    testWidgets('El podio Kahoot lleva un lugar por alumna presente: con una sola, queda primera (US-29)', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(420, 1800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(createTestApp(
+        TutoraMobileScreen(repository: repository, clase: clase, sesion: SesionesDemo.tutora),
+      ));
+      await tester.pumpAndSettle();
+
+      Future<void> abrirAccion(String tooltip) async {
+        await tester.tap(find.byTooltip('Acciones rápidas'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip(tooltip));
+        await tester.pumpAndSettle();
+      }
+
+      // Alterna el estado de cada alumna nombrada y guarda
+      Future<void> pasarLista(List<String> alternar) async {
+        await abrirAccion('Asistencia');
+        for (final nombre in alternar) {
+          final tarjeta = find.ancestor(of: find.text(nombre), matching: find.byType(TarjetaAsistencia));
+          await tester.tap(find.descendant(of: tarjeta, matching: find.byType(InkWell)));
+          await tester.pumpAndSettle();
+        }
+        await tester.tap(find.text('Guardar Asistencia de la Clase'));
+        await tester.pumpAndSettle();
+        await tester.pageBack();
+        await cerrarAvisos(tester);
+      }
+
+      // Dos presentes (Catalina y Antonia): se elige el 1° y el 2° lugar
+      await pasarLista(['Valentina Soto Morales', 'Josefa Muñoz Vera']);
+      await abrirAccion('Registrar Kahoot');
+      expect(find.text('Asigna las 2 alumnas ganadoras del desafío de hoy. Se actualizará su historial.'), findsOneWidget);
+      expect(find.text('🥈 2° Lugar (Medalla de Plata):'), findsOneWidget);
+      expect(find.text('🥉 3° Lugar (Medalla de Bronce):'), findsNothing);
+      await tester.tap(find.text('Guardar Podio de la Sesión'));
+      await tester.pumpAndSettle();
+      expect(clase.podio('clase-4'), ['insc-2', 'insc-4']);
+      await cerrarAvisos(tester);
+
+      // Una sola presente (Antonia): queda primera
+      await pasarLista(['Catalina Rojas Díaz']);
+      await abrirAccion('Registrar Kahoot');
+      expect(find.textContaining('Hoy hay una sola alumna presente: queda en el 1° lugar.'), findsOneWidget);
+      expect(find.text('🥈 2° Lugar (Medalla de Plata):'), findsNothing);
+      await tester.tap(find.text('Guardar Podio de la Sesión'));
+      await tester.pumpAndSettle();
+      expect(clase.podio('clase-4'), ['insc-4']);
     });
 
     testWidgets('PortalAlumnaScreen renders student dashboard, podio history, resources and justification (US-25, US-26, US-29, US-35)', (WidgetTester tester) async {
@@ -433,7 +487,7 @@ void main() {
 
       // Podio Kahoot (US-29): sin pase de lista de hoy aún no se registra
       await abrirAccion('Registrar Kahoot');
-      expect(find.textContaining('Se necesitan al menos 3 alumnas presentes'), findsOneWidget);
+      expect(find.textContaining('Guarda primero el pase de lista: el podio Kahoot'), findsOneWidget);
       await tester.pumpAndSettle(const Duration(seconds: 5));
 
       // Justificativo manual aprobado de inmediato (US-37, aún del mockup)

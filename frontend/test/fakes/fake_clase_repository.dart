@@ -291,17 +291,8 @@ class FakeClaseRepository implements ClaseRepository {
   );
 
   @override
-  Future<ResultadoGuardado> guardarPodio(
-    String claseId, {
-    required String primero,
-    required String segundo,
-    required String tercero,
-  }) => _guardar(OperacionesClase.podio, claseId, {
-    'clase_id': claseId,
-    'primero': primero,
-    'segundo': segundo,
-    'tercero': tercero,
-  }, prioridad: 2);
+  Future<ResultadoGuardado> guardarPodio(String claseId, List<String> inscripciones) =>
+      _guardar(OperacionesClase.podio, claseId, MapeoClase.datosPodio(claseId, inscripciones), prioridad: 2);
 
   @override
   Future<ResultadoGuardado> guardarAsistenciaTutoras(String claseId, List<RegistroAsistenciaTutora> registros) =>
@@ -367,10 +358,20 @@ class FakeClaseRepository implements ClaseRepository {
         }
         return MapeoClase.avisoParticipacion({'omitidas': omitidas});
       case OperacionesClase.podio:
-        final ids = [op.datos['primero'] as String, op.datos['segundo'] as String, op.datos['tercero'] as String];
-        if (ids.toSet().length < 3) throw const RechazoServidorException('Elige tres alumnas distintas para el podio.');
+        final ids = [
+          for (final clave in ['primero', 'segundo', 'tercero'])
+            if (op.datos[clave] != null) op.datos[clave] as String,
+        ];
+        if (ids.toSet().length < ids.length) {
+          throw const RechazoServidorException('Elige alumnas distintas para el podio.');
+        }
+        final presentes = (_asistencia[claseId] ?? const {}).values.where((f) => f.estado == EstadoAsistencia.presente);
         if (ids.any((id) => _asistencia[claseId]?[id]?.estado != EstadoAsistencia.presente)) {
           throw const RechazoServidorException('El podio solo admite alumnas presentes en la clase.');
+        }
+        // Un lugar por alumna presente, hasta tres
+        if (ids.isEmpty || ids.length != presentes.length.clamp(0, 3)) {
+          throw RechazoServidorException('Con ${presentes.length} alumnas presentes, el podio lleva otros lugares.');
         }
         _podio[claseId] = ids;
         return null;
