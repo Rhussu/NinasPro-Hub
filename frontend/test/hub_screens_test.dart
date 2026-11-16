@@ -11,7 +11,6 @@ import 'package:ninas_pro_hub/services/compresion_imagen.dart' as compresion;
 import 'package:ninas_pro_hub/services/selector_archivos.dart' as selector;
 import 'package:ninas_pro_hub/models/sesion_usuario.dart';
 import 'package:ninas_pro_hub/repositories/clase_repository.dart';
-import 'package:ninas_pro_hub/repositories/mock_hub_repository.dart';
 import 'package:ninas_pro_hub/screens/alumna/portal_alumna_screen.dart';
 import 'package:ninas_pro_hub/screens/directorio/ajustes_directiva_screen.dart';
 import 'package:ninas_pro_hub/screens/gestion/ajustes_gestion_screen.dart';
@@ -21,18 +20,23 @@ import 'package:ninas_pro_hub/screens/tutora/ajustes_tutora_screen.dart';
 import 'package:ninas_pro_hub/screens/tutora/clase_sesion_views.dart';
 import 'package:ninas_pro_hub/screens/tutora/tutora_mobile_screen.dart';
 import 'package:ninas_pro_hub/widgets/ninaspro_mascot.dart';
+import 'package:ninas_pro_hub/widgets/ninaspro_planificacion_hoy.dart' show formatearFechaClase;
 import 'package:ninas_pro_hub/widgets/ninaspro_stat_card.dart';
 
+import 'fakes/fake_alertas_repository.dart';
 import 'fakes/fake_auth_service.dart';
 import 'fakes/fake_clase_repository.dart';
 import 'fakes/fake_evidencias_repository.dart';
 import 'fakes/fake_justificativos_repository.dart';
+import 'fakes/fake_portal_repository.dart';
+import 'fakes/fake_reportes_repository.dart';
 import 'fakes/fake_roles_repository.dart';
 import 'fakes/fake_voluntariado_repository.dart';
 
 void main() {
-  group('Mockup Screens & Widgets Tests', () {
-    late MockHubRepository repository;
+  group('Pantallas y widgets', () {
+    late FakePortalRepository portal;
+    late FakeAlertasRepository alertas;
     late FakeClaseRepository clase;
     late FakeJustificativosRepository justificativos;
     late FakeEvidenciasRepository evidencias;
@@ -40,7 +44,8 @@ void main() {
     final comprimirOriginal = compresion.comprimirFoto;
 
     setUp(() {
-      repository = MockHubRepository();
+      portal = FakePortalRepository();
+      alertas = FakeAlertasRepository();
       clase = FakeClaseRepository();
       justificativos = FakeJustificativosRepository(clase: clase);
       evidencias = FakeEvidenciasRepository(clasesSinAutorizacion: {'clase-4'});
@@ -118,7 +123,7 @@ void main() {
         ..asignar('clase-4', 'perfil-camila', ['rol-recepcion'])
         ..asignar('clase-3', 'perfil-daniela', ['rol-foto'], cumplidos: {'rol-foto'});
       await tester.pumpWidget(createTestApp(
-        TutoraMobileScreen(repository: repository, clase: clase, sesion: SesionesDemo.tutora, roles: roles),
+        TutoraMobileScreen(clase: clase, sesion: SesionesDemo.tutora, roles: roles),
       ));
       await tester.pumpAndSettle();
 
@@ -191,7 +196,7 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
 
       await tester.pumpWidget(createTestApp(
-        TutoraMobileScreen(repository: repository, clase: clase, sesion: SesionesDemo.tutora, evidencias: evidencias),
+        TutoraMobileScreen(clase: clase, sesion: SesionesDemo.tutora, evidencias: evidencias),
       ));
       await tester.pumpAndSettle();
 
@@ -299,7 +304,7 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
 
       await tester.pumpWidget(createTestApp(
-        TutoraMobileScreen(repository: repository, clase: clase, sesion: SesionesDemo.tutora),
+        TutoraMobileScreen(clase: clase, sesion: SesionesDemo.tutora),
       ));
       await tester.pumpAndSettle();
 
@@ -357,16 +362,21 @@ void main() {
         claseJustificable(5),
       ]);
       await tester.pumpWidget(createTestApp(
-        PortalAlumnaScreen(repository: repository, justificativos: justificativos),
+        PortalAlumnaScreen(repository: portal, justificativos: justificativos),
       ));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('¡Hola, Valentina!'), findsOneWidget);
       expect(find.text('Mi Asistencia Acumulada'), findsOneWidget);
       // Lo que toca hoy en el banner de bienvenida
-      expect(find.text('Clase 4 · Sábado 25 de Abril'), findsOneWidget);
+      expect(find.text('Clase 4 · ${formatearFechaClase(DateTime.now())}'), findsOneWidget);
       expect(find.text('Hoy toca: Funciones y Modularización del Código'), findsOneWidget);
-      expect(find.textContaining('Cumple meta'), findsOneWidget);
+      // 2 de 3 clases: bajo la meta, con un mensaje de motivación y sin hablar de riesgo (US-25 E2, US-40 E4)
+      expect(find.text('66.7%'), findsOneWidget);
+      expect(find.text('Meta: 80%'), findsOneWidget);
+      expect(find.text('2 de 3 clases asistidas (Meta: 80% para certificar)'), findsOneWidget);
+      expect(find.textContaining('Asiste a 6 clases más de las 6 que quedan'), findsOneWidget);
+      expect(find.textContaining('riesgo'), findsNothing);
 
       // Course-wide resources: one Classroom and one Virtual Judge link (US-26)
       expect(find.text('Recursos del Curso'), findsOneWidget);
@@ -389,7 +399,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Compact exercises card opens its detail bottom sheet
-      await tester.tap(find.text('48'));
+      await tester.tap(find.text('30'));
       await tester.pumpAndSettle();
       expect(find.text('Recuperación por Ejercicios'), findsOneWidget);
       await tester.tapAt(const Offset(20, 20));
@@ -407,7 +417,16 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Cronograma de Clases (Sábados)'), findsOneWidget);
-      expect(find.textContaining('Ver Recursos'), findsNothing);
+
+      // Recursos de la clase en una hoja inferior, con la insignia HTTPS (US-26 E2, E3)
+      await tester.tap(find.text('Ver recursos (2)'));
+      await tester.pumpAndSettle();
+      expect(find.text('Recursos de la clase #1'), findsOneWidget);
+      expect(find.text('Diapositivas'), findsOneWidget);
+      expect(find.text('Código interactivo'), findsOneWidget);
+      expect(find.text('HTTPS'), findsNWidgets(2));
+      await tester.tapAt(const Offset(20, 20));
+      await tester.pumpAndSettle();
 
       // Mis justificativos: aún ninguno
       expect(find.text('Mis Justificativos'), findsOneWidget);
@@ -443,6 +462,10 @@ void main() {
       final enviado = justificativos.lista.single;
       expect((enviado.claseId, enviado.motivo, enviado.estado), ('clase-4', MotivoJustificativo.transporte, EstadoJustificativo.pendiente));
       expect(find.text('PENDIENTE'), findsOneWidget);
+
+      // Una clase suspendida lo indica en el cronograma, sin estado de asistencia
+      await tester.scrollUntilVisible(find.textContaining('Suspendida: Feriado'), 200, scrollable: find.byType(Scrollable).first);
+      expect(find.textContaining('Suspendida: Feriado'), findsOneWidget);
     });
 
     testWidgets('GestionMobileScreen main page shows pending justifications and alerts (US-37, US-39)', (WidgetTester tester) async {
@@ -469,12 +492,12 @@ void main() {
         ..asignar('clase-4', 'perfil-camila', ['rol-foto']);
       await tester.pumpWidget(createTestApp(
         GestionMobileScreen(
-          repository: repository,
           clase: clase,
           sesion: SesionesDemo.gestion,
           justificativos: justificativos,
           evidencias: evidencias,
           roles: roles,
+          alertas: alertas,
         ),
       ));
       await tester.pumpAndSettle();
@@ -544,9 +567,37 @@ void main() {
       expect(justificativos.lista, isEmpty);
       expect(clase.estadoAlumna('clase-3', 'insc-1'), EstadoAsistencia.ausente);
 
-      // Alertas de deserción activas (US-39)
+      // Alertas de deserción con el contacto de la apoderada y la nota metodológica (US-39, US-40)
+      await cerrarAvisos(tester);
       expect(find.text('Alertas de deserción'), findsOneWidget);
-      expect(find.textContaining('inasistencias consecutivas'), findsWidgets);
+      expect(find.textContaining('3 inasistencias seguidas sin justificar (última: Clase #3'), findsOneWidget);
+      expect(find.textContaining('herramienta de acompañamiento'), findsOneWidget);
+      expect(find.text('+56 9 7654 3210'), findsOneWidget);
+      // Al centro de la pantalla, lejos del botón de acciones rápidas
+      await Scrollable.ensureVisible(tester.element(find.text('Registrar contacto')), alignment: 0.5);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Registrar contacto'));
+      await tester.pumpAndSettle();
+      expect(find.text('Contacto con la familia de Florencia Muñoz Tapia'), findsOneWidget);
+      await tester.tap(find.text('Guardar contacto'));
+      await tester.pumpAndSettle();
+      expect(find.text('Cuenta brevemente qué conversaste con la apoderada.'), findsOneWidget);
+      await tester.enterText(find.widgetWithText(TextField, 'Observaciones del contacto'), 'Problemas de transporte.');
+      await tester.tap(find.text('Guardar contacto'));
+      await tester.pumpAndSettle();
+      expect(find.text('📞 Contacto registrado.'), findsOneWidget);
+      expect(alertas.lista.single.atendida, isTrue);
+      expect(alertas.lista.single.observacion, 'Problemas de transporte.');
+      expect(find.text('Sin alertas por atender'), findsOneWidget);
+
+      // El panel completo muestra las contactadas con lo conversado
+      await tester.tap(find.text('Ver todas las alertas'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Ninguna alumna acumula'), findsOneWidget);
+      await tester.tap(find.text('Contactadas'));
+      await tester.pumpAndSettle();
+      expect(find.text('“Problemas de transporte.”'), findsOneWidget);
+      expect(find.text('CONTACTADA'), findsOneWidget);
     });
 
     testWidgets('GestionMobileScreen speed dial opens tutor and class screens (US-13, US-15, US-29, US-33, US-43)', (WidgetTester tester) async {
@@ -560,12 +611,12 @@ void main() {
         ..asignar('clase-4', 'perfil-daniela', ['rol-presentar'], cumplidos: {'rol-presentar'});
       await tester.pumpWidget(createTestApp(
         GestionMobileScreen(
-          repository: repository,
           clase: clase,
           sesion: SesionesDemo.gestion,
           justificativos: justificativos,
           evidencias: evidencias,
           roles: roles,
+          alertas: alertas,
         ),
       ));
       await tester.pumpAndSettle();
@@ -753,7 +804,7 @@ void main() {
 
       final themeNotifier = ValueNotifier(ThemeMode.dark);
       await tester.pumpWidget(createTestApp(
-        AjustesDirectivaScreen(repository: repository, themeNotifier: themeNotifier),
+        AjustesDirectivaScreen(themeNotifier: themeNotifier),
       ));
       await tester.pumpAndSettle();
 
@@ -780,11 +831,13 @@ void main() {
         darkTheme: NinasProTheme.dark,
         themeMode: ThemeMode.dark,
         home: HubShellScreen(
-          repository: repository,
           sesion: sesion,
           themeNotifier: themeNotifier,
           onCerrarSesion: onCerrarSesion,
           claseRepository: clase,
+          portalRepository: portal,
+          alertasRepository: alertas,
+          reportesRepository: FakeReportesRepository(),
         ),
       ));
       await tester.pumpAndSettle();
@@ -837,7 +890,7 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
-      await tester.pumpWidget(createTestApp(HubShellScreen(repository: repository, sesion: SesionesDemo.tutora)));
+      await tester.pumpWidget(createTestApp(const HubShellScreen(sesion: SesionesDemo.tutora)));
       await tester.pumpAndSettle();
       expect(find.text('La clase necesita la conexión con la base de datos.'), findsOneWidget);
     });

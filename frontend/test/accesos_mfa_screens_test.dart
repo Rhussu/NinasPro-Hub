@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ninas_pro_hub/config/ninaspro_theme.dart';
 import 'package:ninas_pro_hub/models/sesion_usuario.dart';
 import 'package:ninas_pro_hub/repositories/accesos_repository.dart';
-import 'package:ninas_pro_hub/repositories/mock_hub_repository.dart';
 import 'package:ninas_pro_hub/screens/accesos/accesos_view.dart';
 import 'package:ninas_pro_hub/screens/auth/auth_gate.dart';
 import 'package:ninas_pro_hub/screens/auth/codigo_recuperacion_screen.dart';
@@ -221,7 +220,6 @@ void main() {
       addTearDown(tester.view.reset);
       final repo = FakeAccesosRepository(lista: [_autorizacion(id: '1', correo: 'pendiente@ninaspro.cl')]);
       await tester.pumpWidget(_app(AjustesDirectivaScreen(
-        repository: MockHubRepository(),
         sesion: SesionesDemo.directiva,
         accesosRepository: repo,
       )));
@@ -235,7 +233,7 @@ void main() {
       tester.view.physicalSize = const Size(1600, 1000);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      await tester.pumpWidget(_app(AjustesDirectivaScreen(repository: MockHubRepository(), sesion: SesionesDemo.directiva)));
+      await tester.pumpWidget(_app(AjustesDirectivaScreen(sesion: SesionesDemo.directiva)));
       await tester.pumpAndSettle();
       expect(find.text('Accesos'), findsNothing);
     });

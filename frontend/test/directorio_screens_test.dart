@@ -1,20 +1,44 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ninas_pro_hub/config/ninaspro_theme.dart';
-import 'package:ninas_pro_hub/repositories/mock_hub_repository.dart';
+import 'package:ninas_pro_hub/models/hub_models.dart' show Curso;
+import 'package:ninas_pro_hub/repositories/reportes_repository.dart';
 import 'package:ninas_pro_hub/screens/directorio/ajustes_directiva_screen.dart';
+import 'package:ninas_pro_hub/screens/directorio/directorio_auditoria_view.dart';
+import 'package:ninas_pro_hub/screens/directorio/directorio_dashboard_view.dart';
 import 'package:ninas_pro_hub/screens/directorio/directorio_desktop_screen.dart';
+import 'package:ninas_pro_hub/screens/directorio/directorio_exportar_view.dart';
 import 'package:ninas_pro_hub/screens/directorio/directorio_grafico_asistencia.dart';
+import 'package:ninas_pro_hub/screens/directorio/directorio_widgets.dart' show FiltroDesplegable;
+import 'package:ninas_pro_hub/services/descargas.dart';
 
 import 'fakes/fake_catalogo_repository.dart';
 import 'fakes/fake_roles_repository.dart';
+import 'fakes/fake_reportes_repository.dart';
 
-/// Vista de escritorio de la Directiva Nacional y sus Ajustes
+/// Vista de escritorio de la Directiva Nacional: dashboard, exportación,
+/// auditoría (US-21..US-25) y sus Ajustes
 void main() {
-  late MockHubRepository repository;
+  late FakeReportesRepository reportes;
+  late FakeCatalogoRepository catalogo;
 
   setUp(() {
-    repository = MockHubRepository();
+    reportes = FakeReportesRepository();
+    catalogo = FakeCatalogoRepository(instancias: [
+      const Curso(
+        id: 'inst-pcb',
+        codigo: 'PCB',
+        nombre: 'Programación Competitiva Básica (Python)',
+        sedeId: 'sede-a',
+        sedeNombre: 'Sede Beauchef',
+        anio: 2026,
+        semestre: 2,
+        totalSesiones: 10,
+      ),
+    ]);
+    ultimaDescarga = null;
   });
 
   Future<void> abrir(WidgetTester tester, Widget pantalla) async {
@@ -35,22 +59,47 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Widget consola() => DirectorioDesktopScreen(reportesRepository: reportes, catalogoRepository: catalogo);
+
   testWidgets('el dashboard muestra los indicadores nacionales y por sede, sin alertas ni justificativos', (tester) async {
-    await abrir(tester, DirectorioDesktopScreen(repository: repository));
+    await abrir(tester, consola());
 
     expect(find.text('Dashboard nacional'), findsOneWidget);
+    expect(find.textContaining('2 sedes activas'), findsOneWidget);
     expect(find.text('Alumnas activas'), findsOneWidget);
-    // 8 de Beauchef + 3 de San Joaquín + 3 de Valparaíso
-    expect(find.text('14'), findsOneWidget);
-    expect(find.text('Sede San Joaquín'), findsOneWidget);
-    expect(find.text('Sede Valparaíso'), findsWidgets);
-    // Alertas y justificativos son del Equipo de Gestión, no de la Directiva
-    expect(find.text('Sofía Araya Bravo'), findsNothing);
+    // 8 de Beauchef + 3 de San Joaquín; 9 + 3 voluntarias
+    expect(find.text('11'), findsOneWidget);
+    expect(find.text('12'), findsOneWidget);
+    expect(find.text('Sede San Joaquín'), findsWidgets);
+    expect(find.text('78.6%'), findsOneWidget);
+    // Sin clases realizadas, la sede inactiva no tiene porcentaje
+    expect(find.text('Inactiva'), findsOneWidget);
+    expect(find.text('—'), findsWidgets);
+    // Alertas y justificativos son del Equipo de Gestión, no del dashboard
     expect(find.text('Justificativos pendientes'), findsNothing);
   });
 
+  testWidgets('el dashboard sin conexión ofrece reintentar', (tester) async {
+    reportes.sinConexion = true;
+    await abrir(tester, DirectorioDashboardView(repository: reportes, onNavegar: (_) {}));
+    expect(find.textContaining('No pudimos cargar los indicadores'), findsOneWidget);
+
+    reportes.sinConexion = false;
+    await tester.tap(find.text('Reintentar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Dashboard nacional'), findsOneWidget);
+  });
+
+  testWidgets('sin clases realizadas el gráfico lo explica', (tester) async {
+    await abrir(
+      tester,
+      DirectorioDashboardView(repository: FakeReportesRepository(series: const []), onNavegar: (_) {}),
+    );
+    expect(find.text('Aún no hay clases realizadas con asistencia registrada.'), findsOneWidget);
+  });
+
   testWidgets('el gráfico de asistencia cambia entre nacional y por sede y muestra el detalle', (tester) async {
-    await abrir(tester, DirectorioDesktopScreen(repository: repository));
+    await abrir(tester, consola());
 
     expect(find.text('Asistencia por clase'), findsOneWidget);
     expect(find.byType(GraficoAsistencia), findsOneWidget);
@@ -69,9 +118,9 @@ void main() {
   });
 
   testWidgets('la barra lateral navega por todas las secciones', (tester) async {
-    await abrir(tester, DirectorioDesktopScreen(repository: repository));
+    await abrir(tester, consola());
 
-    // Sin la base de datos, la nómina de alumnas no se muestra (ver alumnas_screens_test.dart)
+    // Sin su repositorio, la nómina de alumnas no se muestra (ver alumnas_screens_test.dart)
     await irA(tester, 'Alumnas');
     expect(find.textContaining('necesita la conexión con la base de datos'), findsOneWidget);
 
@@ -81,26 +130,124 @@ void main() {
 
     await irA(tester, 'Exportar');
     expect(find.text('Exportar reportes'), findsOneWidget);
-    expect(find.textContaining('Vista previa'), findsOneWidget);
+    expect(find.text('Vista previa'), findsOneWidget);
 
     await irA(tester, 'Auditoría');
-    expect(find.text('16 eventos'), findsOneWidget);
+    expect(find.text('3 eventos'), findsOneWidget);
   });
 
-  testWidgets('exportar registra la descarga en la auditoría (US-22)', (tester) async {
-    await abrir(tester, DirectorioDesktopScreen(repository: repository));
+  testWidgets('sin la base, cada sección lo explica', (tester) async {
+    await abrir(tester, const DirectorioDesktopScreen());
+    expect(find.text('El dashboard necesita la conexión con la base de datos.'), findsOneWidget);
     await irA(tester, 'Exportar');
+    expect(find.text('La exportación necesita la conexión con la base de datos.'), findsOneWidget);
+    await irA(tester, 'Auditoría');
+    expect(find.text('La auditoría necesita la conexión con la base de datos.'), findsOneWidget);
+  });
+
+  testWidgets('exportar descarga el archivo disociado y registra la descarga en la auditoría (US-21, US-22)', (tester) async {
+    await abrir(tester, consola());
+    await irA(tester, 'Exportar');
+
+    expect(find.text('Mostrando 10 de 12 filas'), findsOneWidget);
+    expect(find.text('22.341.890-2'), findsWidgets);
 
     await tester.tap(find.text('Exportar con datos disociados (anonimizado)'));
     await tester.pumpAndSettle();
     expect(find.text('ALUMNA-001'), findsWidgets);
+    expect(find.text('22.341.890-2'), findsNothing);
+    expect(reportes.vistasPrevias.last.disociado, isTrue);
+
+    // Filtra por curso: la vista previa se pide con la instancia
+    await tester.tap(find.byWidgetPredicate((w) => w is FiltroDesplegable && w.etiqueta == 'Curso'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('PCB · 2026-2 · Sede Beauchef').last);
+    await tester.pumpAndSettle();
+    expect(reportes.vistasPrevias.last.instanciaId, 'inst-pcb');
+
+    await tester.tap(find.text('CSV'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Exportar CSV'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('se descargó con 12 filas'), findsOneWidget);
+    expect(reportes.exportaciones.single.$2, FormatoExportacion.csv);
+    expect(ultimaDescarga!.nombre, startsWith('asistencia_disociado_'));
+    expect(ultimaDescarga!.nombre, endsWith('.csv'));
+    // CSV en UTF-8 con BOM: Excel respeta tildes y eñes (US-21 E2)
+    expect(ultimaDescarga!.bytes.sublist(0, 3), [0xEF, 0xBB, 0xBF]);
+    expect(utf8.decode(ultimaDescarga!.bytes.sublist(3)), startsWith('Sede,Curso,Alumna,Estado'));
+
+    await irA(tester, 'Auditoría');
+    expect(find.text('4 eventos'), findsOneWidget);
+    expect(find.textContaining('Exportó asistencia en CSV'), findsOneWidget);
+  });
+
+  testWidgets('un filtro sin datos descarga solo los encabezados (US-22 E3)', (tester) async {
+    reportes.vacio = true;
+    await abrir(tester, DirectorioExportarView(repository: reportes, catalogo: catalogo));
+    await tester.tap(find.text('Participación y ejercicios'));
+    await tester.pumpAndSettle();
+    expect(reportes.vistasPrevias.last.tipo, TipoReporte.participacion);
+    expect(find.textContaining('No hay registros con estos filtros'), findsOneWidget);
 
     await tester.tap(find.text('Exportar XLSX'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('registrada en la auditoría'), findsOneWidget);
+    expect(find.textContaining('se descargó solo con los encabezados'), findsOneWidget);
+    expect(ultimaDescarga!.nombre, endsWith('.xlsx'));
+  });
 
-    await irA(tester, 'Auditoría');
-    expect(find.text('17 eventos'), findsOneWidget);
+  testWidgets('Gestión exporta con su sede fija y sin la nómina (US-21 E3)', (tester) async {
+    await abrir(
+      tester,
+      DirectorioExportarView(repository: reportes, catalogo: catalogo, sedeFijaId: 'sede-a', permiteNomina: false),
+    );
+    expect(find.text('Nómina de alumnas'), findsNothing);
+    expect(find.widgetWithText(Chip, 'Sede Beauchef'), findsOneWidget);
+    expect(reportes.vistasPrevias.last.sedeId, 'sede-a');
+  });
+
+  testWidgets('si la base rechaza el reporte se muestra el motivo', (tester) async {
+    reportes.rechazo = 'Solo puedes exportar datos de tu sede. El intento quedó registrado.';
+    await abrir(tester, DirectorioExportarView(repository: reportes, catalogo: catalogo));
+    expect(find.text('Solo puedes exportar datos de tu sede. El intento quedó registrado.'), findsOneWidget);
+  });
+
+  testWidgets('la auditoría filtra por tipo, usuaria y RUT, y muestra el detalle del cambio (US-24)', (tester) async {
+    await abrir(tester, DirectorioAuditoriaView(repository: reportes));
+    expect(find.text('3 eventos'), findsOneWidget);
+    expect(find.text('Acceso denegado'), findsOneWidget);
+
+    // ARCO: los eventos de una alumna por su RUT (E1)
+    await tester.enterText(find.widgetWithText(TextField, 'RUT de alumna'), '223418902');
+    await tester.tap(find.text('Buscar'));
+    await tester.pumpAndSettle();
+    expect(find.text('1 evento'), findsOneWidget);
+
+    // Detalle con el valor anterior y el nuevo (US-23 E1)
+    await tester.tap(find.textContaining('estado: ausente → presente'));
+    await tester.pumpAndSettle();
+    expect(find.text('Valor anterior'), findsOneWidget);
+    expect(find.text('Valor nuevo'), findsOneWidget);
+    expect(find.textContaining('"presente"'), findsOneWidget);
+    await tester.tap(find.text('Cerrar'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Limpiar filtros'));
+    await tester.pumpAndSettle();
+    expect(find.text('3 eventos'), findsOneWidget);
+
+    // Por usuaria o voluntaria (E2)
+    await tester.enterText(find.widgetWithText(TextField, 'Usuaria (nombre o correo)'), 'fernanda');
+    await tester.tap(find.text('Buscar'));
+    await tester.pumpAndSettle();
+    expect(find.text('1 evento'), findsOneWidget);
+    expect(find.text('Fernanda Pizarro León'), findsOneWidget);
+  });
+
+  testWidgets('la auditoría sin conexión lo explica', (tester) async {
+    reportes.sinConexion = true;
+    await abrir(tester, DirectorioAuditoriaView(repository: reportes));
+    expect(find.textContaining('No pudimos consultar la auditoría'), findsOneWidget);
   });
 
   testWidgets('Ajustes de la Directiva: menú lateral y creación de una sede (US-01)', (tester) async {
@@ -109,7 +256,6 @@ void main() {
     await abrir(
       tester,
       AjustesDirectivaScreen(
-        repository: repository,
         themeNotifier: themeNotifier,
         catalogoRepository: catalogo,
         rolesRepository: FakeRolesRepository(),
@@ -191,3 +337,4 @@ void main() {
     expect(find.text('Preparar el Kahoot'), findsNothing);
   });
 }
+

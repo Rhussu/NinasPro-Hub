@@ -6,7 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ninas_pro_hub/config/ninaspro_theme.dart';
 import 'package:ninas_pro_hub/models/hub_models.dart';
 import 'package:ninas_pro_hub/repositories/alumnas_repository.dart' show ArchivoAdjunto;
-import 'package:ninas_pro_hub/repositories/mock_hub_repository.dart';
 import 'package:ninas_pro_hub/repositories/voluntariado_repository.dart';
 import 'package:ninas_pro_hub/screens/directorio/ajustes/ajustes_roles_view.dart';
 import 'package:ninas_pro_hub/screens/directorio/directorio_desktop_screen.dart';
@@ -90,7 +89,6 @@ void main() {
     await abrir(
       tester,
       DirectorioDesktopScreen(
-        repository: MockHubRepository(),
         voluntariadoRepository: voluntariado,
         catalogoRepository: catalogo,
       ),

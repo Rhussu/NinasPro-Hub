@@ -6,7 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ninas_pro_hub/config/ninaspro_theme.dart';
 import 'package:ninas_pro_hub/models/hub_models.dart';
 import 'package:ninas_pro_hub/repositories/alumnas_repository.dart';
-import 'package:ninas_pro_hub/repositories/mock_hub_repository.dart';
 import 'package:ninas_pro_hub/screens/directorio/directorio_alumnas_view.dart';
 import 'package:ninas_pro_hub/screens/directorio/directorio_desktop_screen.dart';
 import 'package:ninas_pro_hub/services/descargas.dart';
@@ -75,7 +74,7 @@ void main() {
     });
 
     testWidgets('la Directiva ve la nómina real desde la barra lateral', (tester) async {
-      await abrir(tester, DirectorioDesktopScreen(repository: MockHubRepository(), alumnasRepository: repo));
+      await abrir(tester, DirectorioDesktopScreen(alumnasRepository: repo));
       await tester.tap(find.text('Alumnas').first);
       await tester.pumpAndSettle();
       expect(find.text('Florencia Muñoz Tapia'), findsOneWidget);
