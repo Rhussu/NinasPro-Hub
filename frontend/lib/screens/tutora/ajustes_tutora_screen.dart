@@ -4,11 +4,13 @@ import '../../models/sesion_usuario.dart';
 import '../../repositories/clase_repository.dart';
 import '../../repositories/voluntariado_repository.dart';
 import '../../widgets/ninaspro_ajustes.dart';
+import '../ajustes/accesos_rol.dart';
 import '../ajustes/ajustes_screen.dart';
 
 String _fecha(DateTime f) => '${f.day.toString().padLeft(2, '0')}/${f.month.toString().padLeft(2, '0')}/${f.year}';
 
-/// Ajustes de la Tutora: su perfil, sus sedes y cursos, y su ficha del voluntariado.
+/// Ajustes de la Tutora: todo lo que puede ver o hacer ([accesos], lo registra su
+/// pantalla principal), su perfil, sus sedes y cursos, y su ficha del voluntariado.
 /// La estructura común (apariencia, cerrar sesión) la aporta [AjustesScreen].
 /// El Equipo de Gestión reutiliza esta pantalla con otra etiqueta de rol.
 class AjustesTutoraScreen extends StatefulWidget {
@@ -27,8 +29,8 @@ class AjustesTutoraScreen extends StatefulWidget {
   final String rolEtiqueta;
   final String rolEmoji;
 
-  /// Secciones propias del rol que reutiliza la pantalla (ej. Administración de Gestión)
-  final List<Widget> seccionesExtra;
+  /// Entradas a todo lo del rol: la clase de hoy, lo de Gestión, mi trabajo como tutora
+  final RegistroAccesos? accesos;
 
   const AjustesTutoraScreen({
     super.key,
@@ -39,7 +41,7 @@ class AjustesTutoraScreen extends StatefulWidget {
     this.onCerrarSesion,
     this.rolEtiqueta = 'Tutora',
     this.rolEmoji = '👩‍🏫',
-    this.seccionesExtra = const [],
+    this.accesos,
   });
 
   @override
@@ -87,7 +89,10 @@ class _AjustesTutoraScreenState extends State<AjustesTutoraScreen> {
         rolEtiqueta: widget.rolEtiqueta,
         rolEmoji: widget.rolEmoji,
       ),
-      secciones: [_buildPerfil(), ...widget.seccionesExtra],
+      secciones: [
+        if (widget.accesos case final accesos?) AjustesAccesos(registro: accesos),
+        _buildPerfil(),
+      ],
     );
   }
 

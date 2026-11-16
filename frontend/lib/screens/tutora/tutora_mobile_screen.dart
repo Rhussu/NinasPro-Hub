@@ -3,12 +3,16 @@ import '../../config/ninaspro_colors.dart';
 import '../../config/ninaspro_theme.dart';
 import '../../models/hub_models.dart';
 import '../../models/sesion_usuario.dart';
+import '../../repositories/catalogo_repository.dart';
 import '../../repositories/clase_repository.dart';
 import '../../repositories/evidencias_repository.dart';
 import '../../repositories/roles_repository.dart';
 import '../../widgets/ninaspro_recursos_curso.dart';
 import '../../widgets/ninaspro_skeleton.dart';
 import '../../widgets/ninaspro_speed_dial.dart';
+import '../ajustes/accesos_rol.dart';
+import '../calendario/calendario_screen.dart';
+import 'accesos_clase.dart';
 import 'clase_sesion_controller.dart';
 import 'clase_sesion_views.dart';
 import '../gestion/gestion_tutoras_views.dart' show RolesSemanalesView, claseParaRoles;
@@ -24,6 +28,8 @@ import 'inicio_tutora_widgets.dart';
 /// - Speed Dial con la operación de la clase: US-13 asistencia, US-28 ejercicios,
 ///   US-18/US-19 fotos ([FotosClaseView]) y US-29 podio Kahoot (vistas en [clase_sesion_views.dart]).
 /// - En el pase de lista ve el estado de los justificativos, sin resolverlos (US-38).
+/// - Registra en [accesos] lo mismo que sus tarjetas y su Speed Dial, más el
+///   cronograma, para que Ajustes llegue a todo (ver [AccesoRol]).
 class TutoraMobileScreen extends StatefulWidget {
   /// La clase real: cursos, pase de lista, participación y podio
   final ClaseRepository clase;
@@ -37,12 +43,20 @@ class TutoraMobileScreen extends StatefulWidget {
   /// Roles de cada clase y su cumplimiento (US-43, US-44)
   final RolesRepository? roles;
 
+  /// Cronograma del curso en solo lectura (US-03)
+  final CatalogoRepository? catalogo;
+
+  /// Entradas de Ajustes de la tutora
+  final RegistroAccesos? accesos;
+
   const TutoraMobileScreen({
     super.key,
     required this.clase,
     required this.sesion,
     this.evidencias,
     this.roles,
+    this.catalogo,
+    this.accesos,
   });
 
   @override
@@ -62,13 +76,22 @@ class _TutoraMobileScreenState extends State<TutoraMobileScreen> {
   void initState() {
     super.initState();
     _clase = ClaseSesionController(repository: widget.clase, tutoraId: widget.sesion.perfilId);
+    widget.accesos?.registrar(_construirAccesos);
     _cargarDatos();
   }
 
   @override
   void dispose() {
+    widget.accesos?.retirar(_construirAccesos);
     _clase.dispose();
     super.dispose();
+  }
+
+  // Cada cambio de la pantalla también actualiza sus entradas en Ajustes
+  @override
+  void setState(VoidCallback fn) {
+    super.setState(fn);
+    widget.accesos?.avisar();
   }
 
   Future<void> _cargarDatos() async {
@@ -144,6 +167,65 @@ class _TutoraMobileScreenState extends State<TutoraMobileScreen> {
   Future<void> _abrirPantallaClase(String titulo, Widget vista) =>
       abrirPantallaSecundaria(context, titulo, vista);
 
+  Future<void> _abrirAsistencia() => _abrirPantallaClase('Asistencia', AsistenciaClaseView(controller: _clase));
+
+  Future<void> _abrirEjercicios() => _abrirPantallaClase('Ejercicios', EjerciciosClaseView(controller: _clase));
+
+  Future<void> _abrirFotos() =>
+      _abrirPantallaClase('Fotos', FotosClaseView(controller: _clase, evidencias: widget.evidencias));
+
+  Future<void> _abrirMiAsistencia() => _abrirPantallaClase(
+    'Mi Asistencia',
+    MiHistorialTutoraView(historial: _historial, sesionActualId: _clase.sesionId),
+  );
+
+  /// Entradas de Ajustes: las mismas acciones de las tarjetas y el Speed Dial
+  List<SeccionAccesos> _construirAccesos() {
+    final curso = _clase.curso;
+    final registradas = _clasesRegistradas;
+    final catalogo = widget.catalogo;
+    return [
+      SeccionAccesos('La clase de hoy', [
+        ...accesosClaseDeHoy(
+          context,
+          _clase,
+          onElegirCurso: _elegirCurso,
+          abrirAsistencia: _abrirAsistencia,
+          abrirEjercicios: _abrirEjercicios,
+          abrirFotos: _abrirFotos,
+        ),
+      ]),
+      SeccionAccesos('Mi trabajo como tutora', [
+        AccesoRol(
+          icono: Icons.how_to_reg_rounded,
+          titulo: 'Mi asistencia',
+          subtitulo: '${registradas.where((c) => c.estado == EstadoAsistencia.presente).length} de '
+              '${registradas.length} clases, con tus roles',
+          abrir: _abrirMiAsistencia,
+        ),
+        AccesoRol(
+          icono: Icons.assignment_ind_rounded,
+          titulo: 'Roles de la clase',
+          subtitulo: 'Marca los tuyos y mira los del equipo',
+          abrir: widget.roles == null ? null : _abrirRolesEquipo,
+        ),
+        AccesoRol(
+          icono: Icons.calendar_month_rounded,
+          titulo: 'Cronograma',
+          subtitulo: 'Las clases del curso, en solo lectura',
+          abrir: catalogo == null || curso == null
+              ? null
+              : () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => CalendarioScreen(repository: catalogo, instanciaInicial: curso, soloLectura: true),
+                  ),
+                ),
+        ),
+        ?accesoRecursosCurso(context, curso),
+      ]),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -167,21 +249,21 @@ class _TutoraMobileScreenState extends State<TutoraMobileScreen> {
             tooltip: 'Fotos',
             backgroundColor: NinasProColors.accent100,
             foregroundColor: NinasProColors.accent900,
-            onTap: () => _abrirPantallaClase('Fotos', FotosClaseView(controller: _clase, evidencias: widget.evidencias)),
+            onTap: _abrirFotos,
           ),
           AccionRapida(
             icon: Icons.code_rounded,
             tooltip: 'Ejercicios',
             backgroundColor: NinasProColors.success100,
             foregroundColor: NinasProColors.success900,
-            onTap: () => _abrirPantallaClase('Ejercicios', EjerciciosClaseView(controller: _clase)),
+            onTap: _abrirEjercicios,
           ),
           AccionRapida(
             icon: Icons.fact_check_rounded,
             tooltip: 'Asistencia',
             backgroundColor: NinasProColors.primary100,
             foregroundColor: NinasProColors.primary900,
-            onTap: () => _abrirPantallaClase('Asistencia', AsistenciaClaseView(controller: _clase)),
+            onTap: _abrirAsistencia,
           ),
         ],
       ),
@@ -227,7 +309,7 @@ class _TutoraMobileScreenState extends State<TutoraMobileScreen> {
                 listenable: _clase,
                 builder: (context, _) => TarjetaPresentesClase(
                   controller: _clase,
-                  onTap: () => _abrirPantallaClase('Asistencia', AsistenciaClaseView(controller: _clase)),
+                  onTap: _abrirAsistencia,
                 ),
               ),
             ),
@@ -237,10 +319,7 @@ class _TutoraMobileScreenState extends State<TutoraMobileScreen> {
               child: TarjetaMiAsistencia(
                 asistidas: registradas.where((c) => c.estado == EstadoAsistencia.presente).length,
                 registradas: registradas.length,
-                onTap: () => _abrirPantallaClase(
-                  'Mi Asistencia',
-                  MiHistorialTutoraView(historial: _historial, sesionActualId: _clase.sesionId),
-                ),
+                onTap: _abrirMiAsistencia,
               ),
             ),
           ],

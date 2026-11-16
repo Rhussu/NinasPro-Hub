@@ -4,18 +4,25 @@ import '../../config/ninaspro_theme.dart';
 import '../../models/hub_models.dart';
 import '../../models/sesion_usuario.dart';
 import '../../repositories/alertas_repository.dart';
+import '../../repositories/catalogo_repository.dart';
 import '../../repositories/clase_repository.dart';
 import '../../repositories/evidencias_repository.dart';
 import '../../repositories/justificativos_repository.dart';
 import '../../repositories/roles_repository.dart';
+import '../../repositories/voluntariado_repository.dart';
 import '../../widgets/ninaspro_recursos_curso.dart';
 import '../../widgets/ninaspro_skeleton.dart';
 import '../../widgets/ninaspro_speed_dial.dart';
+import '../ajustes/accesos_rol.dart';
+import '../calendario/calendario_screen.dart';
+import '../directorio/directorio_voluntariado_view.dart';
+import '../tutora/accesos_clase.dart';
 import '../tutora/clase_sesion_controller.dart';
 import '../tutora/clase_sesion_views.dart';
 import '../tutora/fotos_clase_view.dart';
 import '../tutora/inicio_tutora_widgets.dart';
 import 'alertas_desercion_view.dart';
+import 'evidencias_pendientes_view.dart';
 import 'gestion_tutoras_views.dart';
 import 'justificativos_gestion.dart';
 
@@ -29,6 +36,8 @@ import 'justificativos_gestion.dart';
 ///   sin foto tras 48 horas (US-20) y alertas activas.
 /// - US-16/US-37: Aprobación, rechazo, registro y eliminación exclusiva de justificativos.
 /// - US-39/US-40: Alertas de deserción de la sede y registro del contacto con la apoderada.
+/// - Registra en [accesos] lo mismo que sus tarjetas y su Speed Dial, más el
+///   calendario y el voluntariado de la sede, para que Ajustes llegue a todo.
 class GestionMobileScreen extends StatefulWidget {
   /// La clase real: cursos de la sede, pase de lista de alumnas y de tutoras
   final ClaseRepository clase;
@@ -48,6 +57,15 @@ class GestionMobileScreen extends StatefulWidget {
   /// Alertas de deserción de la sede (US-39, US-40)
   final AlertasRepository? alertas;
 
+  /// Calendario de clases de la sede (US-03)
+  final CatalogoRepository? catalogo;
+
+  /// Voluntariado de la sede en solo lectura (US-32)
+  final VoluntariadoRepository? voluntariado;
+
+  /// Entradas de Ajustes de Gestión
+  final RegistroAccesos? accesos;
+
   const GestionMobileScreen({
     super.key,
     required this.clase,
@@ -56,6 +74,9 @@ class GestionMobileScreen extends StatefulWidget {
     this.evidencias,
     this.roles,
     this.alertas,
+    this.catalogo,
+    this.voluntariado,
+    this.accesos,
   });
 
   @override
@@ -90,14 +111,23 @@ class _GestionMobileScreenState extends State<GestionMobileScreen> {
       // Aprobar, registrar o eliminar cambia la asistencia: se relee la clase
       _bandeja = BandejaJustificativosController(justificativos, alCambiarAsistencia: _clase.cargarCursoActual);
     }
+    widget.accesos?.registrar(_construirAccesos);
     _cargarDatos();
   }
 
   @override
   void dispose() {
+    widget.accesos?.retirar(_construirAccesos);
     _clase.dispose();
     _bandeja?.dispose();
     super.dispose();
+  }
+
+  // Cada cambio de la pantalla también actualiza sus entradas en Ajustes
+  @override
+  void setState(VoidCallback fn) {
+    super.setState(fn);
+    widget.accesos?.avisar();
   }
 
   Future<void> _cargarDatos() async {
@@ -256,6 +286,125 @@ class _GestionMobileScreenState extends State<GestionMobileScreen> {
   Future<void> _abrirPantallaClase(String titulo, Widget vista) =>
       abrirPantallaSecundaria(context, titulo, vista);
 
+  Future<void> _abrirAsistencia() => _abrirPantallaClase('Asistencia', AsistenciaClaseView(controller: _clase));
+
+  Future<void> _abrirEjercicios() => _abrirPantallaClase('Ejercicios', EjerciciosClaseView(controller: _clase));
+
+  Future<void> _abrirMiAsistencia() => _abrirPantallaClase(
+    'Mi Asistencia',
+    MiHistorialTutoraView(historial: _miHistorial, sesionActualId: _clase.sesionId),
+  );
+
+  // La bandeja completa, la misma de la pantalla principal (US-37)
+  Future<void> _abrirJustificativos(BandejaJustificativosController bandeja) async {
+    await _abrirPantallaClase(
+      'Justificativos',
+      BandejaJustificativosView(controller: bandeja, onIngresar: _ingresarJustificativo),
+    );
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _abrirEvidenciasPendientes() async {
+    await _cargarEvidenciasPendientes();
+    if (!mounted) return;
+    await _abrirPantallaClase(
+      'Evidencias pendientes (> 48 h)',
+      EvidenciasPendientesView(pendientes: _evidenciasPendientes),
+    );
+  }
+
+  /// Entradas de Ajustes: las mismas acciones de las tarjetas y el Speed Dial
+  List<SeccionAccesos> _construirAccesos() {
+    final bandeja = _bandeja;
+    final catalogo = widget.catalogo;
+    final voluntariado = widget.voluntariado;
+    final alertas = _alertasActivas.length;
+    final pendientes = bandeja?.cantidad(EstadoJustificativo.pendiente) ?? 0;
+    final registradas = _misClasesRegistradas;
+    return [
+      SeccionAccesos(
+        'La clase de hoy',
+        accesosClaseDeHoy(
+          context,
+          _clase,
+          onElegirCurso: _elegirCurso,
+          abrirAsistencia: _abrirAsistencia,
+          abrirEjercicios: _abrirEjercicios,
+          abrirFotos: _abrirFotos,
+        ),
+      ),
+      SeccionAccesos('Gestión de la sede', [
+        AccesoRol(
+          icono: Icons.assignment_turned_in_rounded,
+          titulo: 'Justificativos',
+          subtitulo: pendientes == 1 ? '1 por aprobar · filtros por estado' : '$pendientes por aprobar · filtros por estado',
+          abrir: bandeja == null ? null : () => _abrirJustificativos(bandeja),
+        ),
+        AccesoRol(
+          icono: Icons.note_add_rounded,
+          titulo: 'Ingresar justificativo',
+          subtitulo: 'El aviso de la apoderada: queda aprobado',
+          abrir: bandeja == null ? null : _ingresarJustificativo,
+        ),
+        AccesoRol(
+          icono: Icons.notifications_active_rounded,
+          titulo: 'Alertas de deserción',
+          subtitulo: alertas == 1 ? '1 por contactar' : '$alertas por contactar',
+          abrir: widget.alertas == null ? null : _abrirAlertas,
+        ),
+        AccesoRol(
+          icono: Icons.no_photography_rounded,
+          titulo: 'Evidencias pendientes (> 48 h)',
+          subtitulo: _evidenciasPendientes.isEmpty
+              ? 'Fotos al día'
+              : '${_evidenciasPendientes.length} clases sin foto',
+          abrir: widget.evidencias == null ? null : _abrirEvidenciasPendientes,
+        ),
+        AccesoRol(
+          icono: Icons.groups_rounded,
+          titulo: 'Asistencia de tutoras',
+          subtitulo: 'El pase de lista del equipo, con su historial',
+          abrir: _abrirAsistenciaTutoras,
+        ),
+        AccesoRol(
+          icono: Icons.assignment_ind_rounded,
+          titulo: 'Roles de la clase',
+          subtitulo: 'Asigna varios por tutora, también los tuyos, y marca su cumplimiento',
+          abrir: widget.roles == null ? null : _abrirRolesSemanales,
+        ),
+        AccesoRol(
+          icono: Icons.calendar_month_rounded,
+          titulo: 'Calendario de clases',
+          subtitulo: 'Suspende sesiones o agrega clases de recuperación',
+          abrir: catalogo == null
+              ? null
+              : () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CalendarioScreen(repository: catalogo))),
+        ),
+        AccesoRol(
+          icono: Icons.volunteer_activism_rounded,
+          titulo: 'Voluntariado de la sede',
+          subtitulo: 'Fichas, adhesión y cursos, en solo lectura',
+          abrir: voluntariado == null || catalogo == null
+              ? null
+              : () => _abrirPantallaClase(
+                  'Voluntariado',
+                  DirectorioVoluntariadoView(repository: voluntariado, catalogo: catalogo, soloLectura: true),
+                ),
+        ),
+      ]),
+      SeccionAccesos('Mi trabajo como tutora', [
+        AccesoRol(
+          icono: Icons.how_to_reg_rounded,
+          titulo: 'Mi asistencia',
+          subtitulo: '${registradas.where((c) => c.estado == EstadoAsistencia.presente).length} de '
+              '${registradas.length} clases, con tus roles',
+          abrir: _abrirMiAsistencia,
+        ),
+        ?accesoRecursosCurso(context, _clase.curso),
+      ]),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -309,14 +458,14 @@ class _GestionMobileScreenState extends State<GestionMobileScreen> {
             tooltip: 'Ejercicios',
             backgroundColor: NinasProColors.success100,
             foregroundColor: NinasProColors.success900,
-            onTap: () => _abrirPantallaClase('Ejercicios', EjerciciosClaseView(controller: _clase)),
+            onTap: _abrirEjercicios,
           ),
           AccionRapida(
             icon: Icons.fact_check_rounded,
             tooltip: 'Asistencia',
             backgroundColor: NinasProColors.primary100,
             foregroundColor: NinasProColors.primary900,
-            onTap: () => _abrirPantallaClase('Asistencia', AsistenciaClaseView(controller: _clase)),
+            onTap: _abrirAsistencia,
           ),
         ],
       ),
@@ -359,7 +508,7 @@ class _GestionMobileScreenState extends State<GestionMobileScreen> {
                 listenable: _clase,
                 builder: (context, _) => TarjetaPresentesClase(
                   controller: _clase,
-                  onTap: () => _abrirPantallaClase('Asistencia', AsistenciaClaseView(controller: _clase)),
+                  onTap: _abrirAsistencia,
                 ),
               ),
             ),
@@ -369,10 +518,7 @@ class _GestionMobileScreenState extends State<GestionMobileScreen> {
               child: TarjetaMiAsistencia(
                 asistidas: _misClasesRegistradas.where((c) => c.estado == EstadoAsistencia.presente).length,
                 registradas: _misClasesRegistradas.length,
-                onTap: () => _abrirPantallaClase(
-                  'Mi Asistencia',
-                  MiHistorialTutoraView(historial: _miHistorial, sesionActualId: _clase.sesionId),
-                ),
+                onTap: _abrirMiAsistencia,
               ),
             ),
           ],
@@ -438,7 +584,7 @@ class _GestionMobileScreenState extends State<GestionMobileScreen> {
         else
           ..._evidenciasPendientes.map((e) => Padding(
                 padding: const EdgeInsets.only(bottom: 10),
-                child: _buildTarjetaEvidenciaPendiente(isDark, e),
+                child: TarjetaEvidenciaPendiente(evidencia: e),
               )),
         const SizedBox(height: 20),
 
@@ -555,51 +701,6 @@ class _GestionMobileScreenState extends State<GestionMobileScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  // Clase sin foto de evidencia tras 48 horas, con sus tutoras para recordarles (US-20)
-  Widget _buildTarjetaEvidenciaPendiente(bool isDark, EvidenciaPendiente e) {
-    final secundario = isDark ? NinasProColors.neutral300 : NinasProColors.neutral500;
-    return Card(
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      color: isDark ? NinasProColors.dark800 : NinasProColors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: NinasProColors.accent500, width: 1.5),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(e.cursoNombre, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
-                ),
-                Text(
-                  e.demora,
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: NinasProColors.accent900),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              [e.claseEtiqueta, e.tema, e.sedeNombre].whereType<String>().join(' · '),
-              style: TextStyle(fontSize: 11.5, color: secundario),
-            ),
-            if (e.tutoras != null) ...[
-              const SizedBox(height: 6),
-              Text(
-                'Recordar a: ${e.tutoras}',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-              ),
-            ],
-          ],
-        ),
       ),
     );
   }

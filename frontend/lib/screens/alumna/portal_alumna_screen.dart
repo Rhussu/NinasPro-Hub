@@ -8,6 +8,8 @@ import '../../widgets/ninaspro_mascot.dart';
 import '../../widgets/ninaspro_planificacion_hoy.dart';
 import '../../widgets/ninaspro_recursos_curso.dart';
 import '../../widgets/ninaspro_skeleton.dart';
+import '../ajustes/accesos_rol.dart';
+import '../tutora/inicio_tutora_widgets.dart' show abrirPantallaSecundaria;
 import 'justificativos_alumna.dart';
 
 /// Portal Móvil de la Alumna en NiñasPro Hub.
@@ -22,6 +24,7 @@ import 'justificativos_alumna.dart';
 /// - US-35: Justificación de inasistencia eligiendo la clase y explicándola en texto, y
 ///   la lista de sus justificativos con la observación de Gestión (con [JustificativosRepository]).
 /// - Recuperación de clases justificadas mediante ejercicios resueltos (25 ej. = +1 clase, 50 ej. = +2 clases).
+/// - Registra en [accesos] las mismas acciones de sus tarjetas para que Ajustes llegue a todo.
 class PortalAlumnaScreen extends StatefulWidget {
   /// Asistencia, cronograma, recursos, ejercicios y podios de la alumna autenticada
   final PortalRepository repository;
@@ -29,10 +32,14 @@ class PortalAlumnaScreen extends StatefulWidget {
   /// Justificativos reales de la alumna autenticada (US-35)
   final JustificativosRepository? justificativos;
 
+  /// Entradas de Ajustes de la alumna
+  final RegistroAccesos? accesos;
+
   const PortalAlumnaScreen({
     super.key,
     required this.repository,
     this.justificativos,
+    this.accesos,
   });
 
   @override
@@ -54,7 +61,103 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
   @override
   void initState() {
     super.initState();
+    widget.accesos?.registrar(_construirAccesos);
     _cargarDatos();
+  }
+
+  @override
+  void dispose() {
+    widget.accesos?.retirar(_construirAccesos);
+    super.dispose();
+  }
+
+  // Cada cambio del portal también actualiza sus entradas en Ajustes
+  @override
+  void setState(VoidCallback fn) {
+    super.setState(fn);
+    widget.accesos?.avisar();
+  }
+
+  Future<void> _abrirMisJustificativos(JustificativosRepository repo) => abrirPantallaSecundaria(
+    context,
+    'Mis justificativos',
+    ListView(padding: const EdgeInsets.all(16), children: [MisJustificativosCard(repository: repo)]),
+  );
+
+  Future<void> _abrirMiAsistencia() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return abrirPantallaSecundaria(
+      context,
+      'Mi asistencia',
+      ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: [_buildTarjetaAsistencia(isDark), const SizedBox(height: 20), ..._buildCronograma(isDark)],
+      ),
+    );
+  }
+
+  /// Entradas de Ajustes: las mismas acciones de las tarjetas y el botón del portal
+  List<SeccionAccesos> _construirAccesos() {
+    final portal = _portal;
+    final justificativos = widget.justificativos;
+    const sinPortal = 'Necesita tu portal: revisa tu conexión y desliza hacia abajo en el inicio.';
+    final curso = portal?.curso;
+    return [
+      SeccionAccesos('Mi asistencia', [
+        AccesoRol(
+          icono: Icons.event_note_rounded,
+          titulo: 'Asistencia y cronograma',
+          subtitulo: portal?.asistencia.porcentaje == null
+              ? 'El estado de cada clase y sus recursos'
+              : '${portal!.asistencia.porcentaje!.toStringAsFixed(1)}% · el estado de cada clase y sus recursos',
+          abrir: portal == null ? null : _abrirMiAsistencia,
+          sinConexion: sinPortal,
+        ),
+        AccesoRol(
+          icono: Icons.edit_calendar_rounded,
+          titulo: 'Justificar falta',
+          subtitulo: 'Elige la clase y explica el motivo',
+          abrir: justificativos == null ? null : _justificarFalta,
+        ),
+        AccesoRol(
+          icono: Icons.assignment_turned_in_rounded,
+          titulo: 'Mis justificativos',
+          subtitulo: 'Su estado y la observación de Gestión',
+          abrir: justificativos == null ? null : () => _abrirMisJustificativos(justificativos),
+        ),
+      ]),
+      SeccionAccesos('Mi progreso', [
+        AccesoRol(
+          icono: Icons.code_rounded,
+          titulo: 'Mis ejercicios',
+          subtitulo: portal == null ? null : '${portal.ejercicios} resueltos · recuperan clases justificadas',
+          abrir: portal == null ? null : () => _mostrarDetalleEjercicios(context),
+          sinConexion: sinPortal,
+        ),
+        AccesoRol(
+          icono: Icons.emoji_events_rounded,
+          titulo: 'Mis podios Kahoot',
+          subtitulo: portal == null
+              ? null
+              : '🥇 ${portal.podiosPrimero} · 🥈 ${portal.podiosSegundo} · 🥉 ${portal.podiosTercero}',
+          abrir: portal == null ? null : () => _mostrarDetallePodios(context),
+          sinConexion: sinPortal,
+        ),
+      ]),
+      if (curso != null && (curso.classroomUrl != null || curso.juezVirtualUrl != null))
+        SeccionAccesos('Mi curso', [
+          AccesoRol(
+            icono: Icons.link_rounded,
+            titulo: 'Recursos del curso',
+            subtitulo: 'Classroom y Juez Virtual',
+            abrir: () => abrirPantallaSecundaria(
+              context,
+              'Recursos del curso',
+              ListView(padding: const EdgeInsets.all(16), children: [NinasProRecursosCursoCard(curso: curso)]),
+            ),
+          ),
+        ]),
+    ];
   }
 
   Future<void> _cargarDatos() async {
@@ -138,10 +241,6 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
       );
     }
 
-    final asistencia = _data.asistencia;
-    final asistenciaPorc = asistencia.porcentaje ?? 0;
-    final umbral = asistencia.umbral;
-    final aprueba = asistencia.cumpleMeta;
     final curso = _data.curso;
 
     // Referencia para escalar las barras del podio
@@ -240,123 +339,7 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
             ],
 
             // Tarjeta de progreso de asistencia (US-25 & US-35)
-            Card(
-              elevation: 0,
-              color: isDark ? NinasProColors.dark800 : NinasProColors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-                side: BorderSide(
-                  color: isDark ? NinasProColors.dark700 : NinasProColors.neutral100,
-                ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Wrap(
-                      alignment: WrapAlignment.spaceBetween,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: [
-                        const Text(
-                          'Mi Asistencia Acumulada',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: aprueba ? NinasProColors.success100 : NinasProColors.warning100,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            aprueba ? 'Cumple meta para certificar' : 'Meta: $umbral%',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: aprueba ? NinasProColors.success900 : NinasProColors.warning900,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    Row(
-                      children: [
-                        Text(
-                          asistencia.porcentaje == null ? '—' : '${asistenciaPorc.toStringAsFixed(1)}%',
-                          style: const TextStyle(
-                            fontSize: 34,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -1,
-                            color: NinasProColors.brandPink,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(6),
-                                child: LinearProgressIndicator(
-                                  value: (asistenciaPorc / 100).clamp(0.0, 1.0),
-                                  minHeight: 12,
-                                  backgroundColor: isDark
-                                      ? NinasProColors.dark700
-                                      : NinasProColors.neutral100,
-                                  valueColor: AlwaysStoppedAnimation(
-                                    aprueba ? NinasProColors.success500 : NinasProColors.warning500,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                '${asistencia.asistidas} de ${asistencia.realizadas} clases asistidas '
-                                '(Meta: $umbral% para certificar)',
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  color: isDark ? NinasProColors.neutral300 : NinasProColors.neutral500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    if (!aprueba || asistencia.recuperadas > 0) ...[
-                      const SizedBox(height: 10),
-                      _buildMensajeMeta(asistencia),
-                    ],
-                    if (asistencia.umbralReducido) ...[
-                      const SizedBox(height: 10),
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: NinasProColors.primary700.withValues(alpha: 0.10),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.info_outline, size: 16, color: NinasProColors.brandPink),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                'Meta reducida al $umbral% gracias a que cuentas con al menos 1 justificativo aprobado.',
-                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
+            _buildTarjetaAsistencia(isDark),
             const SizedBox(height: 16),
 
             if (widget.justificativos != null) ...[
@@ -462,105 +445,238 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
             const SizedBox(height: 20),
 
             // Cronograma de Sábados (US-25)
-            const Text(
-              'Cronograma de Clases (Sábados)',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 10),
-
-            if (_data.sesiones.isEmpty)
-              const Text('Tu cronograma aparecerá cuando tengas un curso asignado.'),
-            ..._data.sesiones.map((sesion) {
-              final estado = _data.estadoDe(sesion);
-              final tono = context.statusColors.asistencia(estado);
-
-              return Card(
-                elevation: 0,
-                margin: const EdgeInsets.only(bottom: 8),
-                color: isDark ? NinasProColors.dark800 : NinasProColors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  side: BorderSide(
-                    color: isDark ? NinasProColors.dark700 : NinasProColors.neutral100,
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 38,
-                            height: 38,
-                            decoration: BoxDecoration(
-                              color: isDark ? NinasProColors.dark700 : NinasProColors.primary100,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              '#${sesion.numeroSesion}',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w800,
-                                color: isDark ? NinasProColors.primary300 : NinasProColors.primary900,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  sesion.tema,
-                                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  '${fechaCorta(sesion.fecha)}'
-                                  '${sesion.suspendida ? ' · Suspendida${sesion.motivoSuspension == null ? '' : ': ${sesion.motivoSuspension}'}' : ''}',
-                                  style: TextStyle(
-                                    fontSize: 11.5,
-                                    color: isDark ? NinasProColors.neutral300 : NinasProColors.neutral500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (!sesion.suspendida)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: tono.decoration,
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(estado.icon, size: 14, color: tono.foreground),
-                                  const SizedBox(width: 4),
-                                  Text(estado.label, style: tono.textStyle(fontSize: 11.5)),
-                                ],
-                              ),
-                            ),
-                        ],
-                      ),
-                      // Recursos de la clase en una hoja inferior (US-26 E2)
-                      if (sesion.recursos.isNotEmpty)
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton.icon(
-                            onPressed: () => _mostrarRecursosSesion(context, sesion),
-                            icon: const Icon(Icons.folder_open_rounded, size: 16),
-                            label: Text('Ver recursos (${sesion.recursos.length})'),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              );
-            }),
+            ..._buildCronograma(isDark),
           ],
         ),
       ),
     );
+  }
+
+  // Asistencia acumulada contra la meta (US-25, US-35): en el inicio y en "Mi asistencia"
+  Widget _buildTarjetaAsistencia(bool isDark) {
+    final asistencia = _data.asistencia;
+    final asistenciaPorc = asistencia.porcentaje ?? 0;
+    final umbral = asistencia.umbral;
+    final aprueba = asistencia.cumpleMeta;
+
+    return Card(
+      elevation: 0,
+      color: isDark ? NinasProColors.dark800 : NinasProColors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(
+          color: isDark ? NinasProColors.dark700 : NinasProColors.neutral100,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                const Text(
+                  'Mi Asistencia Acumulada',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: aprueba ? NinasProColors.success100 : NinasProColors.warning100,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    aprueba ? 'Cumple meta para certificar' : 'Meta: $umbral%',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: aprueba ? NinasProColors.success900 : NinasProColors.warning900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            Row(
+              children: [
+                Text(
+                  asistencia.porcentaje == null ? '—' : '${asistenciaPorc.toStringAsFixed(1)}%',
+                  style: const TextStyle(
+                    fontSize: 34,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -1,
+                    color: NinasProColors.brandPink,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: LinearProgressIndicator(
+                          value: (asistenciaPorc / 100).clamp(0.0, 1.0),
+                          minHeight: 12,
+                          backgroundColor: isDark
+                              ? NinasProColors.dark700
+                              : NinasProColors.neutral100,
+                          valueColor: AlwaysStoppedAnimation(
+                            aprueba ? NinasProColors.success500 : NinasProColors.warning500,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '${asistencia.asistidas} de ${asistencia.realizadas} clases asistidas '
+                        '(Meta: $umbral% para certificar)',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: isDark ? NinasProColors.neutral300 : NinasProColors.neutral500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            if (!aprueba || asistencia.recuperadas > 0) ...[
+              const SizedBox(height: 10),
+              _buildMensajeMeta(asistencia),
+            ],
+            if (asistencia.umbralReducido) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: NinasProColors.primary700.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline, size: 16, color: NinasProColors.brandPink),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Meta reducida al $umbral% gracias a que cuentas con al menos 1 justificativo aprobado.',
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Cronograma de clases con el estado de cada una y sus recursos (US-25, US-26 E2)
+  List<Widget> _buildCronograma(bool isDark) {
+    return [
+      const Text(
+        'Cronograma de Clases (Sábados)',
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+      ),
+      const SizedBox(height: 10),
+
+      if (_data.sesiones.isEmpty)
+        const Text('Tu cronograma aparecerá cuando tengas un curso asignado.'),
+      ..._data.sesiones.map((sesion) {
+        final estado = _data.estadoDe(sesion);
+        final tono = context.statusColors.asistencia(estado);
+
+        return Card(
+          elevation: 0,
+          margin: const EdgeInsets.only(bottom: 8),
+          color: isDark ? NinasProColors.dark800 : NinasProColors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: BorderSide(
+              color: isDark ? NinasProColors.dark700 : NinasProColors.neutral100,
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: isDark ? NinasProColors.dark700 : NinasProColors.primary100,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        '#${sesion.numeroSesion}',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: isDark ? NinasProColors.primary300 : NinasProColors.primary900,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            sesion.tema,
+                            style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${fechaCorta(sesion.fecha)}'
+                            '${sesion.suspendida ? ' · Suspendida${sesion.motivoSuspension == null ? '' : ': ${sesion.motivoSuspension}'}' : ''}',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: isDark ? NinasProColors.neutral300 : NinasProColors.neutral500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (!sesion.suspendida)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: tono.decoration,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(estado.icon, size: 14, color: tono.foreground),
+                            const SizedBox(width: 4),
+                            Text(estado.label, style: tono.textStyle(fontSize: 11.5)),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+                // Recursos de la clase en una hoja inferior (US-26 E2)
+                if (sesion.recursos.isNotEmpty)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: () => _mostrarRecursosSesion(context, sesion),
+                      icon: const Icon(Icons.folder_open_rounded, size: 16),
+                      label: Text('Ver recursos (${sesion.recursos.length})'),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      }),
+    ];
   }
 
   // Cuántas clases le faltan para la meta, o la clase recuperada con ejercicios (US-25 E2, E3).

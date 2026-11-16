@@ -17,6 +17,7 @@ import '../../services/health_service.dart';
 import '../../widgets/db_health_checker.dart';
 import '../../widgets/ninaspro_sync_indicator.dart';
 import '../../widgets/ninaspro_vista_centrada.dart';
+import 'ajustes/accesos_rol.dart';
 import 'alumna/ajustes_alumna_screen.dart';
 import 'alumna/portal_alumna_screen.dart';
 import 'directorio/ajustes_directiva_screen.dart';
@@ -36,6 +37,10 @@ import 'tutora/tutora_mobile_screen.dart';
 ///
 /// Gestión, Tutora y Alumna son vistas responsivas pensadas primero para el
 /// celular; en pantallas anchas se centran con un ancho máximo legible.
+///
+/// La pantalla principal de cada rol es un resumen con accesos rápidos; sus
+/// Ajustes llegan a todo lo del rol con las mismas vistas, mediante un
+/// [RegistroAccesos] que la pantalla principal llena.
 class HubShellScreen extends StatefulWidget {
   final SesionUsuario sesion;
   final HealthService? healthService;
@@ -100,6 +105,15 @@ class HubShellScreen extends StatefulWidget {
 
 class _HubShellScreenState extends State<HubShellScreen> {
   bool _mostrarHealthChecker = false;
+
+  /// Lo que la pantalla principal del rol ofrece en sus Ajustes
+  final _accesos = RegistroAccesos();
+
+  @override
+  void dispose() {
+    _accesos.dispose();
+    super.dispose();
+  }
 
   RolUsuario get _rol => widget.sesion.rol;
 
@@ -167,6 +181,7 @@ class _HubShellScreenState extends State<HubShellScreen> {
               alumnasRepository: widget.alumnasRepository,
               voluntariadoRepository: widget.voluntariadoRepository,
               catalogoRepository: widget.catalogoRepository,
+              accesos: _accesos,
             ),
             if (_mostrarHealthChecker)
               Positioned(bottom: 20, right: 20, child: DbHealthChecker(healthService: widget.healthService)),
@@ -213,15 +228,24 @@ class _HubShellScreenState extends State<HubShellScreen> {
         evidencias: widget.evidenciasRepository,
         roles: widget.rolesRepository,
         alertas: widget.alertasRepository,
+        catalogo: widget.catalogoRepository,
+        voluntariado: widget.voluntariadoRepository,
+        accesos: _accesos,
       ),
       RolUsuario.tutora => TutoraMobileScreen(
         clase: clase!,
         sesion: widget.sesion,
         evidencias: widget.evidenciasRepository,
         roles: widget.rolesRepository,
+        catalogo: widget.catalogoRepository,
+        accesos: _accesos,
       ),
       RolUsuario.alumna => switch (widget.portalRepository) {
-        final portal? => PortalAlumnaScreen(repository: portal, justificativos: widget.justificativosRepository),
+        final portal? => PortalAlumnaScreen(
+          repository: portal,
+          justificativos: widget.justificativosRepository,
+          accesos: _accesos,
+        ),
         null => const Center(child: Text('Tu portal necesita la conexión con la base de datos.')),
       },
       _ => _RolSinVista(sesion: widget.sesion, onCerrarSesion: widget.onCerrarSesion),
@@ -237,6 +261,10 @@ class _HubShellScreenState extends State<HubShellScreen> {
           accesosRepository: widget.accesosRepository,
           catalogoRepository: widget.catalogoRepository,
           rolesRepository: widget.rolesRepository,
+          claseRepository: widget.claseRepository,
+          justificativosRepository: widget.justificativosRepository,
+          alertasRepository: widget.alertasRepository,
+          accesos: _accesos,
         ),
       RolUsuario.equipoGestion => AjustesGestionScreen(
           sesion: widget.sesion,
@@ -244,7 +272,7 @@ class _HubShellScreenState extends State<HubShellScreen> {
           clase: widget.claseRepository,
           themeNotifier: widget.themeNotifier,
           onCerrarSesion: widget.onCerrarSesion,
-          catalogoRepository: widget.catalogoRepository,
+          accesos: _accesos,
         ),
       RolUsuario.tutora => AjustesTutoraScreen(
           sesion: widget.sesion,
@@ -252,12 +280,14 @@ class _HubShellScreenState extends State<HubShellScreen> {
           clase: widget.claseRepository,
           themeNotifier: widget.themeNotifier,
           onCerrarSesion: widget.onCerrarSesion,
+          accesos: _accesos,
         ),
       RolUsuario.alumna => switch (widget.portalRepository) {
           final portal? => AjustesAlumnaScreen(
               repository: portal,
               themeNotifier: widget.themeNotifier,
               onCerrarSesion: widget.onCerrarSesion,
+              accesos: _accesos,
             ),
           null => null,
         },

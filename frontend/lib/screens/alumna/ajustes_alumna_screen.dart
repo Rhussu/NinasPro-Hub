@@ -1,20 +1,26 @@
 import 'package:flutter/material.dart';
 import '../../repositories/portal_repository.dart';
 import '../../widgets/ninaspro_ajustes.dart';
+import '../ajustes/accesos_rol.dart';
 import '../ajustes/ajustes_screen.dart';
 
-/// Ajustes de la Alumna: perfil, curso y apoderado/a de la cuenta autenticada.
+/// Ajustes de la Alumna: todo lo de su portal ([accesos], lo registra
+/// [PortalAlumnaScreen]), y el perfil, curso y apoderado/a de la cuenta autenticada.
 /// La estructura común (apariencia, cerrar sesión) la aporta [AjustesScreen].
 class AjustesAlumnaScreen extends StatefulWidget {
   final PortalRepository repository;
   final ValueNotifier<ThemeMode>? themeNotifier;
   final VoidCallback? onCerrarSesion;
 
+  /// Asistencia, justificativos, progreso y recursos del portal
+  final RegistroAccesos? accesos;
+
   const AjustesAlumnaScreen({
     super.key,
     required this.repository,
     this.themeNotifier,
     this.onCerrarSesion,
+    this.accesos,
   });
 
   @override
@@ -68,25 +74,26 @@ class _AjustesAlumnaScreenState extends State<AjustesAlumnaScreen> {
               rolEtiqueta: 'Alumna',
               rolEmoji: '👧',
             ),
-      secciones: portal == null
-          ? const []
-          : [
-              AjustesSeccion(
-                titulo: 'Mi perfil',
-                children: [
-                  AjustesTile(icono: Icons.badge_rounded, titulo: 'RUT', subtitulo: portal.rut),
-                  AjustesTile(icono: Icons.school_rounded, titulo: 'Curso', subtitulo: curso?.nombre ?? '—'),
-                  AjustesTile(icono: Icons.location_on_rounded, titulo: 'Sede', subtitulo: curso?.sedeNombre ?? '—'),
-                ],
-              ),
-              AjustesSeccion(
-                titulo: 'Apoderado/a',
-                children: [
-                  AjustesTile(icono: Icons.person_rounded, titulo: 'Nombre', subtitulo: portal.apoderadoNombre),
-                  AjustesTile(icono: Icons.phone_rounded, titulo: 'Teléfono', subtitulo: portal.apoderadoTelefono),
-                ],
-              ),
+      secciones: [
+        if (widget.accesos case final accesos?) AjustesAccesos(registro: accesos),
+        if (portal != null) ...[
+          AjustesSeccion(
+            titulo: 'Mi perfil',
+            children: [
+              AjustesTile(icono: Icons.badge_rounded, titulo: 'RUT', subtitulo: portal.rut),
+              AjustesTile(icono: Icons.school_rounded, titulo: 'Curso', subtitulo: curso?.nombre ?? '—'),
+              AjustesTile(icono: Icons.location_on_rounded, titulo: 'Sede', subtitulo: curso?.sedeNombre ?? '—'),
             ],
+          ),
+          AjustesSeccion(
+            titulo: 'Apoderado/a',
+            children: [
+              AjustesTile(icono: Icons.person_rounded, titulo: 'Nombre', subtitulo: portal.apoderadoNombre),
+              AjustesTile(icono: Icons.phone_rounded, titulo: 'Teléfono', subtitulo: portal.apoderadoTelefono),
+            ],
+          ),
+        ],
+      ],
     );
   }
 }
