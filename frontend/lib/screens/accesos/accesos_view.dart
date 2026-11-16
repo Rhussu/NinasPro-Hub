@@ -10,8 +10,8 @@ import '../directorio/directorio_widgets.dart';
 
 /// Vista "Accesos" (US-04): correos habilitados para crear su cuenta.
 ///
-/// La Directiva autoriza cualquier rol en cualquier sede; el Equipo de Gestión,
-/// solo alumnas inscritas en su sede. Quien recibe la autorización crea su
+/// Solo la Directiva autoriza correos, de cualquier rol y sede (las alumnas
+/// las gestiona la Directiva, no el Equipo de Gestión). Quien recibe la autorización crea su
 /// cuenta desde "Primera vez: crear mi cuenta" con ese mismo correo.
 class AccesosView extends StatefulWidget {
   final AccesosRepository repository;
@@ -28,7 +28,6 @@ class _AccesosViewState extends State<AccesosView> {
   String? _error;
   List<AutorizacionCorreo> _autorizaciones = const [];
 
-  bool get _esDirectiva => widget.sesion.rol == RolUsuario.directorio;
 
   @override
   void initState() {
@@ -60,7 +59,7 @@ class _AccesosViewState extends State<AccesosView> {
   Future<void> _autorizar() async {
     final nueva = await showDialog<AutorizacionCorreo>(
       context: context,
-      builder: (_) => DialogoAutorizarCorreo(repository: widget.repository, esDirectiva: _esDirectiva),
+      builder: (_) => DialogoAutorizarCorreo(repository: widget.repository),
     );
     if (nueva == null || !mounted) return;
     mostrarAviso(
@@ -90,9 +89,7 @@ class _AccesosViewState extends State<AccesosView> {
     if (r.ok) _cargar();
   }
 
-  /// La Directiva revoca cualquiera; Gestión solo las de alumnas
-  bool _puedeRevocar(AutorizacionCorreo a) =>
-      a.estado() != EstadoAutorizacion.usada && (_esDirectiva || a.rol == RolUsuario.alumna);
+  bool _puedeRevocar(AutorizacionCorreo a) => a.estado() != EstadoAutorizacion.usada;
 
   @override
   Widget build(BuildContext context) {
@@ -103,9 +100,7 @@ class _AccesosViewState extends State<AccesosView> {
         children: [
           DirectorioEncabezado(
             titulo: 'Accesos',
-            subtitulo: _esDirectiva
-                ? 'Correos habilitados para crear su cuenta en NiñasPro Hub'
-                : 'Correos de alumnas de tu sede habilitados para crear su cuenta',
+            subtitulo: 'Correos habilitados para crear su cuenta en NiñasPro Hub',
             acciones: [
               FilledButton.icon(
                 onPressed: _cargando ? null : _autorizar,
@@ -218,9 +213,8 @@ class DialogoAutorizarCorreo extends StatefulWidget {
   final AccesosRepository repository;
 
   /// La Directiva elige el rol; Gestión solo autoriza alumnas
-  final bool esDirectiva;
 
-  const DialogoAutorizarCorreo({super.key, required this.repository, required this.esDirectiva});
+  const DialogoAutorizarCorreo({super.key, required this.repository});
 
   @override
   State<DialogoAutorizarCorreo> createState() => _DialogoAutorizarCorreoState();
@@ -233,7 +227,7 @@ class _DialogoAutorizarCorreoState extends State<DialogoAutorizarCorreo> {
   final _nombres = TextEditingController();
   final _apellidos = TextEditingController();
 
-  late RolUsuario _rol = widget.esDirectiva ? RolUsuario.tutora : RolUsuario.alumna;
+  RolUsuario _rol = RolUsuario.tutora;
   String? _sedeId;
   AlumnaSinCuenta? _alumna;
   bool _esLider = false;
@@ -262,7 +256,7 @@ class _DialogoAutorizarCorreoState extends State<DialogoAutorizarCorreo> {
 
   Future<void> _cargarOpciones() async {
     try {
-      final sedes = widget.esDirectiva ? await widget.repository.sedes() : const <SedeOpcion>[];
+      final sedes = await widget.repository.sedes();
       final alumnas = await widget.repository.alumnasSinCuenta();
       if (!mounted) return;
       setState(() {
@@ -339,23 +333,22 @@ class _DialogoAutorizarCorreoState extends State<DialogoAutorizarCorreo> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      if (widget.esDirectiva)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 14),
-                          child: DropdownButtonFormField<RolUsuario>(
-                            initialValue: _rol,
-                            isExpanded: true,
-                            decoration: const InputDecoration(labelText: 'Rol', border: OutlineInputBorder()),
-                            items: [
-                              for (final r in RolUsuario.values)
-                                DropdownMenuItem(value: r, child: Text('${r.emoji} ${r.etiqueta}')),
-                            ],
-                            onChanged: (r) => setState(() {
-                              _rol = r ?? _rol;
-                              _esLider = false;
-                            }),
-                          ),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 14),
+                        child: DropdownButtonFormField<RolUsuario>(
+                          initialValue: _rol,
+                          isExpanded: true,
+                          decoration: const InputDecoration(labelText: 'Rol', border: OutlineInputBorder()),
+                          items: [
+                            for (final r in RolUsuario.values)
+                              DropdownMenuItem(value: r, child: Text('${r.emoji} ${r.etiqueta}')),
+                          ],
+                          onChanged: (r) => setState(() {
+                            _rol = r ?? _rol;
+                            _esLider = false;
+                          }),
                         ),
+                      ),
                       if (_esAlumna) ..._camposAlumna() else ..._camposVoluntariado(),
                       CampoFormulario(
                         controller: _correo,
@@ -444,26 +437,5 @@ class _DialogoAutorizarCorreoState extends State<DialogoAutorizarCorreo> {
           onChanged: (v) => setState(() => _esLider = v),
         ),
     ];
-  }
-}
-
-/// Pantalla completa de "Accesos" para la vista móvil del Equipo de Gestión.
-class AccesosScreen extends StatelessWidget {
-  final AccesosRepository repository;
-  final SesionUsuario sesion;
-
-  const AccesosScreen({super.key, required this.repository, required this.sesion});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Accesos')),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 720),
-          child: AccesosView(repository: repository, sesion: sesion),
-        ),
-      ),
-    );
   }
 }

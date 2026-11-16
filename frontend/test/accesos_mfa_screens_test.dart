@@ -197,45 +197,18 @@ void main() {
       expect(repo.solicitudes.single.esLiderSede, isTrue);
     });
 
-    testWidgets('Gestión solo autoriza alumnas y ve el rechazo de la base', (tester) async {
+    testWidgets('sin alumnas pendientes lo explica en el formulario', (tester) async {
       tester.view.physicalSize = const Size(1200, 1600);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      final repo = FakeAccesosRepository()..errorAutorizar = 'No tienes permiso para autorizar este acceso.';
-      await tester.pumpWidget(_app(AccesosScreen(repository: repo, sesion: SesionesDemo.gestion)));
-      await tester.pumpAndSettle();
-      expect(find.text('Aún no hay correos autorizados.'), findsOneWidget);
-
-      await tester.tap(find.text('Autorizar correo'));
-      await tester.pumpAndSettle();
-      expect(find.text('Rol'), findsNothing);
-      expect(_campo('RUT'), findsNothing);
-
-      await tester.tap(find.text('Autorizar'));
-      await tester.pumpAndSettle();
-      expect(find.text('Elige a la alumna'), findsOneWidget);
-
-      await tester.tap(find.widgetWithText(DropdownButtonFormField<AlumnaSinCuenta>, 'Alumna'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Florencia Muñoz Tapia · Sede Beauchef').last);
-      await tester.pumpAndSettle();
-      // Se propone el correo de la ficha
-      expect(tester.widget<TextFormField>(_campo('Correo')).controller!.text, 'florencia@correo.cl');
-
-      await tester.tap(find.text('Autorizar'));
-      await tester.pumpAndSettle();
-      final s = repo.solicitudes.single;
-      expect(s.rol, RolUsuario.alumna);
-      expect(s.alumnaId, 'alumna-1');
-      expect(s.sedeId, 'sede-a');
-      expect(find.text('No tienes permiso para autorizar este acceso.'), findsOneWidget);
-    });
-
-    testWidgets('sin alumnas pendientes lo explica en el formulario', (tester) async {
       final repo = FakeAccesosRepository(alumnas: const []);
-      await tester.pumpWidget(_app(AccesosScreen(repository: repo, sesion: SesionesDemo.gestion)));
+      await tester.pumpWidget(_app(Scaffold(body: AccesosView(repository: repo, sesion: SesionesDemo.directiva))));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Autorizar correo'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(DropdownButtonFormField<RolUsuario>, 'Rol'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('Alumna').last);
       await tester.pumpAndSettle();
       expect(find.textContaining('No hay alumnas inscritas sin cuenta'), findsOneWidget);
     });
@@ -267,18 +240,10 @@ void main() {
       expect(find.text('Accesos'), findsNothing);
     });
 
-    testWidgets('Gestión abre Accesos desde Ajustes', (tester) async {
-      final repo = FakeAccesosRepository();
-      await tester.pumpWidget(_app(AjustesGestionScreen(
-        repository: MockHubRepository(),
-        sesion: SesionesDemo.gestion,
-        accesosRepository: repo,
-      )));
+    testWidgets('Gestión no tiene Accesos: las alumnas las gestiona la Directiva', (tester) async {
+      await tester.pumpWidget(_app(AjustesGestionScreen(repository: MockHubRepository())));
       await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(find.text('Accesos'), 200);
-      await tester.tap(find.text('Accesos'));
-      await tester.pumpAndSettle();
-      expect(find.text('Correos de alumnas de tu sede habilitados para crear su cuenta'), findsOneWidget);
+      expect(find.text('Accesos'), findsNothing);
     });
   });
 }

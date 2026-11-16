@@ -156,10 +156,7 @@ class _HubShellScreenState extends State<HubShellScreen> {
 
   Widget _buildVistaMovil() {
     return switch (_rol) {
-      RolUsuario.equipoGestion => GestionMobileScreen(
-          repository: widget.repository,
-          alumnasRepository: widget.alumnasRepository,
-        ),
+RolUsuario.equipoGestion => GestionMobileScreen(repository: widget.repository),
       RolUsuario.tutora => TutoraMobileScreen(repository: widget.repository),
       RolUsuario.alumna => PortalAlumnaScreen(repository: widget.repository),
       _ => _RolSinVista(sesion: widget.sesion, onCerrarSesion: widget.onCerrarSesion),
@@ -180,9 +177,7 @@ class _HubShellScreenState extends State<HubShellScreen> {
           repository: widget.repository,
           themeNotifier: widget.themeNotifier,
           onCerrarSesion: widget.onCerrarSesion,
-          accesosRepository: widget.accesosRepository,
           catalogoRepository: widget.catalogoRepository,
-          sesion: widget.sesion,
         ),
       RolUsuario.tutora => AjustesTutoraScreen(
           repository: widget.repository,
