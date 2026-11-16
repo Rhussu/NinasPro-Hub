@@ -44,6 +44,29 @@ const _ejemploPlantillaAlumnas = [
   'Madre',
 ];
 
+/// Columnas de la plantilla del voluntariado, en orden (US-30)
+const columnasPlantillaVoluntariado = [
+  'rut',
+  'nombres',
+  'apellidos',
+  'correo',
+  'telefono',
+  'institucion',
+  'rol',
+  'fecha_ingreso',
+];
+
+const _ejemploPlantillaVoluntariado = [
+  '21.190.008-3',
+  'Camila Andrea',
+  'Rojas Ñuñez',
+  'camila.rojas@ninaspro.cl',
+  '+56 9 1234 5678',
+  'Ingeniería Civil en Computación, U. de Chile',
+  'Tutora',
+  '01-03-2026',
+];
+
 /// Columnas que se envían con nombre distinto al de la plantilla
 const _claveFilaAlumnas = {'correo_alumna': 'correo'};
 
@@ -204,25 +227,35 @@ String? validarEncabezados(List<String> encabezados, List<String> plantilla) {
 
 /// Filas de la nómina listas para la RPC importar_alumnas. Lanza [PlanillaInvalida]
 /// si la estructura no respeta la plantilla.
-List<Map<String, Object?>> filasNominaAlumnas(PlanillaLeida planilla) {
-  final error = validarEncabezados(planilla.encabezados, columnasPlantillaAlumnas);
+List<Map<String, Object?>> filasNominaAlumnas(PlanillaLeida planilla) =>
+    _filasPlanilla(planilla, columnasPlantillaAlumnas, claves: _claveFilaAlumnas, fechas: const {'fecha_nacimiento'});
+
+/// Filas del voluntariado listas para la RPC importar_voluntarias (US-30). Lanza
+/// [PlanillaInvalida] si la estructura no respeta la plantilla.
+List<Map<String, Object?>> filasVoluntariado(PlanillaLeida planilla) =>
+    _filasPlanilla(planilla, columnasPlantillaVoluntariado, fechas: const {'fecha_ingreso'});
+
+List<Map<String, Object?>> _filasPlanilla(
+  PlanillaLeida planilla,
+  List<String> columnas, {
+  Map<String, String> claves = const {},
+  Set<String> fechas = const {},
+}) {
+  final error = validarEncabezados(planilla.encabezados, columnas);
   if (error != null) throw PlanillaInvalida(error);
   if (planilla.filas.isEmpty) throw const PlanillaInvalida('La planilla no tiene filas con datos.');
+
+  String valor(String columna, String texto) => fechas.contains(columna) ? fechaIso(texto) ?? texto : texto;
 
   return [
     for (final f in planilla.filas)
       {
         'fila': f.numero,
-        for (var i = 0; i < columnasPlantillaAlumnas.length; i++)
-          _claveFilaAlumnas[columnasPlantillaAlumnas[i]] ?? columnasPlantillaAlumnas[i]: _valor(
-            columnasPlantillaAlumnas[i],
-            i < f.celdas.length ? f.celdas[i].trim() : '',
-          ),
+        for (var i = 0; i < columnas.length; i++)
+          claves[columnas[i]] ?? columnas[i]: valor(columnas[i], i < f.celdas.length ? f.celdas[i].trim() : ''),
       },
   ];
 }
-
-String _valor(String columna, String texto) => columna == 'fecha_nacimiento' ? fechaIso(texto) ?? texto : texto;
 
 /// '15-04-2011', '15/4/2011', '2011-04-15' o el número de serie de Excel -> '2011-04-15'.
 /// Devuelve null si no se reconoce (la base informará la fila como inválida).
@@ -264,6 +297,9 @@ Uint8List csvUtf8(List<List<String>> filas) {
 
 /// Plantilla descargable de la nómina de alumnas
 Uint8List plantillaAlumnasCsv() => csvUtf8([columnasPlantillaAlumnas, _ejemploPlantillaAlumnas]);
+
+/// Plantilla descargable del voluntariado: el rol es Tutora o Equipo de Gestión
+Uint8List plantillaVoluntariadoCsv() => csvUtf8([columnasPlantillaVoluntariado, _ejemploPlantillaVoluntariado]);
 
 /// Reporte de las filas por resolver con su número de fila y motivo (US-08 escenario 2)
 Uint8List reporteFilasCsv(Iterable<({int fila, String rut, String nombre, String motivo})> filas) => csvUtf8([
