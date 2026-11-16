@@ -5,11 +5,13 @@ import '../models/hub_models.dart';
 ///
 /// Durante la fase de mockup, se utiliza [MockHubRepository] con datos sintéticos coherentes en memoria.
 /// Cuando se conecte a Supabase, la implementación [SupabaseHubRepository] implementará esta misma interfaz.
-abstract class HubRepository {
+abstract class HubRepository implements FuenteSincronizacion {
   /// Estado de la conexión con la nube: todo subido, subiendo pendientes o sin conexión
+  @override
   ValueListenable<EstadoSincronizacion> get estadoSincronizacion;
 
   /// Cambios guardados solo en este dispositivo, que se subirán cuando vuelva la conexión
+  @override
   ValueListenable<int> get cambiosPendientes;
 
   /// Descarga los datos actualizados de la nube (deslizar hacia abajo para recargar)

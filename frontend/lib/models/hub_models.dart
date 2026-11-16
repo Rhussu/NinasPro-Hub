@@ -16,6 +16,18 @@ enum EstadoSincronizacion {
   sinConexion,
 }
 
+/// Estado de la conexión y de los cambios guardados solo en el dispositivo (nubecita del AppBar)
+abstract class FuenteSincronizacion {
+  /// Todo subido, subiendo pendientes o sin conexión
+  ValueListenable<EstadoSincronizacion> get estadoSincronizacion;
+
+  /// Cambios guardados solo en este dispositivo, que se subirán cuando vuelva la conexión
+  ValueListenable<int> get cambiosPendientes;
+
+  /// Motivo del último cambio guardado sin conexión que la nube rechazó al subirlo
+  ValueListenable<String?> get ultimoRechazo;
+}
+
 /// Recurso educativo de aula con enlace HTTPS seguro (US-26)
 @immutable
 class RecursoEducativo {
@@ -88,12 +100,18 @@ class RegistroAsistenciaTutora {
   final bool esEquipoGestion;
   final EstadoAsistencia estado;
 
+  /// Quién hizo la última edición y cuándo (US-33 escenario 3)
+  final String? editadoPor;
+  final DateTime? editadoEn;
+
   const RegistroAsistenciaTutora({
     required this.sesionId,
     required this.tutoraId,
     required this.tutoraNombre,
     required this.esEquipoGestion,
     required this.estado,
+    this.editadoPor,
+    this.editadoEn,
   });
 
   RegistroAsistenciaTutora copyWith({EstadoAsistencia? estado}) {
@@ -103,6 +121,8 @@ class RegistroAsistenciaTutora {
       tutoraNombre: tutoraNombre,
       esEquipoGestion: esEquipoGestion,
       estado: estado ?? this.estado,
+      editadoPor: editadoPor,
+      editadoEn: editadoEn,
     );
   }
 }
@@ -482,7 +502,9 @@ class SesionClase {
   }
 }
 
-/// Registro de asistencia de una alumna en una sesión (US-13)
+/// Registro de asistencia de una alumna en una sesión (US-13).
+/// Con Supabase, [id] es la inscripción de la alumna en el curso: la clave con
+/// que se guardan su asistencia, su participación y su lugar en el podio.
 @immutable
 class RegistroAsistencia {
   final String id;
@@ -494,6 +516,9 @@ class RegistroAsistencia {
   final DateTime? horaMarcado;
   final bool autorizaImagen;
 
+  /// Quién hizo la última edición del registro (US-15)
+  final String? editadoPor;
+
   const RegistroAsistencia({
     required this.id,
     required this.sesionId,
@@ -503,6 +528,7 @@ class RegistroAsistencia {
     required this.estado,
     this.horaMarcado,
     required this.autorizaImagen,
+    this.editadoPor,
   });
 
   RegistroAsistencia copyWith({
@@ -524,11 +550,13 @@ class RegistroAsistencia {
       estado: estado ?? this.estado,
       horaMarcado: horaMarcado ?? this.horaMarcado,
       autorizaImagen: autorizaImagen ?? this.autorizaImagen,
+      editadoPor: editadoPor,
     );
   }
 }
 
-/// Participación de clase y ejercicios resueltos en aula (US-28)
+/// Participación de clase y ejercicios resueltos en aula (US-28).
+/// Con Supabase, [id] es la inscripción de la alumna (igual que en [RegistroAsistencia]).
 @immutable
 class ParticipacionClase {
   final String id;

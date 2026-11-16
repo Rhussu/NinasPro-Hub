@@ -135,6 +135,16 @@ String codigoInstancia({
 
 /// Traducción de filas de Supabase a los modelos de la app
 class MapeoCatalogo {
+  /// Columnas que necesita [instancia] (curso, sede y total de sesiones embebidos)
+  static const columnasInstancia =
+      'id, curso_id, sede_id, periodo_academico, seccion, fecha_inicio, fecha_termino, dia_semana, hora_inicio, hora_fin, '
+      'classroom_url, juez_virtual_url, cursos(codigo, nombre), sedes(nombre), clases(count)';
+
+  /// Columnas que necesita [sesion] (con el tema de la planificación)
+  static const columnasSesion =
+      'id, instancia_curso_id, numero_sesion, fecha, hora_inicio, hora_fin, estado, motivo_suspension, es_especial, '
+      'planificacion_clases(tema_titulo)';
+
   static const _dias = {
     'Lunes': DateTime.monday,
     'Martes': DateTime.tuesday,
@@ -262,12 +272,8 @@ class SupabaseCatalogoRepository implements CatalogoRepository {
   static const _columnasSede =
       'id, nombre, region, modalidad, institucion_anfitriona, activa, usuarios_sedes(es_lider_sede, perfiles(nombres, apellidos)), '
       'instancias_curso(count), correos_autorizados(count)';
-  static const _columnasInstancia =
-      'id, curso_id, sede_id, periodo_academico, seccion, fecha_inicio, fecha_termino, dia_semana, hora_inicio, hora_fin, '
-      'classroom_url, juez_virtual_url, cursos(codigo, nombre), sedes(nombre), clases(count)';
-  static const _columnasSesion =
-      'id, instancia_curso_id, numero_sesion, fecha, hora_inicio, hora_fin, estado, motivo_suspension, es_especial, '
-      'planificacion_clases(tema_titulo)';
+  static const _columnasInstancia = MapeoCatalogo.columnasInstancia;
+  static const _columnasSesion = MapeoCatalogo.columnasSesion;
 
   @override
   Future<List<Sede>> sedes() async {

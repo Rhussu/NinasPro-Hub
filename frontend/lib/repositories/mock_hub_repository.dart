@@ -1167,6 +1167,10 @@ class MockHubRepository implements HubRepository {
   @override
   ValueListenable<int> get cambiosPendientes => _cambiosPendientes;
 
+  // El mockup nunca rechaza cambios
+  @override
+  ValueListenable<String?> get ultimoRechazo => const _SinRechazos();
+
   @override
   Future<void> recargar() async {
     await Future.delayed(demoraSincronizacion);
@@ -2301,4 +2305,17 @@ class MockHubRepository implements HubRepository {
       ..sort((a, b) => b.fecha.compareTo(a.fecha));
     return eventos;
   }
+}
+
+class _SinRechazos implements ValueListenable<String?> {
+  const _SinRechazos();
+
+  @override
+  String? get value => null;
+
+  @override
+  void addListener(VoidCallback listener) {}
+
+  @override
+  void removeListener(VoidCallback listener) {}
 }

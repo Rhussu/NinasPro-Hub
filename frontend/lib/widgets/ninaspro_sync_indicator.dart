@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../config/ninaspro_colors.dart';
 import '../models/hub_models.dart';
-import '../repositories/hub_repository.dart';
 
 /// Nubecita del AppBar: indica si hay conexión y todo está guardado en la nube,
 /// si se están subiendo cambios o si no hay conexión y quedan cambios pendientes.
@@ -10,7 +9,8 @@ import '../repositories/hub_repository.dart';
 /// "aprieta para sincronizar": al tocarla se ve el detalle del estado. Cuando se cae la
 /// conexión o se terminan de subir los pendientes, se avisa con un mensaje.
 class NinasProIndicadorSync extends StatefulWidget {
-  final HubRepository repository;
+  /// Cola de cambios de la clase (o el repositorio del mockup)
+  final FuenteSincronizacion repository;
 
   const NinasProIndicadorSync({super.key, required this.repository});
 
@@ -26,13 +26,14 @@ class _NinasProIndicadorSyncState extends State<NinasProIndicadorSync> {
   /// Pendientes que había al empezar a subir, para el aviso al terminar
   int _subiendo = 0;
 
-  HubRepository get repository => widget.repository;
+  FuenteSincronizacion get repository => widget.repository;
 
   @override
   void initState() {
     super.initState();
     _estadoAnterior = repository.estadoSincronizacion.value;
     repository.estadoSincronizacion.addListener(_alCambiarEstado);
+    repository.ultimoRechazo.addListener(_alRechazar);
   }
 
   @override
@@ -40,15 +41,35 @@ class _NinasProIndicadorSyncState extends State<NinasProIndicadorSync> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.repository != widget.repository) {
       oldWidget.repository.estadoSincronizacion.removeListener(_alCambiarEstado);
+      oldWidget.repository.ultimoRechazo.removeListener(_alRechazar);
       _estadoAnterior = repository.estadoSincronizacion.value;
       repository.estadoSincronizacion.addListener(_alCambiarEstado);
+      repository.ultimoRechazo.addListener(_alRechazar);
     }
   }
 
   @override
   void dispose() {
     repository.estadoSincronizacion.removeListener(_alCambiarEstado);
+    repository.ultimoRechazo.removeListener(_alRechazar);
     super.dispose();
+  }
+
+  // Un cambio guardado sin conexión que la nube no aceptó al subirlo
+  void _alRechazar() {
+    final motivo = repository.ultimoRechazo.value;
+    if (!mounted || motivo == null) return;
+    // No cuenta como subido en el aviso de "Volvió la conexión"
+    if (_subiendo > 0) _subiendo--;
+    ScaffoldMessenger.maybeOf(context)
+      ?..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          backgroundColor: NinasProColors.error700,
+          duration: const Duration(seconds: 6),
+          content: Text('⚠️ Un cambio guardado sin conexión no se pudo subir: $motivo'),
+        ),
+      );
   }
 
   void _alCambiarEstado() {
@@ -61,7 +82,7 @@ class _NinasProIndicadorSyncState extends State<NinasProIndicadorSync> {
     switch (estado) {
       case EstadoSincronizacion.sinConexion:
         messenger
-          ?..hideCurrentSnackBar()
+          ?..clearSnackBars()
           ..showSnackBar(
             const SnackBar(content: Text('📴 Sin conexión: los cambios quedarán guardados en este dispositivo.')),
           );
@@ -71,7 +92,7 @@ class _NinasProIndicadorSyncState extends State<NinasProIndicadorSync> {
         if (_subiendo > 0) {
           final subidos = NinasProIndicadorSync._cambios(_subiendo).replaceFirst('pendiente', 'subido');
           messenger
-            ?..hideCurrentSnackBar()
+            ?..clearSnackBars()
             ..showSnackBar(SnackBar(content: Text('☁️ Volvió la conexión: $subidos a la nube.')));
         }
         _subiendo = 0;
