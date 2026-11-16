@@ -399,6 +399,24 @@ INSERT INTO public.asistencia_alumnas (clase_id, inscripcion_id, estado, registr
 INSERT INTO public.asistencia_alumnas (clase_id, inscripcion_id, estado, registrado_por) VALUES ('912ac8a2-5329-58e8-9fc2-af3d814552bd', 'e8e6ba68-8e6e-55ff-8948-999e2242cace', 'ausente', '1aac4ad1-394b-509a-9fba-411b193bcc7c');
 INSERT INTO public.asistencia_alumnas (clase_id, inscripcion_id, estado, registrado_por) VALUES ('e5b6223f-c279-5c54-945b-dc044408d947', 'e8e6ba68-8e6e-55ff-8948-999e2242cace', 'ausente', '1aac4ad1-394b-509a-9fba-411b193bcc7c');
 
+-- Participación de PCB Beauchef (US-28, US-29): ejercicios de cada presente y el
+-- podio Kahoot de cada clase. Valentina suma 30 ejercicios (1 clase recuperable, US-25)
+WITH presentes AS (
+  SELECT aa.clase_id, aa.inscripcion_id, aa.registrado_por, c.numero_sesion,
+         row_number() OVER (PARTITION BY aa.clase_id ORDER BY md5(aa.inscripcion_id::text || c.numero_sesion)) AS puesto
+  FROM public.asistencia_alumnas aa
+  JOIN public.clases c ON c.id = aa.clase_id
+  WHERE c.instancia_curso_id = 'f58950d7-e247-5afd-9f19-835cb908e9ec' AND aa.estado = 'presente'
+)
+INSERT INTO public.participacion_clase (clase_id, inscripcion_id, ejercicios_completados, participo_activa, podio_kahoot, registrado_por)
+SELECT clase_id, inscripcion_id,
+       CASE WHEN inscripcion_id = 'a4480b07-a5c2-54e5-8a92-b3908d5c5212' THEN 5
+            ELSE 2 + abs(hashtext(inscripcion_id::text || numero_sesion)) % 5 END,
+       puesto <= 5,
+       CASE WHEN puesto <= 3 THEN puesto END,
+       registrado_por
+FROM presentes;
+
 -- Asistencia de tutoras de las clases realizadas: casi siempre presentes (US-33)
 INSERT INTO public.asistencia_tutores (clase_id, tutor_id, estado, registrado_por)
 SELECT c.id, ti.tutor_id,
