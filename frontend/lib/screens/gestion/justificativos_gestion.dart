@@ -28,9 +28,17 @@ class BandejaJustificativosController extends ChangeNotifier {
   String? error;
   EstadoJustificativo filtro = EstadoJustificativo.pendiente;
 
-  List<JustificativoDetalle> get filtrados => todos.where((j) => j.estado == filtro).toList();
+  /// Sede elegida; null = todas (la Directiva ve las de todas las sedes)
+  String? sede;
 
-  int cantidad(EstadoJustificativo estado) => todos.where((j) => j.estado == estado).length;
+  /// Sedes con justificativos, por nombre
+  List<String> get sedes => (todos.map((j) => j.sedeNombre).toSet().toList())..sort();
+
+  Iterable<JustificativoDetalle> get _deLaSede => sede == null ? todos : todos.where((j) => j.sedeNombre == sede);
+
+  List<JustificativoDetalle> get filtrados => _deLaSede.where((j) => j.estado == filtro).toList();
+
+  int cantidad(EstadoJustificativo estado) => _deLaSede.where((j) => j.estado == estado).length;
 
   Future<void> cargar() async {
     cargando = true;
@@ -47,6 +55,11 @@ class BandejaJustificativosController extends ChangeNotifier {
 
   void filtrar(EstadoJustificativo estado) {
     filtro = estado;
+    notifyListeners();
+  }
+
+  void filtrarSede(String? nombre) {
+    sede = nombre;
     notifyListeners();
   }
 
@@ -124,9 +137,31 @@ class SeccionJustificativos extends StatelessWidget {
       listenable: controller,
       builder: (context, _) {
         final lista = controller.filtrados;
+        final sedes = controller.sedes;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // La Directiva (o Gestión de varias sedes) filtra por sede
+            if (sedes.length > 1) ...[
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  ChoiceChip(
+                    label: const Text('Todas las sedes'),
+                    selected: controller.sede == null,
+                    onSelected: (_) => controller.filtrarSede(null),
+                  ),
+                  for (final nombre in sedes)
+                    ChoiceChip(
+                      label: Text(nombre),
+                      selected: controller.sede == nombre,
+                      onSelected: (_) => controller.filtrarSede(nombre),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
             Wrap(
               spacing: 8,
               children: [
@@ -180,7 +215,7 @@ class SeccionJustificativos extends StatelessWidget {
               for (final j in lista)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 10),
-                  child: TarjetaJustificativo(justificativo: j, controller: controller),
+                  child: TarjetaJustificativo(justificativo: j, controller: controller, conSede: sedes.length > 1),
                 ),
           ],
         );
@@ -194,7 +229,10 @@ class TarjetaJustificativo extends StatelessWidget {
   final JustificativoDetalle justificativo;
   final BandejaJustificativosController controller;
 
-  const TarjetaJustificativo({super.key, required this.justificativo, required this.controller});
+  /// Muestra la sede junto al curso (bandeja con varias sedes)
+  final bool conSede;
+
+  const TarjetaJustificativo({super.key, required this.justificativo, required this.controller, this.conSede = false});
 
   Future<void> _eliminar(BuildContext context) async {
     final j = justificativo;
@@ -256,7 +294,7 @@ class TarjetaJustificativo extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              '${j.claseEtiqueta} · ${j.cursoNombre}\nMotivo: ${j.motivo.label}'
+              '${j.claseEtiqueta} · ${j.cursoNombre}${conSede ? ' · ${j.sedeNombre}' : ''}\nMotivo: ${j.motivo.label}'
               '${j.enviadoPorAlumna ? '' : ' · Registrado por Gestión'}',
               style: TextStyle(fontSize: 11.5, color: secundario),
             ),
@@ -294,6 +332,40 @@ class TarjetaJustificativo extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// La bandeja completa en una pantalla propia (la abre Ajustes), con
+/// "Ingresar justificativo" si hay [onIngresar]
+class BandejaJustificativosView extends StatelessWidget {
+  final BandejaJustificativosController controller;
+  final VoidCallback? onIngresar;
+
+  const BandejaJustificativosView({super.key, required this.controller, this.onIngresar});
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: controller.cargar,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+        children: [
+          if (onIngresar != null) ...[
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton.tonalIcon(
+                onPressed: onIngresar,
+                icon: const Icon(Icons.note_add_rounded, size: 18),
+                label: const Text('Ingresar justificativo'),
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+          SeccionJustificativos(controller: controller),
+        ],
       ),
     );
   }

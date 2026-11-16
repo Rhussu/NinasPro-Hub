@@ -11,6 +11,8 @@ import '../directorio/directorio_widgets.dart';
 /// (la RLS acota las filas). La Directiva lo abre desde "Instancias y
 /// sesiones" con [instanciaInicial]. Permite suspender una sesión programada
 /// (feriado o contingencia), reanudarla y agregar sesiones especiales.
+/// La tutora lo abre desde sus Ajustes con [soloLectura]: ve el cronograma de
+/// su curso sin poder cambiarlo.
 class CalendarioScreen extends StatefulWidget {
   final CatalogoRepository repository;
   final Curso? instanciaInicial;
@@ -18,7 +20,16 @@ class CalendarioScreen extends StatefulWidget {
   /// Fecha de referencia para decidir qué cursos están vigentes (para pruebas)
   final DateTime? hoy;
 
-  const CalendarioScreen({super.key, required this.repository, this.instanciaInicial, this.hoy});
+  /// Sin suspender, reanudar ni agregar sesiones (la tutora)
+  final bool soloLectura;
+
+  const CalendarioScreen({
+    super.key,
+    required this.repository,
+    this.instanciaInicial,
+    this.hoy,
+    this.soloLectura = false,
+  });
 
   @override
   State<CalendarioScreen> createState() => _CalendarioScreenState();
@@ -113,8 +124,8 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Calendario de clases')),
-      floatingActionButton: _instancia == null
+      appBar: AppBar(title: Text(widget.soloLectura ? 'Cronograma' : 'Calendario de clases')),
+      floatingActionButton: _instancia == null || widget.soloLectura
           ? null
           : FloatingActionButton.extended(
               onPressed: _agregarEspecial,
@@ -202,8 +213,8 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
               _TarjetaSesion(
                 sesion: s,
                 esHoy: s.fecha == _hoy,
-                onSuspender: s.estado == 'programada' ? () => _suspender(s) : null,
-                onReanudar: s.suspendida ? () => _reanudar(s) : null,
+                onSuspender: s.estado == 'programada' && !widget.soloLectura ? () => _suspender(s) : null,
+                onReanudar: s.suspendida && !widget.soloLectura ? () => _reanudar(s) : null,
               ),
         ],
       ),

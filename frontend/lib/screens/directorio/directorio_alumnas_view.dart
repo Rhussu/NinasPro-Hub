@@ -18,11 +18,17 @@ import 'directorio_widgets.dart';
 class DirectorioAlumnasView extends StatefulWidget {
   final AlumnasRepository repository;
 
-  const DirectorioAlumnasView({super.key, required this.repository});
+  /// Se abre apenas carga, cuando se llega desde Ajustes (ej. la carga masiva)
+  final AccionAlumnas? accionInicial;
+
+  const DirectorioAlumnasView({super.key, required this.repository, this.accionInicial});
 
   @override
   State<DirectorioAlumnasView> createState() => _DirectorioAlumnasViewState();
 }
+
+/// Lo que la Directiva puede abrir directo desde Ajustes
+enum AccionAlumnas { inscribir, cargaMasiva, conflictos }
 
 class _DirectorioAlumnasViewState extends State<DirectorioAlumnasView> {
   bool _cargando = true;
@@ -40,7 +46,21 @@ class _DirectorioAlumnasViewState extends State<DirectorioAlumnasView> {
   @override
   void initState() {
     super.initState();
-    _cargarDatos();
+    _cargarDatos().then((_) => _ejecutarAccionInicial());
+  }
+
+  Future<void> _ejecutarAccionInicial() async {
+    if (!mounted || _errorCarga != null) return;
+    switch (widget.accionInicial) {
+      case AccionAlumnas.inscribir:
+        await _inscribir();
+      case AccionAlumnas.cargaMasiva:
+        await _cargaMasiva();
+      case AccionAlumnas.conflictos:
+        await _verConflictos();
+      case null:
+        break;
+    }
   }
 
   Future<void> _cargarDatos() async {

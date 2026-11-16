@@ -14,15 +14,31 @@ import 'directorio_widgets.dart';
 /// Filtros por sede, rol, curso y estado; alta individual y carga masiva; ficha
 /// con la cuenta, la declaración de adhesión, el rol, los cursos y la salida;
 /// exportación del listado filtrado a CSV o XLSX. Todo lo administra la Directiva.
+/// Gestión lo ve con [soloLectura]: las fichas de su sede, sin cambios ni exportación.
 class DirectorioVoluntariadoView extends StatefulWidget {
   final VoluntariadoRepository repository;
   final CatalogoRepository catalogo;
 
-  const DirectorioVoluntariadoView({super.key, required this.repository, required this.catalogo});
+  /// Sin alta, carga masiva, exportación ni ficha editable (Gestión)
+  final bool soloLectura;
+
+  /// Se abre apenas carga, cuando se llega desde Ajustes (ej. la carga masiva)
+  final AccionVoluntariado? accionInicial;
+
+  const DirectorioVoluntariadoView({
+    super.key,
+    required this.repository,
+    required this.catalogo,
+    this.soloLectura = false,
+    this.accionInicial,
+  });
 
   @override
   State<DirectorioVoluntariadoView> createState() => _DirectorioVoluntariadoViewState();
 }
+
+/// Lo que la Directiva puede abrir directo desde Ajustes
+enum AccionVoluntariado { cargaMasiva, nuevaVoluntaria }
 
 class _DirectorioVoluntariadoViewState extends State<DirectorioVoluntariadoView> {
   bool _cargando = true;
@@ -39,7 +55,19 @@ class _DirectorioVoluntariadoViewState extends State<DirectorioVoluntariadoView>
   @override
   void initState() {
     super.initState();
-    _cargarDatos();
+    _cargarDatos().then((_) => _ejecutarAccionInicial());
+  }
+
+  Future<void> _ejecutarAccionInicial() async {
+    if (!mounted || widget.soloLectura || _error != null) return;
+    switch (widget.accionInicial) {
+      case AccionVoluntariado.cargaMasiva:
+        await _cargaMasiva();
+      case AccionVoluntariado.nuevaVoluntaria:
+        await _altaIndividual();
+      case null:
+        break;
+    }
   }
 
   Future<void> _cargarDatos() async {
@@ -162,35 +190,39 @@ class _DirectorioVoluntariadoViewState extends State<DirectorioVoluntariadoView>
       children: [
         DirectorioEncabezado(
           titulo: 'Voluntariado',
-          subtitulo: '${activas.length} voluntarias activas · $sinAdhesion sin declaración de adhesión · '
-              '$sinCuenta aún sin cuenta',
+          subtitulo: widget.soloLectura
+              ? '${activas.length} voluntarias activas · $sinAdhesion sin declaración de adhesión · solo lectura'
+              : '${activas.length} voluntarias activas · $sinAdhesion sin declaración de adhesión · '
+                  '$sinCuenta aún sin cuenta',
           acciones: [
-            PopupMenuButton<FormatoExportacion>(
-              tooltip: 'Exportar el listado filtrado',
-              onSelected: _exportar,
-              itemBuilder: (_) => [
-                for (final f in FormatoExportacion.values) PopupMenuItem(value: f, child: Text(f.etiqueta)),
-              ],
-              child: const IgnorePointer(
-                child: OutlinedButton(
-                  onPressed: null,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [Icon(Icons.file_download_rounded, size: 18), SizedBox(width: 8), Text('Exportar')],
+            if (!widget.soloLectura) ...[
+              PopupMenuButton<FormatoExportacion>(
+                tooltip: 'Exportar el listado filtrado',
+                onSelected: _exportar,
+                itemBuilder: (_) => [
+                  for (final f in FormatoExportacion.values) PopupMenuItem(value: f, child: Text(f.etiqueta)),
+                ],
+                child: const IgnorePointer(
+                  child: OutlinedButton(
+                    onPressed: null,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [Icon(Icons.file_download_rounded, size: 18), SizedBox(width: 8), Text('Exportar')],
+                    ),
                   ),
                 ),
               ),
-            ),
-            OutlinedButton.icon(
-              onPressed: _cargaMasiva,
-              icon: const Icon(Icons.upload_file_rounded, size: 18),
-              label: const Text('Carga masiva'),
-            ),
-            FilledButton.icon(
-              onPressed: _altaIndividual,
-              icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
-              label: const Text('Nueva voluntaria'),
-            ),
+              OutlinedButton.icon(
+                onPressed: _cargaMasiva,
+                icon: const Icon(Icons.upload_file_rounded, size: 18),
+                label: const Text('Carga masiva'),
+              ),
+              FilledButton.icon(
+                onPressed: _altaIndividual,
+                icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
+                label: const Text('Nueva voluntaria'),
+              ),
+            ],
           ],
         ),
         if (_error != null) ...[
@@ -247,7 +279,7 @@ class _DirectorioVoluntariadoViewState extends State<DirectorioVoluntariadoView>
                   filas: [
                     for (final f in filtradas)
                       DataRow(
-                        onSelectChanged: (_) => _abrirFicha(f),
+                        onSelectChanged: widget.soloLectura ? null : (_) => _abrirFicha(f),
                         cells: [
                           DataCell(Column(
                             crossAxisAlignment: CrossAxisAlignment.start,

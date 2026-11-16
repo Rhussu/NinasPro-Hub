@@ -104,6 +104,9 @@ class AvisoErrorClase extends StatelessWidget {
   }
 }
 
+/// 'PCB · Sede Beauchef · Sección B': el curso con su sede (y su sección paralela)
+String etiquetaCursoClase(Curso c) => '${c.nombre} · ${c.sedeNombre}${c.seccion > 1 ? ' · Sección ${c.seccionLetra}' : ''}';
+
 /// Selector del curso cuando la usuaria opera más de uno
 class SelectorCursoClase extends StatelessWidget {
   final List<Curso> cursos;
@@ -132,7 +135,7 @@ class SelectorCursoClase extends StatelessWidget {
               DropdownMenuItem(
                 value: c.id,
                 child: Text(
-                  '${c.nombre} · ${c.sedeNombre}${c.seccion > 1 ? ' · Sección ${String.fromCharCode(64 + c.seccion)}' : ''}',
+                  etiquetaCursoClase(c),
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                 ),
