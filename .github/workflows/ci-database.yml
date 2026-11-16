@@ -2,7 +2,7 @@ name: CI - Supabase Database
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [ main, premain ]
     paths:
       - 'supabase/**'
       - '.github/workflows/ci-database.yml'
@@ -21,7 +21,7 @@ jobs:
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 3.2.0
 
       # 3. Levantar entorno local efímero de Supabase
       - name: Start Supabase Local

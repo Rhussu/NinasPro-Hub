@@ -134,6 +134,17 @@ void main() {
     expect(find.text('Ingresar'), findsOneWidget);
   });
 
+  testWidgets('La franja BETA solo aparece en la compilación de la beta', (WidgetTester tester) async {
+    await tester.pumpWidget(NinasProApp(authService: FakeAuthService(), healthService: MockHealthService()));
+    await tester.pumpAndSettle();
+    expect(find.text('BETA · datos de prueba'), findsNothing);
+
+    await tester.pumpWidget(NinasProApp(key: UniqueKey(), authService: FakeAuthService(), healthService: MockHealthService(), esBeta: true));
+    await tester.pumpAndSettle();
+    expect(find.text('BETA · datos de prueba'), findsOneWidget);
+    expect(find.text('Te damos la bienvenida'), findsOneWidget);
+  });
+
   testWidgets('NinasProApp con sesión de Gestión abre su vista y al cerrar sesión vuelve al acceso', (WidgetTester tester) async {
     final auth = FakeAuthService(sesionGuardada: SesionesDemo.gestion);
     final clase = FakeClaseRepository();

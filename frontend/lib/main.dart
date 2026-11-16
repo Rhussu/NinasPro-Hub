@@ -69,6 +69,9 @@ class NinasProApp extends StatefulWidget {
   final AlertasRepository? alertasRepository;
   final PortalRepository? portalRepository;
 
+  /// Muestra la franja "BETA · datos de prueba" (ambiente QA de premain).
+  final bool esBeta;
+
   const NinasProApp({
     super.key,
     required this.authService,
@@ -85,6 +88,7 @@ class NinasProApp extends StatefulWidget {
     this.reportesRepository,
     this.alertasRepository,
     this.portalRepository,
+    this.esBeta = AppConfig.ambiente == 'beta',
   });
 
   @override
@@ -118,6 +122,7 @@ class _NinasProAppState extends State<NinasProApp> {
           theme: NinasProTheme.light,
           darkTheme: NinasProTheme.dark,
           themeMode: currentMode,
+          builder: widget.esBeta ? (context, child) => FranjaBeta(child: child ?? const SizedBox.shrink()) : null,
           home: AuthGate(
             authService: widget.authService,
             builder: (context, sesion) => HubShellScreen(
@@ -140,6 +145,39 @@ class _NinasProAppState extends State<NinasProApp> {
           ),
         );
       },
+    );
+  }
+}
+
+/// Franja superior de la beta: deja claro que la BD es de prueba.
+class FranjaBeta extends StatelessWidget {
+  final Widget child;
+
+  const FranjaBeta({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    return Column(
+      children: [
+        Material(
+          color: const Color(0xFFFFC94D),
+          child: Padding(
+            padding: EdgeInsets.only(top: media.padding.top),
+            child: const SizedBox(
+              width: double.infinity,
+              height: 24,
+              child: Center(
+                child: Text(
+                  'BETA · datos de prueba',
+                  style: TextStyle(color: Color(0xFF2B1A00), fontSize: 12, fontWeight: FontWeight.w800),
+                ),
+              ),
+            ),
+          ),
+        ),
+        Expanded(child: MediaQuery.removePadding(context: context, removeTop: true, child: child)),
+      ],
     );
   }
 }

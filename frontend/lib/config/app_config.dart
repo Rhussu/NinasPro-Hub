@@ -11,6 +11,10 @@ class AppConfig {
   /// Path del endpoint de salud estándar en Supabase
   static const String defaultHealthPath = '/auth/v1/health';
 
+  /// Ambiente de la compilación (--dart-define=AMBIENTE=beta en premain).
+  /// Vacío en producción y en desarrollo local.
+  static const String ambiente = String.fromEnvironment('AMBIENTE');
+
   /// Resuelve la URL de Supabase de forma segura sin exponer credenciales:
   /// 1. Prioriza variable inyectada vía --dart-define=SUPABASE_URL=...
   /// 2. En modo Debug (desarrollo local), usa localSupabaseUrl (http://127.0.0.1:54321)

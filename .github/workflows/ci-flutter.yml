@@ -2,7 +2,7 @@ name: CI - Flutter Web
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [ main, premain ]
     paths:
       - 'frontend/**'
       - '.github/workflows/ci-flutter.yml'
@@ -46,18 +46,21 @@ jobs:
       - name: Run unit tests with coverage
         run: flutter test --coverage
 
-      # 7. Validar umbral de cobertura (>= 80%)
+      # 7. Umbral de cobertura >= 80 % global y en reglas críticas (RNF-M-1, TC-39)
       - name: Check 80% coverage threshold
         run: |
-          sudo apt-get install -y lcov
-          COVERAGE=$(lcov --summary coverage/lcov.info | grep lines | awk '{print $2}' | tr -d '%')
-          echo "Cobertura actual: $COVERAGE%"
-          if (( $(echo "$COVERAGE < 80.0" | bc -l) )); then
-            echo "❌ La cobertura ($COVERAGE%) es inferior al 80% requerido."
-            exit 1
-          else
-            echo "✅ Cobertura aprobada ($COVERAGE%)."
-          fi
+          sudo apt-get install -y -qq lcov
+          bash tool/cobertura.sh coverage/lcov.info coverage 80
+
+      - name: Publicar reporte de cobertura
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobertura
+          path: |
+            frontend/coverage/html
+            frontend/coverage/cobertura.json
+            frontend/coverage/lcov.info
 
       # 8. Validar compilación release para Web
       - name: Verify Web Build

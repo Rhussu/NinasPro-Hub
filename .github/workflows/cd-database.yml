@@ -1,49 +1,82 @@
 name: CD - Deploy Supabase
 
+# main    → proyecto de producción (SUPABASE_*)
+# premain → proyecto beta/QA (BETA_SUPABASE_*), sin los datos de seed.sql
+# La beta NO lleva datos de supabase/seed.sql (ese seed es solo para local y CI).
+# En premain, "Run workflow" con crear_directiva=true crea o actualiza la única
+# cuenta inicial, directiva@ninaspro.cl, con la clave BETA_CLAVE_CUENTAS. No borra nada.
+
 on:
   push:
     branches:
       - main
+      - premain
     paths:
       - 'supabase/**'
       - '.github/workflows/cd-database.yml'
+  workflow_dispatch:
+    inputs:
+      crear_directiva:
+        description: 'Solo beta: crear o actualizar la cuenta directiva@ninaspro.cl (no borra datos)'
+        type: boolean
+        default: false
 
 jobs:
   deploy-database:
-    name: Deploy Migrations to Supabase Cloud
+    name: Deploy Migrations to Supabase Cloud (${{ github.ref_name }})
     runs-on: ubuntu-latest
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+      SUPABASE_DB_PASSWORD: ${{ github.ref_name == 'main' && secrets.SUPABASE_DB_PASSWORD || secrets.BETA_SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_ID: ${{ github.ref_name == 'main' && secrets.SUPABASE_PROJECT_ID || secrets.BETA_SUPABASE_PROJECT_ID }}
 
     steps:
+      - name: Solo main o premain
+        if: github.ref_name != 'main' && github.ref_name != 'premain'
+        run: |
+          echo "❌ Este workflow solo despliega desde main (producción) o premain (beta)."
+          exit 1
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 3.2.0
 
       - name: Verify Supabase Secrets
         run: |
           if [ -z "$SUPABASE_ACCESS_TOKEN" ] || [ -z "$SUPABASE_DB_PASSWORD" ] || [ -z "$SUPABASE_PROJECT_ID" ]; then
-            echo "⚠️ ADVERTENCIA: Faltan secretos SUPABASE_ACCESS_TOKEN, SUPABASE_DB_PASSWORD o SUPABASE_PROJECT_ID."
-            echo "Configura los secretos en Settings > Secrets and variables > Actions para habilitar el despliegue automático de BD."
+            echo "⚠️ Faltan secretos para ${{ github.ref_name }}."
+            echo "main: SUPABASE_ACCESS_TOKEN, SUPABASE_DB_PASSWORD, SUPABASE_PROJECT_ID"
+            echo "premain: SUPABASE_ACCESS_TOKEN, BETA_SUPABASE_DB_PASSWORD, BETA_SUPABASE_PROJECT_ID"
             exit 1
           fi
 
+      # CLI 3.x: link ya no recibe la contraseña y los comandos de base apuntan
+      # a la base local salvo que se pase --remote (la contraseña sale de
+      # SUPABASE_DB_PASSWORD o de --password).
       - name: Link Remote Supabase Project
-        run: |
-          supabase link --project-ref "$SUPABASE_PROJECT_ID" --password "$SUPABASE_DB_PASSWORD"
+        run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
 
-      - name: Push Pending Migrations to Production
-        run: supabase db push --password "$SUPABASE_DB_PASSWORD"
+      - name: Push Pending Migrations
+        run: supabase db push --remote --password "$SUPABASE_DB_PASSWORD" --yes
+
+      - name: Crear la cuenta de la Directiva en la beta
+        if: github.ref_name == 'premain' && inputs.crear_directiva
+        env:
+          CLAVE: ${{ secrets.BETA_CLAVE_CUENTAS }}
+        run: |
+          [ -n "$CLAVE" ] || { echo "❌ Falta el secreto BETA_CLAVE_CUENTAS"; exit 1; }
+          # Comillas simples duplicadas para SQL; perl no reinterpreta el valor
+          export CLAVE_SQL="$(printf '%s' "$CLAVE" | sed "s/'/''/g")"
+          perl -pe 's/__CLAVE__/$ENV{CLAVE_SQL}/g' supabase/beta/directiva.sql > "$RUNNER_TEMP/directiva.sql"
+          supabase db query --remote --yes -f "$RUNNER_TEMP/directiva.sql"
 
       - name: Deploy Edge Functions (si existen)
         run: |
           if [ -d "supabase/functions" ] && [ "$(ls -A supabase/functions 2>/dev/null)" ]; then
-            echo "Desplegando Edge Functions a producción..."
-            supabase functions deploy --all --project-ref "$SUPABASE_PROJECT_ID"
+            echo "Desplegando Edge Functions..."
+            supabase functions deploy --project-ref "$SUPABASE_PROJECT_ID"
           fi

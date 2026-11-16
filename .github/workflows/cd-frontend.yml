@@ -1,46 +1,121 @@
 name: CD - Deploy GitHub Pages
 
+# GitHub Pages publica UN solo sitio por repositorio, así que este workflow arma
+# siempre el sitio completo:
+#   /NinasPro-Hub/          → rama main    (producción, BD real)
+#   /NinasPro-Hub/beta/     → rama premain (QA, BD de prueba con datos sintéticos)
+#   /NinasPro-Hub/beta/pruebas/ → informe de pruebas y cobertura de premain
+# Un push a cualquiera de las dos ramas recompila ambas para no borrar la otra.
+
 on:
   push:
     branches:
       - main
+      - premain
     paths:
       - 'frontend/**'
+      - 'docs/pruebas/**'
       - '.github/workflows/cd-frontend.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
   pages: write
   id-token: write
 
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
 jobs:
   deploy-frontend:
-    name: Deploy Flutter Web to GitHub Pages
+    name: Deploy producción + beta a GitHub Pages
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    defaults:
-      run:
-        working-directory: frontend
 
     steps:
-      - name: Checkout repository
+      - name: Checkout main (producción)
         uses: actions/checkout@v4
+        with:
+          ref: main
+          path: prod
+
+      - name: Checkout premain (beta)
+        uses: actions/checkout@v4
+        with:
+          ref: premain
+          path: beta
 
       - name: Setup Flutter SDK
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          cache: true
 
-      - name: Install dependencies
-        run: flutter pub get
+      - name: Setup lcov
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lcov
 
-      - name: Build Flutter Web
+      # Flutter 3.44 ya no genera service worker, así que el de la raíz no puede
+      # servir /beta/ desde caché.
+      - name: Build producción (main)
+        working-directory: prod/frontend
         run: |
-          flutter build web --release --base-href "/${{ github.event.repository.name }}/" \
+          flutter pub get
+          flutter build web --release \
+            --base-href "/${{ github.event.repository.name }}/" \
             --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}" \
             --dart-define=SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
+
+      - name: Verificar secretos de la beta
+        env:
+          BETA_URL: ${{ secrets.BETA_SUPABASE_URL }}
+          BETA_KEY: ${{ secrets.BETA_SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$BETA_URL" ] || [ -z "$BETA_KEY" ]; then
+            echo "❌ Faltan BETA_SUPABASE_URL o BETA_SUPABASE_ANON_KEY en Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+      - name: Build beta (premain)
+        working-directory: beta/frontend
+        run: |
+          flutter pub get
+          flutter build web --release \
+            --base-href "/${{ github.event.repository.name }}/beta/" \
+            --dart-define=SUPABASE_URL="${{ secrets.BETA_SUPABASE_URL }}" \
+            --dart-define=SUPABASE_ANON_KEY="${{ secrets.BETA_SUPABASE_ANON_KEY }}" \
+            --dart-define=AMBIENTE=beta
+
+      # Informe de pruebas de premain: tests con cobertura + HTML de lcov + informe.
+      - name: Pruebas y cobertura de la beta
+        working-directory: beta/frontend
+        run: |
+          mkdir -p ../docs/pruebas/resultados/beta
+          flutter analyze --fatal-infos --fatal-warnings > ../docs/pruebas/resultados/beta/analyze.txt 2>&1 || true
+          flutter test --coverage --file-reporter json:../docs/pruebas/resultados/beta/flutter-test.json || true
+          bash tool/cobertura.sh coverage/lcov.info ../docs/pruebas/resultados/beta || true
+
+      - name: Generar informe de pruebas
+        working-directory: beta/frontend
+        run: |
+          if [ -f tool/generar_informe.dart ]; then
+            dart run tool/generar_informe.dart ../docs/pruebas
+          fi
+
+      - name: Armar el sitio
+        run: |
+          mkdir -p site
+          cp -r prod/frontend/build/web/. site/
+          mkdir -p site/beta
+          cp -r beta/frontend/build/web/. site/beta/
+          if [ -d beta/docs/pruebas ]; then
+            mkdir -p site/beta/pruebas
+            cp -r beta/docs/pruebas/. site/beta/pruebas/
+            [ -d beta/frontend/coverage/html ] && cp -r beta/frontend/coverage/html site/beta/pruebas/cobertura || true
+          fi
+          touch site/.nojekyll
 
       - name: Setup GitHub Pages
         uses: actions/configure-pages@v5
@@ -48,7 +123,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: frontend/build/web
+          path: site
 
       - name: Deploy to GitHub Pages
         id: deployment

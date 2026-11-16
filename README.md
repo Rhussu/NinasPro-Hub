@@ -238,16 +238,35 @@ La pantalla principal de cada rol es un **resumen con accesos rápidos** (tarjet
 
 Para garantizar estabilidad y seguridad, el repositorio implementa una política de **Pull Requests protegidos**:
 
-1. **Pull Requests hacia `main` (CI - Pruebas Selectivas):**
-   - En cada PR hacia `main` se ejecutan únicamente los pipelines correspondientes al código afectado mediante filtros de ruta (`paths`):
-     - **`CI - Flutter Web`**: Se dispara si se modificó `frontend/**`, validando análisis estático estricto, 100% de tests unitarios aprobados con **cobertura `>= 80%`** y compilación web.
-     - **`CI - Supabase Database`**: Se dispara si se modificó `supabase/**`, levantando una base de datos efímera local y ejecutando las pruebas de integridad y políticas RLS con pgTAP.
-   - **Bloqueo:** Si algún test falla, GitHub bloquea el botón de Merge para proteger la rama principal.
-2. **Merge a `main` (CD - Despliegue Selectivo e Inteligente):**
-   - Una vez revisado y aprobado el PR, al hacer merge se activan únicamente los despliegues de las áreas afectadas mediante filtros de rutas (`paths`):
-     - **`CD - Deploy Supabase`**: Se dispara **únicamente** si se modificaron archivos en `supabase/**` (migraciones, RLS o funciones), aplicando los cambios a **Supabase Cloud**.
-     - **`CD - Deploy GitHub Pages`**: Se dispara **únicamente** si se modificaron archivos en `frontend/**`, compilando y publicando la web en **GitHub Pages**.
-     - *Si solo se modificó documentación (ej. `README.md`), ningún despliegue innecesario se ejecuta.*
+**Ramas:**
+
+`feature → premain` (beta/QA) → `main` (producción)
+
+| Rama | Sitio | Base de datos |
+|---|---|---|
+| `premain` | `https://rhussu.github.io/NinasPro-Hub/beta/` | Proyecto Supabase **de prueba**. No carga `seed.sql`: parte solo con `directiva@ninaspro.cl` y el equipo crea los datos ficticios |
+| `main` | `https://rhussu.github.io/NinasPro-Hub/` | Proyecto Supabase de producción |
+
+En la beta se prueba y se miden los RNF antes de abrir el PR `premain → main`. Muestra la franja «BETA · datos de prueba».
+
+1. **Pull Requests hacia `premain` o `main` (CI - Pruebas Selectivas):**
+   - En cada PR se ejecutan solo los pipelines del código afectado, según filtros de ruta (`paths`):
+     - **`CI - Flutter Web`**: se dispara si se modificó `frontend/**`. Valida el análisis estático estricto, que todos los tests pasen y la compilación web. Exige una **cobertura `>= 80%` global y en las reglas críticas** (`frontend/tool/cobertura.sh`) y publica el reporte de lcov como artefacto.
+     - **`CI - Supabase Database`**: se dispara si se modificó `supabase/**`. Levanta una base efímera y corre las pruebas de integridad y de RLS con pgTAP.
+     - **`CI - E2E`**: se dispara si se modificó `frontend/**` o `supabase/**`. Corre la app en Chrome headless contra un Supabase efímero con el seed (`flutter drive`).
+   - **Bloqueo:** si algún test falla, GitHub bloquea el botón de Merge.
+2. **Push a `premain` o `main` (CD - Despliegue Selectivo):**
+   - **`CD - Deploy Supabase`**: se dispara si cambió `supabase/**`. `main` aplica las migraciones a producción y `premain` a la beta. En la beta, *Run workflow* con `crear_directiva=true` crea o actualiza la cuenta `directiva@ninaspro.cl` con la clave de `BETA_CLAVE_CUENTAS`. No borra nada (`supabase/beta/directiva.sql`).
+   - **`CD - Deploy GitHub Pages`**: se dispara si cambió `frontend/**` o `docs/pruebas/**`. Pages publica un solo sitio por repositorio, así que cada vez se compilan **las dos ramas**: `main` en la raíz y `premain` en `/beta/`. Junto con la beta se publican el informe de pruebas y la cobertura en `/beta/pruebas/`.
+     - Hasta que este workflow llegue a `main`, un despliegue desde `main` con la versión anterior borraría `/beta/`.
+3. **Medición de RNF (beta):** workflow manual sobre `premain`. Mide carga (k6), acceso cruzado, TLS y tiempos de despliegue contra la beta, guarda los resultados en `docs/pruebas/resultados/beta/` y vuelve a publicar el informe. Ver `docs/pruebas/plan-de-pruebas.md` y `pruebas-rnf/README.md`.
+
+**Secretos para la beta** (Settings → Secrets and variables → Actions):
+- `BETA_SUPABASE_URL`, `BETA_SUPABASE_ANON_KEY`, `BETA_SUPABASE_PROJECT_ID` y `BETA_SUPABASE_DB_PASSWORD`.
+- `BETA_CLAVE_CUENTAS`: la contraseña de `directiva@ninaspro.cl` en la beta, y también la de las cuentas de prueba que use la medición.
+- Variables (no secretas) para la medición: `BETA_CUENTAS_CARGA` y `BETA_CUENTAS_ACCESO` (ver `pruebas-rnf/README.md`).
+- El proyecto beta se configura igual que el de producción (sección «Configuración manual en Supabase Cloud»), pero con *Site URL* y *Redirect URLs* = `https://rhussu.github.io/NinasPro-Hub/beta/`.
+- En **Settings → Environments → github-pages** hay que permitir que `premain` despliegue.
 
 ---
 
