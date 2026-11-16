@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../repositories/alumnas_repository.dart';
 import '../../repositories/hub_repository.dart';
 import 'directorio_alumnas_view.dart';
 import 'directorio_auditoria_view.dart';
@@ -16,7 +17,10 @@ import 'directorio_widgets.dart';
 class DirectorioDesktopScreen extends StatefulWidget {
   final HubRepository repository;
 
-  const DirectorioDesktopScreen({super.key, required this.repository});
+  /// Nómina real de alumnas (US-07..US-12); sin ella la sección pide conexión
+  final AlumnasRepository? alumnasRepository;
+
+  const DirectorioDesktopScreen({super.key, required this.repository, this.alumnasRepository});
 
   @override
   State<DirectorioDesktopScreen> createState() => _DirectorioDesktopScreenState();
@@ -43,7 +47,10 @@ class _DirectorioDesktopScreenState extends State<DirectorioDesktopScreen> {
     // Cada sección carga sus datos al abrirse, así siempre muestra lo último editado
     final contenido = switch (_seccion) {
       SeccionDirectorio.dashboard => DirectorioDashboardView(repository: widget.repository, onNavegar: _irA),
-      SeccionDirectorio.alumnas => DirectorioAlumnasView(repository: widget.repository),
+      SeccionDirectorio.alumnas => switch (widget.alumnasRepository) {
+        final alumnas? => DirectorioAlumnasView(repository: alumnas),
+        null => const Center(child: Text('La nómina de alumnas necesita la conexión con la base de datos.')),
+      },
       SeccionDirectorio.voluntariado => DirectorioVoluntariadoView(repository: widget.repository),
       SeccionDirectorio.exportar => DirectorioExportarView(repository: widget.repository),
       SeccionDirectorio.auditoria => DirectorioAuditoriaView(repository: widget.repository),

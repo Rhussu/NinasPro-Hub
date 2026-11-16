@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import '../../config/ninaspro_colors.dart';
 import '../../config/ninaspro_theme.dart';
 import '../../models/hub_models.dart';
+import '../../repositories/alumnas_repository.dart';
 import '../../repositories/hub_repository.dart';
 import '../../widgets/ninaspro_recursos_curso.dart';
 import '../../widgets/ninaspro_skeleton.dart';
 import '../../widgets/ninaspro_speed_dial.dart';
 import '../../widgets/ninaspro_stat_card.dart';
+import '../alumnas/pendientes_autorizacion_screen.dart';
 import '../tutora/clase_sesion_controller.dart';
 import '../tutora/clase_sesion_views.dart';
 import '../tutora/inicio_tutora_widgets.dart';
@@ -27,9 +29,13 @@ class GestionMobileScreen extends StatefulWidget {
   /// Tutora del Equipo de Gestión que usa la app
   final String tutoraId;
 
+  /// Autorizaciones pendientes de las alumnas de la sede (US-11); opcional sin base de datos
+  final AlumnasRepository? alumnasRepository;
+
   const GestionMobileScreen({
     super.key,
     required this.repository,
+    this.alumnasRepository,
     this.tutoraId = 'tutora-1', // Camila Sepúlveda Rivas por defecto
   });
 
@@ -638,6 +644,9 @@ class _GestionMobileScreenState extends State<GestionMobileScreen> {
           sedeNombre: _tutoraActual?.sedeNombre,
         ),
         const SizedBox(height: 14),
+
+        // Preinscritas sin consentimiento de datos, destacadas tras 2 sesiones (US-11)
+        if (widget.alumnasRepository case final alumnas?) TarjetaAutorizacionesPendientes(repository: alumnas),
 
         // Resumen rápido de la clase y la sede
         Row(

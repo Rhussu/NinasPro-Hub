@@ -92,7 +92,15 @@ class _DialogoImportacionState extends State<_DialogoImportacion> {
       content: SizedBox(
         width: 760,
         child: SingleChildScrollView(
-          child: resultado == null ? _buildPasoSubida() : _buildPrevisualizacion(resultado),
+          child: resultado == null
+              ? _buildPasoSubida()
+              : VistaPreviaImportacion(
+                  resultado: resultado,
+                  destino: widget.destinos[_destinoId] ?? '',
+                  etiquetaDetalle: widget.etiquetaDetalle,
+                  onDescargarRechazadas: () =>
+                      mostrarAviso(context, '📄 Reporte de filas rechazadas descargado (mockup).'),
+                ),
         ),
       ),
       actions: [
@@ -191,8 +199,26 @@ class _DialogoImportacionState extends State<_DialogoImportacion> {
       ],
     );
   }
+}
 
-  Widget _buildPrevisualizacion(ResultadoImportacion resultado) {
+/// Resumen de una planilla procesada: rechazo completo por estructura, o el
+/// desglose de filas nuevas, existentes e inválidas con su motivo (US-07, US-08).
+class VistaPreviaImportacion extends StatelessWidget {
+  final ResultadoImportacion resultado;
+  final String destino;
+  final String etiquetaDetalle;
+  final VoidCallback? onDescargarRechazadas;
+
+  const VistaPreviaImportacion({
+    super.key,
+    required this.resultado,
+    required this.destino,
+    required this.etiquetaDetalle,
+    this.onDescargarRechazadas,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (resultado.errorColumnas != null) {
@@ -224,7 +250,7 @@ class _DialogoImportacionState extends State<_DialogoImportacion> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          '${resultado.nombreArchivo} · ${resultado.filas.length} filas · destino: ${widget.destinos[_destinoId]}',
+          '${resultado.nombreArchivo} · ${resultado.filas.length} filas · destino: $destino',
           style: const TextStyle(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 10),
@@ -239,7 +265,7 @@ class _DialogoImportacionState extends State<_DialogoImportacion> {
         ),
         const SizedBox(height: 12),
         DirectorioTabla(
-          columnas: ['Fila', 'Nombre', 'RUT', widget.etiquetaDetalle, 'Estado', 'Observación'],
+          columnas: ['Fila', 'Nombre', 'RUT', etiquetaDetalle, 'Estado', 'Observación'],
           filas: [
             for (final f in resultado.filas)
               DataRow(cells: [
@@ -259,11 +285,11 @@ class _DialogoImportacionState extends State<_DialogoImportacion> {
               ]),
           ],
         ),
-        if (invalidas > 0)
+        if (invalidas > 0 && onDescargarRechazadas != null)
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
-              onPressed: () => mostrarAviso(context, '📄 Reporte de filas rechazadas descargado (mockup).'),
+              onPressed: onDescargarRechazadas,
               icon: const Icon(Icons.download_rounded, size: 18),
               label: const Text('Descargar filas rechazadas'),
             ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../config/ninaspro_colors.dart';
 import '../../models/sesion_usuario.dart';
 import '../../repositories/accesos_repository.dart';
+import '../../repositories/alumnas_repository.dart';
 import '../../repositories/catalogo_repository.dart';
 import '../../repositories/hub_repository.dart';
 import '../../services/health_service.dart';
@@ -40,6 +41,9 @@ class HubShellScreen extends StatefulWidget {
   /// Catálogo de sedes y cursos, instancias y calendario de clases (US-01..03)
   final CatalogoRepository? catalogoRepository;
 
+  /// Nómina, fichas, cargas masivas y autorizaciones de alumnas (US-07..12)
+  final AlumnasRepository? alumnasRepository;
+
   const HubShellScreen({
     super.key,
     required this.repository,
@@ -49,6 +53,7 @@ class HubShellScreen extends StatefulWidget {
     this.onCerrarSesion,
     this.accesosRepository,
     this.catalogoRepository,
+    this.alumnasRepository,
   });
 
   @override
@@ -116,7 +121,7 @@ class _HubShellScreenState extends State<HubShellScreen> {
         ),
         body: Stack(
           children: [
-            DirectorioDesktopScreen(repository: widget.repository),
+            DirectorioDesktopScreen(repository: widget.repository, alumnasRepository: widget.alumnasRepository),
             if (_mostrarHealthChecker)
               Positioned(bottom: 20, right: 20, child: DbHealthChecker(healthService: widget.healthService)),
           ],
@@ -151,7 +156,10 @@ class _HubShellScreenState extends State<HubShellScreen> {
 
   Widget _buildVistaMovil() {
     return switch (_rol) {
-      RolUsuario.equipoGestion => GestionMobileScreen(repository: widget.repository),
+      RolUsuario.equipoGestion => GestionMobileScreen(
+          repository: widget.repository,
+          alumnasRepository: widget.alumnasRepository,
+        ),
       RolUsuario.tutora => TutoraMobileScreen(repository: widget.repository),
       RolUsuario.alumna => PortalAlumnaScreen(repository: widget.repository),
       _ => _RolSinVista(sesion: widget.sesion, onCerrarSesion: widget.onCerrarSesion),
