@@ -7,6 +7,8 @@ import 'package:ninas_pro_hub/screens/directorio/ajustes_directiva_screen.dart';
 import 'package:ninas_pro_hub/screens/directorio/directorio_desktop_screen.dart';
 import 'package:ninas_pro_hub/screens/directorio/directorio_grafico_asistencia.dart';
 
+import 'fakes/fake_catalogo_repository.dart';
+
 /// Vista de escritorio de la Directiva Nacional y sus Ajustes
 void main() {
   late MockHubRepository repository;
@@ -158,7 +160,11 @@ void main() {
 
   testWidgets('Ajustes de la Directiva: menú lateral y creación de una sede (US-01)', (tester) async {
     final themeNotifier = ValueNotifier(ThemeMode.light);
-    await abrir(tester, AjustesDirectivaScreen(repository: repository, themeNotifier: themeNotifier));
+    final catalogo = FakeCatalogoRepository();
+    await abrir(
+      tester,
+      AjustesDirectivaScreen(repository: repository, themeNotifier: themeNotifier, catalogoRepository: catalogo),
+    );
 
     expect(find.text('Directiva Nacional'), findsOneWidget);
     await tester.tap(find.text('Oscuro'));
@@ -171,7 +177,6 @@ void main() {
     await tester.enterText(find.widgetWithText(TextFormField, 'Nombre de la sede'), 'Sede Beauchef');
     await tester.enterText(find.widgetWithText(TextFormField, 'Institución anfitriona'), 'U. de Concepción');
     await tester.enterText(find.widgetWithText(TextFormField, 'Región'), 'Biobío');
-    await tester.enterText(find.widgetWithText(TextFormField, 'Coordinadora'), 'Ana Torres');
     await tester.tap(find.text('Guardar'));
     await tester.pumpAndSettle();
     expect(find.text('Ya existe una sede llamada "Sede Beauchef".'), findsOneWidget);
@@ -180,14 +185,49 @@ void main() {
     await tester.tap(find.text('Guardar'));
     await tester.pumpAndSettle();
     expect(find.text('Sede Concepción'), findsOneWidget);
+    expect(find.text('Sin líder asignada'), findsOneWidget);
+
+    await irA(tester, 'Cursos');
+    await tester.tap(find.text('Nuevo curso'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextFormField, 'Código institucional'), 'pcb');
+    await tester.enterText(find.widgetWithText(TextFormField, 'Nombre'), 'Otro curso');
+    await tester.tap(find.text('Guardar'));
+    await tester.pumpAndSettle();
+    expect(find.text('El código "PCB" ya está en uso.'), findsOneWidget);
+    await tester.enterText(find.widgetWithText(TextFormField, 'Código institucional'), 'web');
+    await tester.tap(find.text('Guardar'));
+    await tester.pumpAndSettle();
+    expect(find.text('WEB'), findsOneWidget);
+    await tester.tap(find.byTooltip('Editar Otro curso'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextFormField, 'Nombre'), 'Desarrollo Web Inicial');
+    await tester.tap(find.text('Guardar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Desarrollo Web Inicial'), findsOneWidget);
 
     await irA(tester, 'Instancias y sesiones');
     await tester.tap(find.text('Nueva instancia'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Se generarán 18 sesiones'), findsOneWidget);
+    expect(find.textContaining('sesiones con estado "programada"'), findsOneWidget);
     await tester.tap(find.text('Crear instancia'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('PCB-2026-S2-BEAUCHEF'), findsWidgets);
+    final creada = catalogo.listaInstancias.single;
+    expect(creada.codigo, startsWith('PCB-'));
+    expect(creada.codigo, endsWith('-BEAUCHEF'));
+    expect(find.text(creada.codigo), findsOneWidget);
+
+    // US-02 E3: la misma instancia pide confirmación y se crea como sección paralela
+    await tester.tap(find.text('Nueva instancia'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Crear instancia'));
+    await tester.pumpAndSettle();
+    expect(find.text('Esta instancia ya existe'), findsOneWidget);
+    await tester.tap(find.text('Crear sección paralela'));
+    await tester.pumpAndSettle();
+    expect(catalogo.listaInstancias, hasLength(2));
+    expect(find.text('${creada.codigo}-B'), findsOneWidget);
+    expect(find.textContaining('Sección B'), findsOneWidget);
 
     await irA(tester, 'Roles de tutoras');
     expect(find.text('Presentar la Clase'), findsOneWidget);
