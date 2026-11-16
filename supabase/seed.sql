@@ -414,4 +414,8 @@ INSERT INTO public.correos_autorizados (correo, rol, sede_id, alumna_id, autoriz
 INSERT INTO auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change_token_new, email_change, email_change_token_current, reauthentication_token) VALUES ('00000000-0000-0000-0000-000000000000', '4a27e42e-c5be-56a3-8312-e7402686bf11', 'authenticated', 'authenticated', 'valentina.soto@correo.cl', extensions.crypt('NinasPro2026', extensions.gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '', '', '');
 INSERT INTO auth.identities (id, user_id, provider_id, provider, identity_data, last_sign_in_at, created_at, updated_at) VALUES (gen_random_uuid(), '4a27e42e-c5be-56a3-8312-e7402686bf11', '4a27e42e-c5be-56a3-8312-e7402686bf11', 'email', jsonb_build_object('sub', '4a27e42e-c5be-56a3-8312-e7402686bf11', 'email', 'valentina.soto@correo.cl', 'email_verified', true), now(), now(), now());
 
+
+-- Justificativo pendiente de Valentina por su inasistencia de la semana pasada (bandeja de Gestión, US-37)
+INSERT INTO public.justificativos_inasistencia (clase_id, inscripcion_id, motivo, explicacion, subido_por, created_at) VALUES ('6ad7b605-0cb1-599b-90fb-d64d23b85464', 'a4480b07-a5c2-54e5-8a92-b3908d5c5212', 'escolar', 'Tenía una prueba de recuperación en el liceo ese sábado.', '4a27e42e-c5be-56a3-8312-e7402686bf11', now() - interval '2 days');
+
 COMMIT;

@@ -634,6 +634,7 @@ GRANT SELECT ON public.justificativos_detalle TO authenticated;
 CREATE OR REPLACE FUNCTION public.clases_para_justificar()
 RETURNS TABLE (
   clase_id uuid,
+  inscripcion_id uuid,
   numero_sesion int,
   fecha date,
   tema text,
@@ -643,7 +644,7 @@ RETURNS TABLE (
 )
 LANGUAGE sql STABLE SET search_path = ''
 AS $$
-  SELECT c.id, c.numero_sesion, c.fecha, pl.tema_titulo::text, cu.nombre::text, aa.estado, j.estado
+  SELECT c.id, i.id, c.numero_sesion, c.fecha, pl.tema_titulo::text, cu.nombre::text, aa.estado, j.estado
   FROM public.inscripciones i
   JOIN public.instancias_curso ic ON ic.id = i.instancia_curso_id
   JOIN public.cursos cu ON cu.id = ic.curso_id
