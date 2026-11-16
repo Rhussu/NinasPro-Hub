@@ -3,12 +3,14 @@ import '../../config/ninaspro_colors.dart';
 import '../../models/hub_models.dart';
 import '../../models/sesion_usuario.dart';
 import '../../repositories/accesos_repository.dart';
+import '../../repositories/alertas_repository.dart';
 import '../../repositories/alumnas_repository.dart';
 import '../../repositories/catalogo_repository.dart';
 import '../../repositories/clase_repository.dart';
 import '../../repositories/evidencias_repository.dart';
-import '../../repositories/hub_repository.dart';
 import '../../repositories/justificativos_repository.dart';
+import '../../repositories/portal_repository.dart';
+import '../../repositories/reportes_repository.dart';
 import '../../repositories/roles_repository.dart';
 import '../../repositories/voluntariado_repository.dart';
 import '../../services/health_service.dart';
@@ -35,7 +37,6 @@ import 'tutora/tutora_mobile_screen.dart';
 /// Gestión, Tutora y Alumna son vistas responsivas pensadas primero para el
 /// celular; en pantallas anchas se centran con un ancho máximo legible.
 class HubShellScreen extends StatefulWidget {
-  final HubRepository repository;
   final SesionUsuario sesion;
   final HealthService? healthService;
   final ValueNotifier<ThemeMode>? themeNotifier;
@@ -65,9 +66,17 @@ class HubShellScreen extends StatefulWidget {
   /// Catálogo de roles y roles de cada clase (US-43, US-44)
   final RolesRepository? rolesRepository;
 
+  /// Dashboard, exportación y auditoría (US-21..US-25)
+  final ReportesRepository? reportesRepository;
+
+  /// Alertas de deserción y contacto preventivo (US-39, US-40)
+  final AlertasRepository? alertasRepository;
+
+  /// Portal de la alumna autenticada (US-25..US-27)
+  final PortalRepository? portalRepository;
+
   const HubShellScreen({
     super.key,
-    required this.repository,
     required this.sesion,
     this.healthService,
     this.themeNotifier,
@@ -80,6 +89,9 @@ class HubShellScreen extends StatefulWidget {
     this.evidenciasRepository,
     this.voluntariadoRepository,
     this.rolesRepository,
+    this.reportesRepository,
+    this.alertasRepository,
+    this.portalRepository,
   });
 
   @override
@@ -91,8 +103,8 @@ class _HubShellScreenState extends State<HubShellScreen> {
 
   RolUsuario get _rol => widget.sesion.rol;
 
-  // La nubecita muestra la cola de la clase; sin ella, la simulación del mockup
-  FuenteSincronizacion get _sincronizacion => widget.claseRepository ?? widget.repository;
+  // La nubecita muestra la cola de la clase; sin ella, todo está al día
+  FuenteSincronizacion get _sincronizacion => widget.claseRepository ?? const SinCambiosPendientes();
 
   @override
   Widget build(BuildContext context) {
@@ -151,7 +163,7 @@ class _HubShellScreenState extends State<HubShellScreen> {
         body: Stack(
           children: [
             DirectorioDesktopScreen(
-              repository: widget.repository,
+              reportesRepository: widget.reportesRepository,
               alumnasRepository: widget.alumnasRepository,
               voluntariadoRepository: widget.voluntariadoRepository,
               catalogoRepository: widget.catalogoRepository,
@@ -195,24 +207,23 @@ class _HubShellScreenState extends State<HubShellScreen> {
     }
     return switch (_rol) {
       RolUsuario.equipoGestion => GestionMobileScreen(
-        repository: widget.repository,
         clase: clase!,
         sesion: widget.sesion,
         justificativos: widget.justificativosRepository,
         evidencias: widget.evidenciasRepository,
         roles: widget.rolesRepository,
+        alertas: widget.alertasRepository,
       ),
       RolUsuario.tutora => TutoraMobileScreen(
-        repository: widget.repository,
         clase: clase!,
         sesion: widget.sesion,
         evidencias: widget.evidenciasRepository,
         roles: widget.rolesRepository,
       ),
-      RolUsuario.alumna => PortalAlumnaScreen(
-        repository: widget.repository,
-        justificativos: widget.justificativosRepository,
-      ),
+      RolUsuario.alumna => switch (widget.portalRepository) {
+        final portal? => PortalAlumnaScreen(repository: portal, justificativos: widget.justificativosRepository),
+        null => const Center(child: Text('Tu portal necesita la conexión con la base de datos.')),
+      },
       _ => _RolSinVista(sesion: widget.sesion, onCerrarSesion: widget.onCerrarSesion),
     };
   }
@@ -220,7 +231,6 @@ class _HubShellScreenState extends State<HubShellScreen> {
   Widget? _buildAjustesRol() {
     return switch (_rol) {
       RolUsuario.directorio => AjustesDirectivaScreen(
-          repository: widget.repository,
           sesion: widget.sesion,
           themeNotifier: widget.themeNotifier,
           onCerrarSesion: widget.onCerrarSesion,
@@ -243,11 +253,14 @@ class _HubShellScreenState extends State<HubShellScreen> {
           themeNotifier: widget.themeNotifier,
           onCerrarSesion: widget.onCerrarSesion,
         ),
-      RolUsuario.alumna => AjustesAlumnaScreen(
-          repository: widget.repository,
-          themeNotifier: widget.themeNotifier,
-          onCerrarSesion: widget.onCerrarSesion,
-        ),
+      RolUsuario.alumna => switch (widget.portalRepository) {
+          final portal? => AjustesAlumnaScreen(
+              repository: portal,
+              themeNotifier: widget.themeNotifier,
+              onCerrarSesion: widget.onCerrarSesion,
+            ),
+          null => null,
+        },
       RolUsuario.comunicacion => null,
     };
   }

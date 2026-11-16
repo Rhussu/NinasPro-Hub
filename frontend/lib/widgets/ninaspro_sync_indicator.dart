@@ -9,7 +9,7 @@ import '../models/hub_models.dart';
 /// "aprieta para sincronizar": al tocarla se ve el detalle del estado. Cuando se cae la
 /// conexión o se terminan de subir los pendientes, se avisa con un mensaje.
 class NinasProIndicadorSync extends StatefulWidget {
-  /// Cola de cambios de la clase (o el repositorio del mockup)
+  /// Cola de cambios de la clase (o [SinCambiosPendientes] para los roles sin cola)
   final FuenteSincronizacion repository;
 
   const NinasProIndicadorSync({super.key, required this.repository});

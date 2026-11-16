@@ -1,21 +1,18 @@
 import 'package:flutter/material.dart';
-import '../../models/hub_models.dart';
-import '../../repositories/hub_repository.dart';
+import '../../repositories/portal_repository.dart';
 import '../../widgets/ninaspro_ajustes.dart';
 import '../ajustes/ajustes_screen.dart';
 
-/// Ajustes de la Alumna: perfil, curso y apoderado/a.
+/// Ajustes de la Alumna: perfil, curso y apoderado/a de la cuenta autenticada.
 /// La estructura común (apariencia, cerrar sesión) la aporta [AjustesScreen].
 class AjustesAlumnaScreen extends StatefulWidget {
-  final HubRepository repository;
-  final String alumnaId;
+  final PortalRepository repository;
   final ValueNotifier<ThemeMode>? themeNotifier;
   final VoidCallback? onCerrarSesion;
 
   const AjustesAlumnaScreen({
     super.key,
     required this.repository,
-    this.alumnaId = 'alumna-1', // Misma alumna por defecto que PortalAlumnaScreen
     this.themeNotifier,
     this.onCerrarSesion,
   });
@@ -25,7 +22,8 @@ class AjustesAlumnaScreen extends StatefulWidget {
 }
 
 class _AjustesAlumnaScreenState extends State<AjustesAlumnaScreen> {
-  PortalAlumnaData? _data;
+  PortalAlumna? _portal;
+  bool _cargando = true;
 
   @override
   void initState() {
@@ -34,48 +32,55 @@ class _AjustesAlumnaScreenState extends State<AjustesAlumnaScreen> {
   }
 
   Future<void> _cargarDatos() async {
-    final data = await widget.repository.getPortalAlumnaData(alumnaId: widget.alumnaId);
+    PortalAlumna? portal;
+    try {
+      portal = await widget.repository.portal();
+    } catch (_) {
+      // Sin datos se muestran solo la apariencia y el cierre de sesión
+    }
     if (!mounted) return;
-    setState(() => _data = data);
+    setState(() {
+      _portal = portal;
+      _cargando = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final alumna = _data?.alumna;
+    final portal = _portal;
+    final curso = portal?.curso;
 
     return AjustesScreen(
-      cargando: _data == null,
+      cargando: _cargando,
       themeNotifier: widget.themeNotifier,
       onCerrarSesion: widget.onCerrarSesion,
-      perfil: alumna == null
+      perfil: portal == null
           ? null
           : AjustesPerfil(
-              nombre: alumna.nombre,
-              detalle: alumna.cursoNombre,
+              nombre: portal.nombreCompleto,
+              detalle: curso?.nombre ?? 'Sin curso asignado',
               rolEtiqueta: 'Alumna',
               rolEmoji: '👧',
             ),
-      secciones: alumna == null ? const [] : _buildSecciones(alumna),
+      secciones: portal == null
+          ? const []
+          : [
+              AjustesSeccion(
+                titulo: 'Mi perfil',
+                children: [
+                  AjustesTile(icono: Icons.badge_rounded, titulo: 'RUT', subtitulo: portal.rut),
+                  AjustesTile(icono: Icons.school_rounded, titulo: 'Curso', subtitulo: curso?.nombre ?? '—'),
+                  AjustesTile(icono: Icons.location_on_rounded, titulo: 'Sede', subtitulo: curso?.sedeNombre ?? '—'),
+                ],
+              ),
+              AjustesSeccion(
+                titulo: 'Apoderado/a',
+                children: [
+                  AjustesTile(icono: Icons.person_rounded, titulo: 'Nombre', subtitulo: portal.apoderadoNombre),
+                  AjustesTile(icono: Icons.phone_rounded, titulo: 'Teléfono', subtitulo: portal.apoderadoTelefono),
+                ],
+              ),
+            ],
     );
-  }
-
-  List<Widget> _buildSecciones(Alumna alumna) {
-    return [
-      AjustesSeccion(
-        titulo: 'Mi perfil',
-        children: [
-          AjustesTile(icono: Icons.badge_rounded, titulo: 'RUT', subtitulo: alumna.rut),
-          AjustesTile(icono: Icons.school_rounded, titulo: 'Curso', subtitulo: alumna.cursoNombre),
-          AjustesTile(icono: Icons.location_on_rounded, titulo: 'Sede', subtitulo: alumna.sedeNombre),
-        ],
-      ),
-      AjustesSeccion(
-        titulo: 'Apoderado/a',
-        children: [
-          AjustesTile(icono: Icons.person_rounded, titulo: 'Nombre', subtitulo: alumna.apoderadoNombre),
-          AjustesTile(icono: Icons.phone_rounded, titulo: 'Teléfono', subtitulo: alumna.apoderadoTelefono),
-        ],
-      ),
-    ];
   }
 }

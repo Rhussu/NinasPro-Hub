@@ -71,7 +71,7 @@ class AjustesScreen extends StatelessWidget {
                     AjustesCuenta(onCerrarSesion: onCerrarSesion),
                     const Center(
                       child: Text(
-                        'NiñasPro Hub · Mockup v1.0.0',
+                        'NiñasPro Hub · MVP',
                         style: TextStyle(fontSize: 11, color: NinasProColors.neutral500),
                       ),
                     ),

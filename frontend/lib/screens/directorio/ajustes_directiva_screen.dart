@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../config/ninaspro_colors.dart';
 import '../../repositories/accesos_repository.dart';
 import '../../repositories/catalogo_repository.dart';
-import '../../repositories/hub_repository.dart';
 import '../../repositories/roles_repository.dart';
 import '../../models/sesion_usuario.dart';
 import '../../widgets/ninaspro_ajustes.dart';
@@ -20,7 +19,6 @@ import 'directorio_widgets.dart';
 /// - Roles de tutoras: catálogo de roles semanales (US-43)
 /// - Accesos: correos autorizados para crear su cuenta (US-04)
 class AjustesDirectivaScreen extends StatefulWidget {
-  final HubRepository repository;
   final ValueNotifier<ThemeMode>? themeNotifier;
 
   /// Usuaria autenticada; sin sesión se muestra el perfil genérico de la Directiva
@@ -34,7 +32,6 @@ class AjustesDirectivaScreen extends StatefulWidget {
 
   const AjustesDirectivaScreen({
     super.key,
-    required this.repository,
     this.themeNotifier,
     this.sesion,
     this.onCerrarSesion,

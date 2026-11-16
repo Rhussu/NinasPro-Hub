@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../config/ninaspro_colors.dart';
-import '../../models/hub_models.dart';
-import '../../repositories/hub_repository.dart';
+import '../../repositories/reportes_repository.dart';
+import '../../widgets/ninaspro_planificacion_hoy.dart' show formatearFechaClase;
 import '../../widgets/ninaspro_stat_card.dart';
 import 'directorio_desktop_screen.dart';
 import 'directorio_grafico_asistencia.dart';
@@ -11,7 +11,7 @@ import 'directorio_widgets.dart';
 /// tabla por sede y accesos rápidos.
 /// Las alertas de deserción y los justificativos los ve el Equipo de Gestión de cada sede.
 class DirectorioDashboardView extends StatefulWidget {
-  final HubRepository repository;
+  final ReportesRepository repository;
   final ValueChanged<SeccionDirectorio> onNavegar;
 
   const DirectorioDashboardView({super.key, required this.repository, required this.onNavegar});
@@ -22,7 +22,8 @@ class DirectorioDashboardView extends StatefulWidget {
 
 class _DirectorioDashboardViewState extends State<DirectorioDashboardView> {
   bool _cargando = true;
-  List<ResumenSede> _resumen = [];
+  String? _error;
+  List<ResumenSedeReporte> _resumen = [];
   List<SerieAsistencia> _asistencia = [];
 
   @override
@@ -32,36 +33,70 @@ class _DirectorioDashboardViewState extends State<DirectorioDashboardView> {
   }
 
   Future<void> _cargarDatos() async {
-    final resumen = await widget.repository.getResumenSedes();
-    final asistencia = await widget.repository.getAsistenciaPorClase();
-    if (!mounted) return;
-    setState(() {
-      _resumen = resumen;
-      _asistencia = asistencia;
-      _cargando = false;
-    });
+    try {
+      final resumen = await widget.repository.resumenSedes();
+      final asistencia = await widget.repository.asistenciaPorClase();
+      if (!mounted) return;
+      setState(() {
+        _resumen = resumen;
+        _asistencia = asistencia;
+        _error = null;
+        _cargando = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'No pudimos cargar los indicadores. Revisa la conexión e inténtalo nuevamente.';
+        _cargando = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     if (_cargando) return const Center(child: CircularProgressIndicator());
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(_error!, textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () {
+                setState(() => _cargando = true);
+                _cargarDatos();
+              },
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Reintentar'),
+            ),
+          ],
+        ),
+      );
+    }
 
     final alumnas = _resumen.fold(0, (t, r) => t + r.alumnasActivas);
     final voluntarias = _resumen.fold(0, (t, r) => t + r.voluntariasActivas);
-    final sedesActivas = _resumen.where((r) => r.sede.estado == 'activa').length;
+    final sedesActivas = _resumen.where((r) => r.activa).length;
 
     return ListView(
       padding: const EdgeInsets.all(28),
       children: [
         DirectorioEncabezado(
           titulo: 'Dashboard nacional',
-          subtitulo: '$sedesActivas sedes activas · Clase de hoy: sábado 25 de abril',
+          subtitulo: '$sedesActivas ${sedesActivas == 1 ? 'sede activa' : 'sedes activas'} · '
+              '${formatearFechaClase(DateTime.now())}',
         ),
         _buildKpis(alumnas, voluntarias),
         const SizedBox(height: 20),
         DirectorioPanel(
           titulo: 'Asistencia por clase',
-          child: GraficoAsistencia(series: _asistencia),
+          child: _asistencia.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text('Aún no hay clases realizadas con asistencia registrada.'),
+                )
+              : GraficoAsistencia(series: _asistencia),
         ),
         const SizedBox(height: 20),
         DirectorioPanel(
@@ -79,7 +114,7 @@ class _DirectorioDashboardViewState extends State<DirectorioDashboardView> {
       NinasProStatCard(
         title: 'Alumnas activas',
         value: '$alumnas',
-        subtitle: 'En ${_resumen.fold(0, (t, r) => t + r.cursos)} cursos',
+        subtitle: 'En ${_resumen.fold(0, (t, r) => t + r.cursos)} cursos activos',
         icon: Icons.school_rounded,
         onTap: () => widget.onNavegar(SeccionDirectorio.alumnas),
       ),
@@ -115,22 +150,23 @@ class _DirectorioDashboardViewState extends State<DirectorioDashboardView> {
             DataCell(Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(r.sede.nombre, style: const TextStyle(fontWeight: FontWeight.w700)),
-                if (r.sede.estado != 'activa') ...[
+                Text(r.nombre, style: const TextStyle(fontWeight: FontWeight.w700)),
+                if (!r.activa) ...[
                   const SizedBox(width: 8),
-                  DirectorioChip(etiquetaEstado(r.sede.estado), tono: tonoEstado(r.sede.estado)),
+                  DirectorioChip(etiquetaEstado('inactiva'), tono: tonoEstado('inactiva')),
                 ],
               ],
             )),
-            DataCell(Text(r.sede.universidad)),
+            DataCell(Text(r.institucion ?? '—')),
             DataCell(Text('${r.cursos}')),
             DataCell(Text('${r.alumnasActivas}')),
-            DataCell(DirectorioChip(
-              r.alumnasActivas == 0 ? '—' : '${r.asistenciaPromedio.toStringAsFixed(1)}%',
-              tono: r.alumnasActivas == 0
-                  ? TonoChip.neutro
-                  : (r.asistenciaPromedio >= 80 ? TonoChip.exito : TonoChip.advertencia),
-            )),
+            DataCell(switch (r.asistenciaPromedio) {
+              null => const DirectorioChip('—', tono: TonoChip.neutro),
+              final p => DirectorioChip(
+                  '${p.toStringAsFixed(1)}%',
+                  tono: p >= 80 ? TonoChip.exito : TonoChip.advertencia,
+                ),
+            }),
             DataCell(Text('${r.voluntariasActivas}')),
           ]),
       ],

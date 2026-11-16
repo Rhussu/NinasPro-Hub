@@ -4,13 +4,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config/app_config.dart';
 import 'config/ninaspro_theme.dart';
 import 'repositories/accesos_repository.dart';
+import 'repositories/alertas_repository.dart';
 import 'repositories/alumnas_repository.dart';
 import 'repositories/catalogo_repository.dart';
 import 'repositories/clase_repository.dart';
 import 'repositories/evidencias_repository.dart';
-import 'repositories/hub_repository.dart';
 import 'repositories/justificativos_repository.dart';
-import 'repositories/mock_hub_repository.dart';
+import 'repositories/portal_repository.dart';
+import 'repositories/reportes_repository.dart';
 import 'repositories/roles_repository.dart';
 import 'repositories/voluntariado_repository.dart';
 import 'screens/auth/auth_gate.dart';
@@ -46,13 +47,15 @@ Future<void> main() async {
     evidenciasRepository: SupabaseEvidenciasRepository(Supabase.instance.client),
     voluntariadoRepository: SupabaseVoluntariadoRepository(Supabase.instance.client),
     rolesRepository: SupabaseRolesRepository(Supabase.instance.client),
+    reportesRepository: SupabaseReportesRepository(Supabase.instance.client),
+    alertasRepository: SupabaseAlertasRepository(Supabase.instance.client),
+    portalRepository: SupabasePortalRepository(Supabase.instance.client),
   ));
 }
 
 class NinasProApp extends StatefulWidget {
   final AuthService authService;
   final HealthService? healthService;
-  final HubRepository? repository;
   final ThemeMode initialThemeMode;
   final AccesosRepository? accesosRepository;
   final CatalogoRepository? catalogoRepository;
@@ -62,12 +65,14 @@ class NinasProApp extends StatefulWidget {
   final EvidenciasRepository? evidenciasRepository;
   final VoluntariadoRepository? voluntariadoRepository;
   final RolesRepository? rolesRepository;
+  final ReportesRepository? reportesRepository;
+  final AlertasRepository? alertasRepository;
+  final PortalRepository? portalRepository;
 
   const NinasProApp({
     super.key,
     required this.authService,
     this.healthService,
-    this.repository,
     this.initialThemeMode = ThemeMode.dark, // Estética ninaspro.cl cósmica por defecto
     this.accesosRepository,
     this.catalogoRepository,
@@ -77,6 +82,9 @@ class NinasProApp extends StatefulWidget {
     this.evidenciasRepository,
     this.voluntariadoRepository,
     this.rolesRepository,
+    this.reportesRepository,
+    this.alertasRepository,
+    this.portalRepository,
   });
 
   @override
@@ -85,14 +93,11 @@ class NinasProApp extends StatefulWidget {
 
 class _NinasProAppState extends State<NinasProApp> {
   late final ValueNotifier<ThemeMode> _themeNotifier;
-  // TODO(mvp): reemplazar por SupabaseHubRepository al conectar los datos reales
-  late final HubRepository _repository;
 
   @override
   void initState() {
     super.initState();
     _themeNotifier = ValueNotifier(widget.initialThemeMode);
-    _repository = widget.repository ?? MockHubRepository();
   }
 
   @override
@@ -116,7 +121,6 @@ class _NinasProAppState extends State<NinasProApp> {
           home: AuthGate(
             authService: widget.authService,
             builder: (context, sesion) => HubShellScreen(
-              repository: _repository,
               sesion: sesion,
               healthService: widget.healthService,
               themeNotifier: _themeNotifier,
@@ -129,6 +133,9 @@ class _NinasProAppState extends State<NinasProApp> {
               evidenciasRepository: widget.evidenciasRepository,
               voluntariadoRepository: widget.voluntariadoRepository,
               rolesRepository: widget.rolesRepository,
+              reportesRepository: widget.reportesRepository,
+              alertasRepository: widget.alertasRepository,
+              portalRepository: widget.portalRepository,
             ),
           ),
         );

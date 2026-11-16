@@ -3,9 +3,9 @@ import '../../config/ninaspro_colors.dart';
 import '../../config/ninaspro_theme.dart';
 import '../../models/hub_models.dart';
 import '../../models/sesion_usuario.dart';
+import '../../repositories/alertas_repository.dart';
 import '../../repositories/clase_repository.dart';
 import '../../repositories/evidencias_repository.dart';
-import '../../repositories/hub_repository.dart';
 import '../../repositories/justificativos_repository.dart';
 import '../../repositories/roles_repository.dart';
 import '../../widgets/ninaspro_recursos_curso.dart';
@@ -15,6 +15,7 @@ import '../tutora/clase_sesion_controller.dart';
 import '../tutora/clase_sesion_views.dart';
 import '../tutora/fotos_clase_view.dart';
 import '../tutora/inicio_tutora_widgets.dart';
+import 'alertas_desercion_view.dart';
 import 'gestion_tutoras_views.dart';
 import 'justificativos_gestion.dart';
 
@@ -27,11 +28,8 @@ import 'justificativos_gestion.dart';
 /// - Pantalla principal con resumen de la sede, bandeja de justificativos, clases
 ///   sin foto tras 48 horas (US-20) y alertas activas.
 /// - US-16/US-37: Aprobación, rechazo, registro y eliminación exclusiva de justificativos.
-/// - US-37/US-39: Alertas tempranas de deserción e inasistencias en la sede.
+/// - US-39/US-40: Alertas de deserción de la sede y registro del contacto con la apoderada.
 class GestionMobileScreen extends StatefulWidget {
-  /// Repositorio del mockup: alertas de deserción (se conectan en el PR 7)
-  final HubRepository repository;
-
   /// La clase real: cursos de la sede, pase de lista de alumnas y de tutoras
   final ClaseRepository clase;
 
@@ -47,14 +45,17 @@ class GestionMobileScreen extends StatefulWidget {
   /// Roles de cada clase del curso y su cumplimiento (US-43, US-44)
   final RolesRepository? roles;
 
+  /// Alertas de deserción de la sede (US-39, US-40)
+  final AlertasRepository? alertas;
+
   const GestionMobileScreen({
     super.key,
-    required this.repository,
     required this.clase,
     required this.sesion,
     this.justificativos,
     this.evidencias,
     this.roles,
+    this.alertas,
   });
 
   @override
@@ -65,8 +66,8 @@ class _GestionMobileScreenState extends State<GestionMobileScreen> {
   bool _cargando = true;
   bool _recargando = false;
 
-  // Datos del mockup hasta conectar las alertas (PR 7)
-  List<AlertaDesercion> _alertas = [];
+  /// Alertas de deserción de la sede (US-39)
+  List<AlertaDesercionDetalle> _alertas = const [];
 
   /// Bandeja de justificativos; null sin conexión con la base
   BandejaJustificativosController? _bandeja;
@@ -76,9 +77,6 @@ class _GestionMobileScreenState extends State<GestionMobileScreen> {
 
   // Mi registro como tutora: asistencia y rol de cada clase del curso
   List<ClaseTutoraResumen> _miHistorial = [];
-
-  // Sede del mockup para los datos que aún no se conectan
-  static const _sedeIdMockup = 'sede-beauchef';
 
   // Clase en curso, compartida con las pantallas de Tutora
   late final ClaseSesionController _clase;
@@ -106,14 +104,43 @@ class _GestionMobileScreenState extends State<GestionMobileScreen> {
     await _clase.cargar();
     await _bandeja?.cargar();
     await _cargarEvidenciasPendientes();
-    final alerts = await widget.repository.getAlertasDesercion(sedeId: _sedeIdMockup);
+    await _cargarAlertas();
     await _cargarMiAsistencia();
 
     if (!mounted) return;
-    setState(() {
-      _alertas = alerts;
-      _cargando = false;
-    });
+    setState(() => _cargando = false);
+  }
+
+  Future<void> _cargarAlertas() async {
+    try {
+      _alertas = await widget.alertas?.alertas() ?? const [];
+    } catch (_) {
+      // Sin conexión se mantienen las alertas anteriores
+    }
+  }
+
+  Future<void> _refrescarAlertas() async {
+    await _cargarAlertas();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _registrarContacto(AlertaDesercionDetalle alerta) async {
+    final repo = widget.alertas;
+    if (repo == null || !await mostrarModalContactoAlerta(context, repo, alerta) || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(backgroundColor: NinasProColors.success700, content: Text('📞 Contacto registrado.')),
+    );
+    await _refrescarAlertas();
+  }
+
+  Future<void> _abrirAlertas() async {
+    final repo = widget.alertas;
+    if (repo == null) return;
+    await _abrirPantallaClase(
+      'Alertas de deserción',
+      AlertasDesercionView(repository: repo, alCambiar: _refrescarAlertas),
+    );
+    await _refrescarAlertas();
   }
 
   Future<void> _elegirCurso(String instanciaId) async {
@@ -159,8 +186,7 @@ class _GestionMobileScreenState extends State<GestionMobileScreen> {
     mostrarModalRegistrarJustificativo(context, bandeja, _clase);
   }
 
-  List<AlertaDesercion> get _alertasActivas =>
-      _alertas.where((a) => a.estado == 'activa').toList();
+  List<AlertaDesercionDetalle> get _alertasActivas => _alertas.where((a) => !a.atendida).toList();
 
   // Carga mi registro individual como tutora: asistencia y rol por clase (US-33)
   Future<void> _cargarMiAsistencia() async {
@@ -416,28 +442,41 @@ class _GestionMobileScreenState extends State<GestionMobileScreen> {
               )),
         const SizedBox(height: 20),
 
-        // Alertas tempranas de deserción (US-37/US-39)
-        _buildEncabezadoSeccion(
-          isDark,
-          icon: Icons.notifications_active_outlined,
-          titulo: 'Alertas de deserción',
-          cantidad: alertas.length,
-          color: NinasProColors.error700,
-        ),
-        const SizedBox(height: 10),
-        if (alertas.isEmpty)
-          _buildEstadoVacio(
+        // Alertas de deserción: 3 inasistencias seguidas sin justificar (US-39, US-40)
+        if (widget.alertas != null) ...[
+          _buildEncabezadoSeccion(
             isDark,
-            icon: Icons.favorite_rounded,
-            titulo: 'Sin alumnas en riesgo',
-            mensaje: 'Ninguna alumna acumula inasistencias consecutivas. ¡Sigan así!',
-          )
-        else
-          ...alertas.map((a) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: _buildTarjetaAlerta(isDark, a),
-              )),
-        const SizedBox(height: 20),
+            icon: Icons.notifications_active_outlined,
+            titulo: 'Alertas de deserción',
+            cantidad: alertas.length,
+            color: NinasProColors.warning700,
+          ),
+          const SizedBox(height: 10),
+          if (alertas.isEmpty)
+            _buildEstadoVacio(
+              isDark,
+              icon: Icons.favorite_rounded,
+              titulo: 'Sin alertas por atender',
+              mensaje: 'Ninguna alumna acumula inasistencias seguidas. ¡Sigan así!',
+            )
+          else ...[
+            const NotaMetodologicaAlertas(),
+            const SizedBox(height: 10),
+            ...alertas.take(3).map((a) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: TarjetaAlertaDesercion(alerta: a, onRegistrarContacto: () => _registrarContacto(a)),
+                )),
+          ],
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: _abrirAlertas,
+              icon: const Icon(Icons.list_alt_rounded, size: 18),
+              label: Text(alertas.length > 3 ? 'Ver las ${alertas.length} alertas' : 'Ver todas las alertas'),
+            ),
+          ),
+          const SizedBox(height: 20),
+        ],
 
         const TarjetaConsejo(
           texto: 'Tip: toca ⚡ para pasar lista, registrar ejercicios, subir la foto de la clase '
@@ -559,92 +598,6 @@ class _GestionMobileScreenState extends State<GestionMobileScreen> {
                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
               ),
             ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Tarjeta de alerta temprana de deserción activa (US-37/US-39)
-  Widget _buildTarjetaAlerta(bool isDark, AlertaDesercion a) {
-    return Card(
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      color: isDark ? NinasProColors.dark800 : NinasProColors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: NinasProColors.error700, width: 1.5),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    a.alumnaNombre,
-                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: NinasProColors.error100,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Text(
-                    'EN RIESGO',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      color: NinasProColors.error900,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '${a.inasistenciasConsecutivas} inasistencias consecutivas registradas.',
-              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Apoderada: ${a.apoderadoContacto}',
-              style: TextStyle(
-                fontSize: 12,
-                color: isDark ? NinasProColors.neutral300 : NinasProColors.neutral500,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton.tonalIcon(
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                ),
-                onPressed: () async {
-                  final messenger = ScaffoldMessenger.of(context);
-                  await widget.repository.contactarAlerta(
-                    alertaId: a.id,
-                    observacionesContacto: 'Contactada por equipo de gestión vía WhatsApp.',
-                  );
-                  await _cargarDatos();
-                  if (!mounted) return;
-                  messenger.showSnackBar(
-                    const SnackBar(
-                      backgroundColor: NinasProColors.success700,
-                      content: Text('📞 Alerta marcada como contactada.'),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.phone_in_talk_rounded, size: 16),
-                label: const Text('Registrar Contacto'),
-              ),
-            ),
           ],
         ),
       ),

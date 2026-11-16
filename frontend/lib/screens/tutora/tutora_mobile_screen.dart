@@ -5,7 +5,6 @@ import '../../models/hub_models.dart';
 import '../../models/sesion_usuario.dart';
 import '../../repositories/clase_repository.dart';
 import '../../repositories/evidencias_repository.dart';
-import '../../repositories/hub_repository.dart';
 import '../../repositories/roles_repository.dart';
 import '../../widgets/ninaspro_recursos_curso.dart';
 import '../../widgets/ninaspro_skeleton.dart';
@@ -26,9 +25,6 @@ import 'inicio_tutora_widgets.dart';
 ///   US-18/US-19 fotos ([FotosClaseView]) y US-29 podio Kahoot (vistas en [clase_sesion_views.dart]).
 /// - En el pase de lista ve el estado de los justificativos, sin resolverlos (US-38).
 class TutoraMobileScreen extends StatefulWidget {
-  /// Repositorio del mockup (lo reemplazan los repositorios por dominio en el PR 7)
-  final HubRepository repository;
-
   /// La clase real: cursos, pase de lista, participación y podio
   final ClaseRepository clase;
 
@@ -43,7 +39,6 @@ class TutoraMobileScreen extends StatefulWidget {
 
   const TutoraMobileScreen({
     super.key,
-    required this.repository,
     required this.clase,
     required this.sesion,
     this.evidencias,

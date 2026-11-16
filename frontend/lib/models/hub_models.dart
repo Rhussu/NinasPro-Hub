@@ -1,5 +1,3 @@
-import 'dart:ui' show Color;
-
 import 'package:flutter/foundation.dart';
 import '../config/ninaspro_theme.dart';
 
@@ -28,6 +26,24 @@ abstract class FuenteSincronizacion {
   ValueListenable<String?> get ultimoRechazo;
 }
 
+/// Fuente sin cola sin conexión: siempre al día (roles que no pasan lista sin conexión)
+class SinCambiosPendientes implements FuenteSincronizacion {
+  const SinCambiosPendientes();
+
+  static final _estado = ValueNotifier(EstadoSincronizacion.sincronizado);
+  static final _pendientes = ValueNotifier(0);
+  static final _rechazo = ValueNotifier<String?>(null);
+
+  @override
+  ValueListenable<EstadoSincronizacion> get estadoSincronizacion => _estado;
+
+  @override
+  ValueListenable<int> get cambiosPendientes => _pendientes;
+
+  @override
+  ValueListenable<String?> get ultimoRechazo => _rechazo;
+}
+
 /// Recurso educativo de aula con enlace HTTPS seguro (US-26)
 @immutable
 class RecursoEducativo {
@@ -44,50 +60,6 @@ class RecursoEducativo {
     required this.url,
     this.esSeguraHttps = true,
   });
-}
-
-/// Registro del podio de Kahoot de una sesión (US-29)
-@immutable
-class PodioKahootSesion {
-  final String primerLugarAlumnaId;
-  final String primerLugarNombre;
-  final String segundoLugarAlumnaId;
-  final String segundoLugarNombre;
-  final String tercerLugarAlumnaId;
-  final String tercerLugarNombre;
-
-  const PodioKahootSesion({
-    required this.primerLugarAlumnaId,
-    required this.primerLugarNombre,
-    required this.segundoLugarAlumnaId,
-    required this.segundoLugarNombre,
-    required this.tercerLugarAlumnaId,
-    required this.tercerLugarNombre,
-  });
-}
-
-/// Configuración de rol dinámico de tutoras de aula (US-43)
-@immutable
-class RolTutorConfig {
-  final String codigo;
-  final String nombre;
-  final String descripcion;
-  final String colorHex;
-  final bool esRequerido;
-
-  const RolTutorConfig({
-    required this.codigo,
-    required this.nombre,
-    required this.descripcion,
-    required this.colorHex,
-    this.esRequerido = false,
-  });
-
-  /// Color del rol a partir de [colorHex] ('#RRGGBB'); violeta de marca si no es válido.
-  Color get color {
-    final valor = int.tryParse(colorHex.replaceFirst('#', ''), radix: 16);
-    return Color(0xFF000000 | (valor ?? 0x8B3295));
-  }
 }
 
 /// Registro de asistencia de una tutora a una clase (US-33).
@@ -125,22 +97,6 @@ class RegistroAsistenciaTutora {
       editadoEn: editadoEn,
     );
   }
-}
-
-/// Asignación semanal de rol a una tutora (US-43)
-@immutable
-class AsignacionSemanalTutora {
-  final String tutoraId;
-  final String tutoraNombre;
-  final int semanaNumero;
-  final String rolCodigo;
-
-  const AsignacionSemanalTutora({
-    required this.tutoraId,
-    required this.tutoraNombre,
-    required this.semanaNumero,
-    required this.rolCodigo,
-  });
 }
 
 /// Sede territorial o modalidad de NiñasPro (US-01)
@@ -326,121 +282,6 @@ class RevocacionImagen {
   const RevocacionImagen({required this.fecha, required this.motivo});
 }
 
-/// Autorizaciones del apoderado registradas en la ficha de la alumna (US-10, US-12)
-@immutable
-class AutorizacionesAlumna {
-  final bool tratamientoDatos;
-  final Map<CanalImagen, EstadoAutorizacion> canales;
-  final Map<CanalImagen, RevocacionImagen> revocaciones;
-  // Mockup: nombre del documento firmado (la subida es simulada)
-  final String? respaldoNombre;
-  final DateTime? fechaRegistro;
-
-  const AutorizacionesAlumna({
-    this.tratamientoDatos = false,
-    this.canales = const {},
-    this.revocaciones = const {},
-    this.respaldoNombre,
-    this.fechaRegistro,
-  });
-
-  /// Un canal sin respuesta explícita queda como no autorizado (RB-2)
-  EstadoAutorizacion estado(CanalImagen canal) =>
-      canales[canal] ?? EstadoAutorizacion.noAutorizada;
-
-  /// Apta para fotos si hay tratamiento de datos y al menos un canal autorizado
-  bool get permiteFotos =>
-      tratamientoDatos && CanalImagen.values.any((c) => estado(c) == EstadoAutorizacion.otorgada);
-}
-
-/// Alumna participante en NiñasPro Hub (US-07, US-09, US-25)
-@immutable
-class Alumna {
-  final String id;
-  final String nombre;
-  final String rut;
-  final String cursoId;
-  final String cursoNombre;
-  final String sedeId;
-  final String sedeNombre;
-  final double porcentajeAsistencia;
-  final int asistenciasCount;
-  final bool autorizaFoto;
-  final String apoderadoNombre;
-  final String apoderadoTelefono;
-  final String apoderadoCorreo;
-  final String estado; // 'preinscrita' | 'activa' | 'retirada' | 'egresada'
-  final String? motivoRetiro;
-  final DateTime? fechaRetiro;
-  final AutorizacionesAlumna autorizaciones;
-
-  /// Inscripciones anteriores de la misma ficha (ej. 'PCB · Sede San Joaquín · 2026') (US-09)
-  final List<String> historialInscripciones;
-
-  const Alumna({
-    required this.id,
-    required this.nombre,
-    required this.rut,
-    required this.cursoId,
-    required this.cursoNombre,
-    required this.sedeId,
-    required this.sedeNombre,
-    required this.porcentajeAsistencia,
-    required this.asistenciasCount,
-    required this.autorizaFoto,
-    required this.apoderadoNombre,
-    required this.apoderadoTelefono,
-    this.apoderadoCorreo = '',
-    this.estado = 'activa',
-    this.motivoRetiro,
-    this.fechaRetiro,
-    this.autorizaciones = const AutorizacionesAlumna(),
-    this.historialInscripciones = const [],
-  });
-
-  Alumna copyWith({
-    String? id,
-    String? nombre,
-    String? rut,
-    String? cursoId,
-    String? cursoNombre,
-    String? sedeId,
-    String? sedeNombre,
-    double? porcentajeAsistencia,
-    int? asistenciasCount,
-    bool? autorizaFoto,
-    String? apoderadoNombre,
-    String? apoderadoTelefono,
-    String? apoderadoCorreo,
-    String? estado,
-    String? motivoRetiro,
-    DateTime? fechaRetiro,
-    AutorizacionesAlumna? autorizaciones,
-    List<String>? historialInscripciones,
-  }) {
-    return Alumna(
-      id: id ?? this.id,
-      nombre: nombre ?? this.nombre,
-      rut: rut ?? this.rut,
-      cursoId: cursoId ?? this.cursoId,
-      cursoNombre: cursoNombre ?? this.cursoNombre,
-      sedeId: sedeId ?? this.sedeId,
-      sedeNombre: sedeNombre ?? this.sedeNombre,
-      porcentajeAsistencia: porcentajeAsistencia ?? this.porcentajeAsistencia,
-      asistenciasCount: asistenciasCount ?? this.asistenciasCount,
-      autorizaFoto: autorizaFoto ?? this.autorizaFoto,
-      apoderadoNombre: apoderadoNombre ?? this.apoderadoNombre,
-      apoderadoTelefono: apoderadoTelefono ?? this.apoderadoTelefono,
-      apoderadoCorreo: apoderadoCorreo ?? this.apoderadoCorreo,
-      estado: estado ?? this.estado,
-      motivoRetiro: motivoRetiro ?? this.motivoRetiro,
-      fechaRetiro: fechaRetiro ?? this.fechaRetiro,
-      autorizaciones: autorizaciones ?? this.autorizaciones,
-      historialInscripciones: historialInscripciones ?? this.historialInscripciones,
-    );
-  }
-}
-
 /// Sesión de clase de un curso (sábado de clases) (US-13, US-26)
 @immutable
 class SesionClase {
@@ -451,7 +292,6 @@ class SesionClase {
   final String tema;
   final String estado; // 'programada' | 'realizada' | 'suspendida'
   final List<RecursoEducativo> recursos;
-  final PodioKahootSesion? podioKahoot;
   // Calendario de la sede (US-03)
   final String? motivoSuspension;
   final bool esEspecial;
@@ -466,7 +306,6 @@ class SesionClase {
     required this.tema,
     required this.estado,
     this.recursos = const [],
-    this.podioKahoot,
     this.motivoSuspension,
     this.esEspecial = false,
     this.horaInicio,
@@ -483,7 +322,6 @@ class SesionClase {
     String? tema,
     String? estado,
     List<RecursoEducativo>? recursos,
-    PodioKahootSesion? podioKahoot,
   }) {
     return SesionClase(
       id: id ?? this.id,
@@ -493,7 +331,6 @@ class SesionClase {
       tema: tema ?? this.tema,
       estado: estado ?? this.estado,
       recursos: recursos ?? this.recursos,
-      podioKahoot: podioKahoot ?? this.podioKahoot,
       motivoSuspension: motivoSuspension,
       esEspecial: esEspecial,
       horaInicio: horaInicio,
@@ -639,293 +476,6 @@ class ParticipacionClase {
   }
 }
 
-/// Alerta confidencial de riesgo de deserción escolar (US-39, US-40)
-@immutable
-class AlertaDesercion {
-  final String id;
-  final String alumnaId;
-  final String alumnaNombre;
-  final String sedeNombre;
-  final int inasistenciasConsecutivas;
-  final String apoderadoContacto;
-  final String estado; // 'activa' | 'contactada'
-  final String? observacionesContacto;
-
-  const AlertaDesercion({
-    required this.id,
-    required this.alumnaId,
-    required this.alumnaNombre,
-    required this.sedeNombre,
-    required this.inasistenciasConsecutivas,
-    required this.apoderadoContacto,
-    required this.estado,
-    this.observacionesContacto,
-  });
-
-  AlertaDesercion copyWith({
-    String? id,
-    String? alumnaId,
-    String? alumnaNombre,
-    String? sedeNombre,
-    int? inasistenciasConsecutivas,
-    String? apoderadoContacto,
-    String? estado,
-    String? observacionesContacto,
-  }) {
-    return AlertaDesercion(
-      id: id ?? this.id,
-      alumnaId: alumnaId ?? this.alumnaId,
-      alumnaNombre: alumnaNombre ?? this.alumnaNombre,
-      sedeNombre: sedeNombre ?? this.sedeNombre,
-      inasistenciasConsecutivas: inasistenciasConsecutivas ?? this.inasistenciasConsecutivas,
-      apoderadoContacto: apoderadoContacto ?? this.apoderadoContacto,
-      estado: estado ?? this.estado,
-      observacionesContacto: observacionesContacto ?? this.observacionesContacto,
-    );
-  }
-}
-
-/// Solicitud de justificativo de inasistencia (US-35, US-37)
-@immutable
-class Justificativo {
-  final String id;
-  final String alumnaId;
-  final String alumnaNombre;
-  final String sesionId;
-  final DateTime sesionFecha;
-  final String motivoTipificado;
-  final String detalle;
-  final String estado; // 'pendiente' | 'aprobado' | 'rechazado'
-  final String? observacionesResolucion;
-
-  const Justificativo({
-    required this.id,
-    required this.alumnaId,
-    required this.alumnaNombre,
-    required this.sesionId,
-    required this.sesionFecha,
-    required this.motivoTipificado,
-    required this.detalle,
-    required this.estado,
-    this.observacionesResolucion,
-  });
-
-  Justificativo copyWith({
-    String? id,
-    String? alumnaId,
-    String? alumnaNombre,
-    String? sesionId,
-    DateTime? sesionFecha,
-    String? motivoTipificado,
-    String? detalle,
-    String? estado,
-    String? observacionesResolucion,
-  }) {
-    return Justificativo(
-      id: id ?? this.id,
-      alumnaId: alumnaId ?? this.alumnaId,
-      alumnaNombre: alumnaNombre ?? this.alumnaNombre,
-      sesionId: sesionId ?? this.sesionId,
-      sesionFecha: sesionFecha ?? this.sesionFecha,
-      motivoTipificado: motivoTipificado ?? this.motivoTipificado,
-      detalle: detalle ?? this.detalle,
-      estado: estado ?? this.estado,
-      observacionesResolucion: observacionesResolucion ?? this.observacionesResolucion,
-    );
-  }
-}
-
-/// Tutora voluntaria del equipo pedagógico y su ficha de voluntariado (US-30, US-31, US-32, US-33, US-43)
-@immutable
-class Tutora {
-  final String id;
-  final String nombre;
-  final String rol;
-  final String sedeId;
-  final String sedeNombre;
-  final bool adhesionFirmada;
-  final bool presenteClaseActual;
-  final bool esEquipoGestion;
-  final String rut;
-  final String correo;
-  final String institucion;
-  final DateTime? fechaIngreso;
-  final DateTime? fechaSalida;
-  final String estado; // 'activa' | 'retirada'
-  final DateTime? fechaFirmaAdhesion;
-
-  /// Cursos (instancias) en que ha participado, del más antiguo al más reciente
-  final List<String> cursoIds;
-
-  const Tutora({
-    required this.id,
-    required this.nombre,
-    required this.rol,
-    required this.sedeId,
-    required this.sedeNombre,
-    required this.adhesionFirmada,
-    required this.presenteClaseActual,
-    this.esEquipoGestion = false,
-    this.rut = '',
-    this.correo = '',
-    this.institucion = '',
-    this.fechaIngreso,
-    this.fechaSalida,
-    this.estado = 'activa',
-    this.fechaFirmaAdhesion,
-    this.cursoIds = const [],
-  });
-
-  /// Rol institucional para filtros del directorio de voluntariado (US-32)
-  String get rolVoluntariado => esEquipoGestion ? 'Equipo de Gestión' : 'Tutora';
-
-  Tutora copyWith({
-    String? id,
-    String? nombre,
-    String? rol,
-    String? sedeId,
-    String? sedeNombre,
-    bool? adhesionFirmada,
-    bool? presenteClaseActual,
-    bool? esEquipoGestion,
-    String? rut,
-    String? correo,
-    String? institucion,
-    DateTime? fechaIngreso,
-    DateTime? fechaSalida,
-    String? estado,
-    DateTime? fechaFirmaAdhesion,
-    List<String>? cursoIds,
-  }) {
-    return Tutora(
-      id: id ?? this.id,
-      nombre: nombre ?? this.nombre,
-      rol: rol ?? this.rol,
-      sedeId: sedeId ?? this.sedeId,
-      sedeNombre: sedeNombre ?? this.sedeNombre,
-      adhesionFirmada: adhesionFirmada ?? this.adhesionFirmada,
-      presenteClaseActual: presenteClaseActual ?? this.presenteClaseActual,
-      esEquipoGestion: esEquipoGestion ?? this.esEquipoGestion,
-      rut: rut ?? this.rut,
-      correo: correo ?? this.correo,
-      institucion: institucion ?? this.institucion,
-      fechaIngreso: fechaIngreso ?? this.fechaIngreso,
-      fechaSalida: fechaSalida ?? this.fechaSalida,
-      estado: estado ?? this.estado,
-      fechaFirmaAdhesion: fechaFirmaAdhesion ?? this.fechaFirmaAdhesion,
-      cursoIds: cursoIds ?? this.cursoIds,
-    );
-  }
-}
-
-/// Clasificación de una fila en la previsualización de una carga masiva (US-07, US-08, US-30)
-enum EstadoFilaImportacion {
-  nueva,
-  existente,
-  invalida;
-
-  String get label => switch (this) {
-        EstadoFilaImportacion.nueva => 'Nueva',
-        EstadoFilaImportacion.existente => 'Ya existe',
-        EstadoFilaImportacion.invalida => 'Inválida',
-      };
-}
-
-/// Fila de una planilla de carga masiva (alumnas o voluntariado)
-@immutable
-class FilaImportacion {
-  final int numeroFila;
-  final String nombre;
-  final String rut;
-  final String detalle; // apoderado o institución, según la planilla
-  final EstadoFilaImportacion estado;
-  final String? motivo;
-
-  const FilaImportacion({
-    required this.numeroFila,
-    required this.nombre,
-    required this.rut,
-    required this.detalle,
-    required this.estado,
-    this.motivo,
-  });
-}
-
-/// Resultado de procesar una planilla simulada antes de confirmar la carga (US-07, US-08, US-30)
-@immutable
-class ResultadoImportacion {
-  final String nombreArchivo;
-  final List<FilaImportacion> filas;
-
-  /// Si no es null, la planilla no respeta la plantilla y se rechaza completa (US-08)
-  final String? errorColumnas;
-
-  const ResultadoImportacion({
-    required this.nombreArchivo,
-    this.filas = const [],
-    this.errorColumnas,
-  });
-
-  int contar(EstadoFilaImportacion estado) => filas.where((f) => f.estado == estado).length;
-}
-
-/// Tipo de acción registrada en la bitácora de auditoría (US-23, US-24)
-enum TipoAccionAuditoria {
-  consulta,
-  modificacion,
-  exportacion,
-  acceso;
-
-  String get label => switch (this) {
-        TipoAccionAuditoria.consulta => 'Consulta',
-        TipoAccionAuditoria.modificacion => 'Modificación',
-        TipoAccionAuditoria.exportacion => 'Exportación',
-        TipoAccionAuditoria.acceso => 'Inicio de sesión',
-      };
-}
-
-/// Evento inmutable de la bitácora de auditoría (US-22, US-24)
-@immutable
-class EventoAuditoria {
-  final String id;
-  final DateTime fecha;
-  final String usuariaNombre;
-  final String usuariaCorreo;
-  final String sedeNombre;
-  final TipoAccionAuditoria tipo;
-  final String descripcion;
-  final String? alumnaRut;
-
-  const EventoAuditoria({
-    required this.id,
-    required this.fecha,
-    required this.usuariaNombre,
-    required this.usuariaCorreo,
-    required this.sedeNombre,
-    required this.tipo,
-    required this.descripcion,
-    this.alumnaRut,
-  });
-}
-
-/// Indicadores agregados de una sede para el dashboard de la Directiva
-@immutable
-class ResumenSede {
-  final Sede sede;
-  final int cursos;
-  final int alumnasActivas;
-  final double asistenciaPromedio;
-  final int voluntariasActivas;
-
-  const ResumenSede({
-    required this.sede,
-    required this.cursos,
-    required this.alumnasActivas,
-    required this.asistenciaPromedio,
-    required this.voluntariasActivas,
-  });
-}
-
 /// Asistencia de una sede en un día de clases
 @immutable
 class PuntoAsistencia {
@@ -946,87 +496,4 @@ class SerieAsistencia {
   final List<PuntoAsistencia> puntos;
 
   const SerieAsistencia({required this.sedeId, required this.sedeNombre, required this.puntos});
-}
-
-/// Reporte que se puede exportar (US-21)
-enum TipoExportacion {
-  asistencia,
-  nomina,
-  participacion;
-
-  String get label => switch (this) {
-        TipoExportacion.asistencia => 'Asistencia',
-        TipoExportacion.nomina => 'Nómina de alumnas',
-        TipoExportacion.participacion => 'Participación y ejercicios',
-      };
-}
-
-/// Filtros del formulario de exportación (US-21, US-22)
-@immutable
-class FiltroExportacion {
-  final TipoExportacion tipo;
-  final String? sedeId;
-  final String? cursoId;
-  final DateTime? desde;
-  final DateTime? hasta;
-  final String formato; // 'CSV' | 'XLSX'
-  final bool disociado;
-
-  const FiltroExportacion({
-    required this.tipo,
-    this.sedeId,
-    this.cursoId,
-    this.desde,
-    this.hasta,
-    this.formato = 'CSV',
-    this.disociado = false,
-  });
-}
-
-/// Contenido de una exportación (mockup: no se descarga un archivo real) (US-21, US-22)
-@immutable
-class ResultadoExportacion {
-  final String nombreArchivo;
-  final List<String> encabezados;
-  final List<List<String>> filas;
-
-  const ResultadoExportacion({
-    required this.nombreArchivo,
-    required this.encabezados,
-    required this.filas,
-  });
-}
-
-/// Vista agregada del portal móvil de la alumna (US-25, US-26, US-29, US-35)
-@immutable
-class PortalAlumnaData {
-  final Alumna alumna;
-  final Curso curso;
-  final List<SesionClase> sesiones;
-
-  /// Clase de hoy según la planificación del curso (null si hoy no hay clase)
-  final SesionClase? sesionHoy;
-  final List<RegistroAsistencia> asistencias;
-  final List<Justificativo> justificativos;
-  final int podiosPrimerLugar;
-  final int podiosSegundoLugar;
-  final int podiosTercerLugar;
-  final int totalEjerciciosResueltos;
-  final double umbralAprobacion;
-  final int clasesRecuperadasPorEjercicios;
-
-  const PortalAlumnaData({
-    required this.alumna,
-    required this.curso,
-    required this.sesiones,
-    this.sesionHoy,
-    required this.asistencias,
-    required this.justificativos,
-    required this.podiosPrimerLugar,
-    required this.podiosSegundoLugar,
-    required this.podiosTercerLugar,
-    required this.totalEjerciciosResueltos,
-    required this.umbralAprobacion,
-    required this.clasesRecuperadasPorEjercicios,
-  });
 }

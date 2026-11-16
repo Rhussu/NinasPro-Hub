@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../config/ninaspro_colors.dart';
 import '../../config/ninaspro_theme.dart';
-import '../../models/hub_models.dart';
-import '../../repositories/hub_repository.dart';
 import '../../repositories/justificativos_repository.dart';
+import '../../repositories/portal_repository.dart';
 import '../../widgets/ninaspro_mascot.dart';
 import '../../widgets/ninaspro_planificacion_hoy.dart';
 import '../../widgets/ninaspro_recursos_curso.dart';
@@ -14,15 +14,17 @@ import 'justificativos_alumna.dart';
 ///
 /// Cubre:
 /// - US-25: Dashboard de asistencia % y progreso académico vs. meta mínima (80% o 70% justificada).
-/// - US-26: Cronograma de clases de sábados y recursos del curso (Classroom y Juez Virtual, únicos por curso).
+/// - US-26: Cronograma de clases de sábados, recursos del curso (Classroom y Juez Virtual) y
+///   los recursos de cada clase con enlaces HTTPS.
+/// - US-27: La base arma el portal de la alumna autenticada; nunca recibe el id de otra.
+/// - US-40 E4: Sin avisos de riesgo: solo su porcentaje y mensajes de motivación.
 /// - US-29: Historial acumulado de podios Kahoot (conteo de 1°, 2° y 3° lugar).
 /// - US-35: Justificación de inasistencia eligiendo la clase y explicándola en texto, y
 ///   la lista de sus justificativos con la observación de Gestión (con [JustificativosRepository]).
 /// - Recuperación de clases justificadas mediante ejercicios resueltos (25 ej. = +1 clase, 50 ej. = +2 clases).
 class PortalAlumnaScreen extends StatefulWidget {
-  /// Repositorio del mockup: asistencia, recursos y podios (se conectan en el PR 7)
-  final HubRepository repository;
-  final String alumnaId;
+  /// Asistencia, cronograma, recursos, ejercicios y podios de la alumna autenticada
+  final PortalRepository repository;
 
   /// Justificativos reales de la alumna autenticada (US-35)
   final JustificativosRepository? justificativos;
@@ -30,7 +32,6 @@ class PortalAlumnaScreen extends StatefulWidget {
   const PortalAlumnaScreen({
     super.key,
     required this.repository,
-    this.alumnaId = 'alumna-1', // Valentina Soto Morales por defecto
     this.justificativos,
   });
 
@@ -45,7 +46,10 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
 
   bool _cargando = true;
   bool _recargando = false;
-  late PortalAlumnaData _data;
+  String? _error;
+  PortalAlumna? _portal;
+
+  PortalAlumna get _data => _portal!;
 
   @override
   void initState() {
@@ -54,18 +58,32 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
   }
 
   Future<void> _cargarDatos() async {
-    final data = await widget.repository.getPortalAlumnaData(alumnaId: widget.alumnaId);
-    if (!mounted) return;
-    setState(() {
-      _data = data;
-      _cargando = false;
-    });
+    try {
+      final portal = await widget.repository.portal();
+      if (!mounted) return;
+      setState(() {
+        _portal = portal;
+        _error = null;
+        _cargando = false;
+      });
+    } on PortalDenegado catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.mensaje;
+        _cargando = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'No pudimos cargar tu portal. Revisa tu conexión y desliza hacia abajo para reintentar.';
+        _cargando = false;
+      });
+    }
   }
 
-  // Recarga deslizando hacia abajo: descarga los datos de la nube (~1 s simulado) mostrando el esqueleto
+  // Recarga deslizando hacia abajo mostrando el esqueleto
   Future<void> _recargar() async {
     setState(() => _recargando = true);
-    await widget.repository.recargar();
     await _cargarDatos();
     if (!mounted) return;
     setState(() => _recargando = false);
@@ -102,19 +120,35 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
       );
     }
 
-    final alumna = _data.alumna;
-    final asistenciaPorc = alumna.porcentajeAsistencia;
-    final umbral = _data.umbralAprobacion;
-    final aprueba = asistenciaPorc >= umbral;
+    if (_portal == null) {
+      return Scaffold(
+        body: RefreshIndicator(
+          onRefresh: _recargar,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(24),
+            children: [
+              const SizedBox(height: 80),
+              const NinasProMascot(size: 96),
+              const SizedBox(height: 16),
+              Text(_error ?? 'No pudimos cargar tu portal.', textAlign: TextAlign.center),
+            ],
+          ),
+        ),
+      );
+    }
 
-    // Conteo de clases realizadas y asistidas
-    final clasesRealizadas = _data.sesiones.where((s) => s.estado == 'realizada').length;
+    final asistencia = _data.asistencia;
+    final asistenciaPorc = asistencia.porcentaje ?? 0;
+    final umbral = asistencia.umbral;
+    final aprueba = asistencia.cumpleMeta;
+    final curso = _data.curso;
 
     // Referencia para escalar las barras del podio
     final maxPodios = [
-      _data.podiosPrimerLugar,
-      _data.podiosSegundoLugar,
-      _data.podiosTercerLugar,
+      _data.podiosPrimero,
+      _data.podiosSegundo,
+      _data.podiosTercero,
     ].reduce((a, b) => a > b ? a : b);
 
     return Scaffold(
@@ -158,7 +192,7 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '¡Hola, ${alumna.nombre.split(' ').first}! 💜',
+                              '¡Hola, ${_data.nombres.split(' ').first}! 💜',
                               style: TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.w800,
@@ -168,7 +202,7 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              alumna.cursoNombre,
+                              curso?.nombre ?? 'Aún no tienes un curso asignado',
                               style: TextStyle(
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.w600,
@@ -177,7 +211,7 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              alumna.sedeNombre,
+                              curso?.sedeNombre ?? '',
                               style: TextStyle(
                                 fontSize: 11,
                                 color: isDark ? NinasProColors.neutral300 : NinasProColors.neutral700,
@@ -200,8 +234,8 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
             const SizedBox(height: 16),
 
             // Recursos del curso: un único Classroom y Juez Virtual para todo el curso (US-26)
-            if (_data.curso.classroomUrl != null || _data.curso.juezVirtualUrl != null) ...[
-              NinasProRecursosCursoCard(curso: _data.curso),
+            if (curso != null && (curso.classroomUrl != null || curso.juezVirtualUrl != null)) ...[
+              NinasProRecursosCursoCard(curso: curso),
               const SizedBox(height: 16),
             ],
 
@@ -237,9 +271,7 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
-                            aprueba
-                                ? 'Cumple meta (>= ${umbral.toInt()}%)'
-                                : 'Bajo meta mínima (< ${umbral.toInt()}%)',
+                            aprueba ? 'Cumple meta para certificar' : 'Meta: $umbral%',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
@@ -254,7 +286,7 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
                     Row(
                       children: [
                         Text(
-                          '${asistenciaPorc.toStringAsFixed(1)}%',
+                          asistencia.porcentaje == null ? '—' : '${asistenciaPorc.toStringAsFixed(1)}%',
                           style: const TextStyle(
                             fontSize: 34,
                             fontWeight: FontWeight.w900,
@@ -282,7 +314,8 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
                               ),
                               const SizedBox(height: 6),
                               Text(
-                                '${alumna.asistenciasCount} de $clasesRealizadas clases asistidas (Meta: ${umbral.toInt()}% para certificar)',
+                                '${asistencia.asistidas} de ${asistencia.realizadas} clases asistidas '
+                                '(Meta: $umbral% para certificar)',
                                 style: TextStyle(
                                   fontSize: 11.5,
                                   color: isDark ? NinasProColors.neutral300 : NinasProColors.neutral500,
@@ -294,7 +327,11 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
                       ],
                     ),
 
-                    if (umbral == 70.0) ...[
+                    if (!aprueba || asistencia.recuperadas > 0) ...[
+                      const SizedBox(height: 10),
+                      _buildMensajeMeta(asistencia),
+                    ],
+                    if (asistencia.umbralReducido) ...[
                       const SizedBox(height: 10),
                       Container(
                         padding: const EdgeInsets.all(8),
@@ -302,14 +339,14 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
                           color: NinasProColors.primary700.withValues(alpha: 0.10),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Row(
+                        child: Row(
                           children: [
-                            Icon(Icons.info_outline, size: 16, color: NinasProColors.brandPink),
-                            SizedBox(width: 6),
+                            const Icon(Icons.info_outline, size: 16, color: NinasProColors.brandPink),
+                            const SizedBox(width: 6),
                             Expanded(
                               child: Text(
-                                'Meta reducida al 70% gracias a que cuentas con al menos 1 justificativo aprobado.',
-                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                                'Meta reducida al $umbral% gracias a que cuentas con al menos 1 justificativo aprobado.',
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
                               ),
                             ),
                           ],
@@ -351,14 +388,14 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
                               fit: StackFit.expand,
                               children: [
                                 CircularProgressIndicator(
-                                  value: (_data.totalEjerciciosResueltos / _maxEjercicios).clamp(0.0, 1.0),
+                                  value: (_data.ejercicios / _maxEjercicios).clamp(0.0, 1.0),
                                   strokeWidth: 6,
                                   backgroundColor: isDark ? NinasProColors.dark700 : NinasProColors.neutral100,
                                   valueColor: const AlwaysStoppedAnimation(NinasProColors.brandPink),
                                 ),
                                 Center(
                                   child: Text(
-                                    '${_data.totalEjerciciosResueltos}',
+                                    '${_data.ejercicios}',
                                     style: TextStyle(
                                       fontSize: 26,
                                       fontWeight: FontWeight.w900,
@@ -372,7 +409,7 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
                           ),
                           const SizedBox(height: 12),
                           _buildInsigniaClases(
-                            clases: _data.clasesRecuperadasPorEjercicios,
+                            clases: _data.hitosEjercicios,
                             isDark: isDark,
                           ),
                         ],
@@ -392,7 +429,7 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
                           Expanded(
                             child: _buildEscalonPodio(
                               medalla: '🥈',
-                              veces: _data.podiosSegundoLugar,
+                              veces: _data.podiosSegundo,
                               maxVeces: maxPodios,
                               color: NinasProColors.neutral300,
                             ),
@@ -401,7 +438,7 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
                           Expanded(
                             child: _buildEscalonPodio(
                               medalla: '🥇',
-                              veces: _data.podiosPrimerLugar,
+                              veces: _data.podiosPrimero,
                               maxVeces: maxPodios,
                               color: NinasProColors.warning500,
                             ),
@@ -410,7 +447,7 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
                           Expanded(
                             child: _buildEscalonPodio(
                               medalla: '🥉',
-                              veces: _data.podiosTercerLugar,
+                              veces: _data.podiosTercero,
                               maxVeces: maxPodios,
                               color: _colorBronce,
                             ),
@@ -431,11 +468,10 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
             ),
             const SizedBox(height: 10),
 
+            if (_data.sesiones.isEmpty)
+              const Text('Tu cronograma aparecerá cuando tengas un curso asignado.'),
             ..._data.sesiones.map((sesion) {
-              // Buscar registro de asistencia de la alumna
-              final reg = _data.asistencias.where((a) => a.sesionId == sesion.id).firstOrNull;
-              final estado = reg?.estado ??
-                  (sesion.estado == 'realizada' ? EstadoAsistencia.ausente : EstadoAsistencia.pendiente);
+              final estado = _data.estadoDe(sesion);
               final tono = context.statusColors.asistencia(estado);
 
               return Card(
@@ -481,7 +517,8 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  '${sesion.fecha.day}/${sesion.fecha.month}/${sesion.fecha.year}',
+                                  '${fechaCorta(sesion.fecha)}'
+                                  '${sesion.suspendida ? ' · Suspendida${sesion.motivoSuspension == null ? '' : ': ${sesion.motivoSuspension}'}' : ''}',
                                   style: TextStyle(
                                     fontSize: 11.5,
                                     color: isDark ? NinasProColors.neutral300 : NinasProColors.neutral500,
@@ -490,20 +527,31 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
                               ],
                             ),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: tono.decoration,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(estado.icon, size: 14, color: tono.foreground),
-                                const SizedBox(width: 4),
-                                Text(estado.label, style: tono.textStyle(fontSize: 11.5)),
-                              ],
+                          if (!sesion.suspendida)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: tono.decoration,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(estado.icon, size: 14, color: tono.foreground),
+                                  const SizedBox(width: 4),
+                                  Text(estado.label, style: tono.textStyle(fontSize: 11.5)),
+                                ],
+                              ),
                             ),
-                          ),
                         ],
                       ),
+                      // Recursos de la clase en una hoja inferior (US-26 E2)
+                      if (sesion.recursos.isNotEmpty)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            onPressed: () => _mostrarRecursosSesion(context, sesion),
+                            icon: const Icon(Icons.folder_open_rounded, size: 16),
+                            label: Text('Ver recursos (${sesion.recursos.length})'),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -512,6 +560,128 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  // Cuántas clases le faltan para la meta, o la clase recuperada con ejercicios (US-25 E2, E3).
+  // Siempre en tono de motivación: el portal no muestra avisos de riesgo (US-40 E4).
+  Widget _buildMensajeMeta(AsistenciaPortal a) {
+    final String texto;
+    if (a.cumpleMeta) {
+      texto = a.recuperadas == 1
+          ? '¡Tus ejercicios recuperaron 1 clase justificada! 🎉'
+          : '¡Tus ejercicios recuperaron ${a.recuperadas} clases justificadas! 🎉';
+    } else if (a.clasesNecesarias == 0) {
+      texto = '¡Vas muy bien! Sigue asistiendo para llegar a la meta.';
+    } else if (a.clasesNecesarias <= a.restantes) {
+      final clases = a.clasesNecesarias == 1 ? '1 clase más' : '${a.clasesNecesarias} clases más';
+      texto = '¡Tú puedes! Asiste a $clases de las ${a.restantes} que quedan para llegar a la meta. 💪';
+    } else {
+      texto = '¡Cada clase cuenta! Asiste a las que quedan y conversa con tu tutora '
+          'sobre cómo recuperar clases con ejercicios. 💪';
+    }
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: NinasProColors.primary700.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.auto_awesome_rounded, size: 16, color: NinasProColors.brandPink),
+          const SizedBox(width: 6),
+          Expanded(child: Text(texto, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600))),
+        ],
+      ),
+    );
+  }
+
+  static IconData _iconoRecurso(String tipo) => switch (tipo) {
+        'slides' => Icons.slideshow_rounded,
+        'codigo' => Icons.code_rounded,
+        'guia' => Icons.picture_as_pdf_rounded,
+        'video' => Icons.ondemand_video_rounded,
+        _ => Icons.link_rounded,
+      };
+
+  static String _categoriaRecurso(String tipo) => switch (tipo) {
+        'slides' => 'Diapositivas',
+        'codigo' => 'Código interactivo',
+        'guia' => 'Guía de problemas',
+        'video' => 'Grabación de apoyo',
+        'ejercicios' => 'Ejercicios',
+        _ => 'Recurso',
+      };
+
+  // Recursos de una clase con su insignia HTTPS; se abren en una pestaña externa (US-26 E2, E3)
+  void _mostrarRecursosSesion(BuildContext context, SesionClase sesion) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: isDark ? NinasProColors.dark800 : NinasProColors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildManijaSheet(isDark),
+              const SizedBox(height: 16),
+              _buildEncabezadoSheet(
+                icono: Icons.folder_open_rounded,
+                colorIcono: NinasProColors.brandPink,
+                titulo: 'Recursos de la clase #${sesion.numeroSesion}',
+                subtitulo: sesion.tema,
+                isDark: isDark,
+              ),
+              const SizedBox(height: 12),
+              for (final recurso in sesion.recursos)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(_iconoRecurso(recurso.tipo), color: NinasProColors.brandPink),
+                  title: Text(recurso.titulo, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+                  subtitle: Text(_categoriaRecurso(recurso.tipo), style: const TextStyle(fontSize: 11.5)),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (recurso.esSeguraHttps)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: NinasProColors.success100,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.lock_rounded, size: 12, color: NinasProColors.success900),
+                              SizedBox(width: 2),
+                              Text('HTTPS',
+                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: NinasProColors.success900)),
+                            ],
+                          ),
+                        ),
+                      const Icon(Icons.open_in_new_rounded, size: 18),
+                    ],
+                  ),
+                  onTap: () => _abrirRecurso(ctx, recurso),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _abrirRecurso(BuildContext context, RecursoEducativo recurso) async {
+    final abierto = recurso.esSeguraHttps &&
+        await launchUrl(Uri.parse(recurso.url), mode: LaunchMode.externalApplication);
+    if (abierto || !context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(backgroundColor: NinasProColors.error700, content: Text('No se pudo abrir el enlace.')),
     );
   }
 
@@ -710,7 +880,7 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
   // Detalle de recuperación de clases por ejercicios resueltos
   void _mostrarDetalleEjercicios(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final total = _data.totalEjerciciosResueltos;
+    final total = _data.ejercicios;
 
     showModalBottomSheet(
       context: context,
@@ -820,9 +990,9 @@ class _PortalAlumnaScreenState extends State<PortalAlumnaScreen> {
   void _mostrarDetallePodios(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final podios = [
-      ('🥇', '1° Lugar', _data.podiosPrimerLugar),
-      ('🥈', '2° Lugar', _data.podiosSegundoLugar),
-      ('🥉', '3° Lugar', _data.podiosTercerLugar),
+      ('🥇', '1° Lugar', _data.podiosPrimero),
+      ('🥈', '2° Lugar', _data.podiosSegundo),
+      ('🥉', '3° Lugar', _data.podiosTercero),
     ];
     final total = podios.fold<int>(0, (suma, p) => suma + p.$3);
 

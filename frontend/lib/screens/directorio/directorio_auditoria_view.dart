@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import '../../config/ninaspro_colors.dart';
-import '../../models/hub_models.dart';
-import '../../repositories/hub_repository.dart';
+import 'dart:convert';
+
+import '../../repositories/reportes_repository.dart';
 import '../../utils/rut_input_formatter.dart';
 import 'directorio_widgets.dart';
 
 /// Visor de la bitácora de auditoría para cumplimiento y derechos ARCO (US-24).
 ///
 /// Filtros por rango de fechas, usuaria (nombre o correo), tipo de acción y RUT de alumna.
+/// La base acota el alcance: Gestión ve solo lo ocurrido en su sede (E3).
 class DirectorioAuditoriaView extends StatefulWidget {
-  final HubRepository repository;
+  final ReportesRepository repository;
 
   const DirectorioAuditoriaView({super.key, required this.repository});
 
@@ -19,11 +21,12 @@ class DirectorioAuditoriaView extends StatefulWidget {
 
 class _DirectorioAuditoriaViewState extends State<DirectorioAuditoriaView> {
   bool _cargando = true;
+  String? _error;
   List<EventoAuditoria> _eventos = [];
 
   final _usuaria = TextEditingController();
   final _rut = TextEditingController();
-  TipoAccionAuditoria? _tipo;
+  TipoEventoAuditoria? _tipo;
   DateTime? _desde;
   DateTime? _hasta;
 
@@ -41,18 +44,28 @@ class _DirectorioAuditoriaViewState extends State<DirectorioAuditoriaView> {
   }
 
   Future<void> _buscar() async {
-    final eventos = await widget.repository.getEventosAuditoria(
-      desde: _desde,
-      hasta: _hasta,
-      usuaria: _usuaria.text,
-      tipo: _tipo,
-      rutAlumna: _rut.text.trim().isEmpty ? null : _rut.text,
-    );
-    if (!mounted) return;
-    setState(() {
-      _eventos = eventos;
-      _cargando = false;
-    });
+    setState(() => _cargando = true);
+    try {
+      final eventos = await widget.repository.auditoria(
+        desde: _desde,
+        hasta: _hasta,
+        usuaria: _usuaria.text,
+        tipo: _tipo,
+        rutAlumna: _rut.text,
+      );
+      if (!mounted) return;
+      setState(() {
+        _eventos = eventos;
+        _error = null;
+        _cargando = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'No pudimos consultar la auditoría. Revisa la conexión e inténtalo nuevamente.';
+        _cargando = false;
+      });
+    }
   }
 
   void _limpiar() {
@@ -85,12 +98,55 @@ class _DirectorioAuditoriaViewState extends State<DirectorioAuditoriaView> {
     _buscar();
   }
 
-  TonoChip _tonoTipo(TipoAccionAuditoria tipo) => switch (tipo) {
-        TipoAccionAuditoria.consulta => TonoChip.info,
-        TipoAccionAuditoria.modificacion => TonoChip.advertencia,
-        TipoAccionAuditoria.exportacion => TonoChip.neutro,
-        TipoAccionAuditoria.acceso => TonoChip.exito,
+  TonoChip _tonoTipo(TipoEventoAuditoria tipo) => switch (tipo) {
+        TipoEventoAuditoria.modificacion => TonoChip.advertencia,
+        TipoEventoAuditoria.exportacion => TonoChip.info,
+        TipoEventoAuditoria.accesoDenegado => TonoChip.error,
+        TipoEventoAuditoria.seguridad => TonoChip.neutro,
       };
+
+  // Detalle del evento: valores anterior y nuevo, filtros de la descarga o parámetros del intento
+  void _verDetalle(EventoAuditoria e) {
+    const json = JsonEncoder.withIndent('  ');
+    final detalle = Map.of(e.detalle);
+    final anterior = detalle.remove('anterior');
+    final nuevo = detalle.remove('nuevo');
+
+    Widget bloque(String titulo, Object? valor) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 12),
+            Text(titulo, style: const TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            SelectableText(json.convert(valor), style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+          ],
+        );
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('${e.tipo.etiqueta} · ${formatearFechaHora(e.fecha)}'),
+        content: SizedBox(
+          width: 560,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(e.descripcion),
+                const SizedBox(height: 8),
+                Text('Usuaria: ${e.usuariaNombre}${e.usuariaCorreo == null ? '' : ' (${e.usuariaCorreo})'}'),
+                if (e.alumnaNombre != null) Text('Alumna: ${e.alumnaNombre} · ${e.alumnaRut ?? ''}'),
+                if (anterior != null) bloque('Valor anterior', anterior),
+                if (nuevo != null) bloque('Valor nuevo', nuevo),
+                if (detalle.isNotEmpty) bloque('Detalle', detalle),
+              ],
+            ),
+          ),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cerrar'))],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -137,10 +193,10 @@ class _DirectorioAuditoriaViewState extends State<DirectorioAuditoriaView> {
                       ),
                     ),
                   ),
-                  FiltroDesplegable<TipoAccionAuditoria>(
+                  FiltroDesplegable<TipoEventoAuditoria>(
                     etiqueta: 'Tipo de acción',
                     valor: _tipo,
-                    opciones: {for (final t in TipoAccionAuditoria.values) t: t.label},
+                    opciones: {for (final t in TipoEventoAuditoria.values) t: t.etiqueta},
                     onChanged: (v) {
                       setState(() => _tipo = v);
                       _buscar();
@@ -164,33 +220,37 @@ class _DirectorioAuditoriaViewState extends State<DirectorioAuditoriaView> {
               const SizedBox(height: 12),
               if (_cargando)
                 const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))
+              else if (_error != null)
+                Padding(padding: const EdgeInsets.all(16), child: Text(_error!))
               else ...[
                 Text(
-                  '${_eventos.length} eventos',
+                  _eventos.length == 1 ? '1 evento' : '${_eventos.length} eventos',
                   style: const TextStyle(fontSize: 12, color: NinasProColors.neutral500),
                 ),
                 DirectorioTabla(
-                  columnas: const ['Fecha', 'Usuaria', 'Sede', 'Acción', 'Detalle', 'RUT alumna'],
+                  columnas: const ['Fecha', 'Usuaria', 'Sede', 'Acción', 'Detalle', 'Alumna'],
+                  mensajeVacio: 'No hay eventos con estos filtros',
                   filas: [
                     for (final e in _eventos)
-                      DataRow(cells: [
+                      DataRow(onSelectChanged: (_) => _verDetalle(e), cells: [
                         DataCell(Text(formatearFechaHora(e.fecha))),
                         DataCell(Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(e.usuariaNombre, style: const TextStyle(fontWeight: FontWeight.w700)),
-                            Text(e.usuariaCorreo,
-                                style: const TextStyle(fontSize: 11.5, color: NinasProColors.neutral500)),
+                            if (e.usuariaCorreo != null)
+                              Text(e.usuariaCorreo!,
+                                  style: const TextStyle(fontSize: 11.5, color: NinasProColors.neutral500)),
                           ],
                         )),
-                        DataCell(Text(e.sedeNombre)),
-                        DataCell(DirectorioChip(e.tipo.label, tono: _tonoTipo(e.tipo))),
+                        DataCell(Text(e.sedeNombre ?? '—')),
+                        DataCell(DirectorioChip(e.tipo.etiqueta, tono: _tonoTipo(e.tipo))),
                         DataCell(ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: 360),
                           child: Text(e.descripcion, maxLines: 2, overflow: TextOverflow.ellipsis),
                         )),
-                        DataCell(Text(e.alumnaRut ?? '—')),
+                        DataCell(Text(e.alumnaRut == null ? '—' : '${e.alumnaNombre ?? ''}\n${e.alumnaRut}'.trim())),
                       ]),
                   ],
                 ),

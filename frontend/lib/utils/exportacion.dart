@@ -5,7 +5,7 @@ import 'package:excel/excel.dart';
 import '../services/descargas.dart';
 import 'planilla.dart' show csvUtf8;
 
-/// Exportación de listados a CSV o XLSX (US-32 escenario 3; la reutiliza la exportación del PR 7).
+/// Exportación de listados a CSV o XLSX (US-21, US-22, US-32 escenario 3).
 enum FormatoExportacion {
   csv('CSV', 'csv', 'text/csv;charset=utf-8'),
   xlsx('Excel (XLSX)', 'xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
