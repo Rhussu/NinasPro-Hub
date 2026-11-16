@@ -170,7 +170,7 @@ class SupabaseAccesosRepository implements AccesosRepository {
 
   @override
   Future<List<SedeOpcion>> sedes() async {
-    final filas = await _client.from('sedes').select('id, nombre').order('nombre');
+    final filas = await _client.from('sedes').select('id, nombre').order('nombre', ascending: true);
     return [for (final f in filas) SedeOpcion(id: f['id'] as String, nombre: f['nombre'] as String)];
   }
 

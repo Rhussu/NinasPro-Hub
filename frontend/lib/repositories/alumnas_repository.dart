@@ -714,7 +714,7 @@ class SupabaseAlumnasRepository implements AlumnasRepository {
   Future<List<InscripcionNomina>> nomina({String? sedeId}) async {
     var consulta = _client.from('nomina_alumnas').select();
     if (sedeId != null) consulta = consulta.eq('sede_id', sedeId);
-    final filas = await consulta.order('apellidos').order('nombres').order('fecha_inicio', ascending: false);
+    final filas = await consulta.order('apellidos', ascending: true).order('nombres', ascending: true).order('fecha_inicio', ascending: false);
     return [for (final f in filas) MapeoAlumnas.inscripcion(f)];
   }
 
@@ -808,8 +808,8 @@ class SupabaseAlumnasRepository implements AlumnasRepository {
           'id, instancia_curso_id, archivo, numero_fila, fila, motivo, created_at, '
           'instancias_curso(periodo_academico, cursos(codigo), sedes(nombre))',
         )
-        .order('created_at')
-        .order('numero_fila');
+        .order('created_at', ascending: true)
+        .order('numero_fila', ascending: true);
     return [for (final f in filas) MapeoAlumnas.conflicto(f)];
   }
 

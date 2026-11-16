@@ -156,7 +156,7 @@ class SupabaseEvidenciasRepository implements EvidenciasRepository {
         .from('evidencias_fotograficas')
         .select(MapeoEvidencias.columnas)
         .eq('clase_id', claseId)
-        .order('subida_en');
+        .order('subida_en', ascending: true);
     if (filas.isEmpty) return const [];
     final urls = <String, String>{};
     try {
@@ -218,7 +218,7 @@ class SupabaseEvidenciasRepository implements EvidenciasRepository {
 
   @override
   Future<List<EvidenciaPendiente>> pendientes() async {
-    final filas = await _client.from('evidencias_pendientes').select().order('fecha').order('curso_nombre');
+    final filas = await _client.from('evidencias_pendientes').select().order('fecha', ascending: true).order('curso_nombre', ascending: true);
     return [for (final f in filas) MapeoEvidencias.pendiente(f)];
   }
 }

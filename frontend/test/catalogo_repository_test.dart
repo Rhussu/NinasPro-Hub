@@ -378,7 +378,7 @@ void main() {
       final repo = crear((_) => http.Response('[]', 200, headers: json));
       await repo.sesiones('inst-1');
       expect(pedidos.single.url.queryParameters['instancia_curso_id'], 'eq.inst-1');
-      expect(pedidos.single.url.queryParameters['order'], startsWith('fecha'));
+      expect(pedidos.single.url.queryParameters['order'], 'fecha.asc.nullslast');
       await repo.sedes();
       await repo.cursos();
       expect(pedidos.map((p) => p.url.path), contains('/rest/v1/cursos'));

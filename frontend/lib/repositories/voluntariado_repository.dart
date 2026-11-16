@@ -302,7 +302,7 @@ class SupabaseVoluntariadoRepository implements VoluntariadoRepository {
 
   @override
   Future<List<FichaVoluntaria>> fichas() async {
-    final filas = await _client.from('voluntariado').select().order('nombres').order('apellidos');
+    final filas = await _client.from('voluntariado').select().order('nombres', ascending: true).order('apellidos', ascending: true);
     return [for (final f in filas) MapeoVoluntariado.ficha(f)];
   }
 

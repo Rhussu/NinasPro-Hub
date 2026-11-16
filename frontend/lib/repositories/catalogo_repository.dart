@@ -282,7 +282,7 @@ class SupabaseCatalogoRepository implements CatalogoRepository {
         .from('sedes')
         .select(_columnasSede)
         .isFilter('correos_autorizados.usado_en', null)
-        .order('nombre');
+        .order('nombre', ascending: true);
     return [for (final f in filas) MapeoCatalogo.sede(f)];
   }
 
@@ -307,7 +307,7 @@ class SupabaseCatalogoRepository implements CatalogoRepository {
     final filas = await _client
         .from('cursos')
         .select('id, codigo, nombre, descripcion, instancias_curso(count)')
-        .order('codigo');
+        .order('codigo', ascending: true);
     return [for (final f in filas) MapeoCatalogo.curso(f)];
   }
 
@@ -331,7 +331,7 @@ class SupabaseCatalogoRepository implements CatalogoRepository {
   Future<List<Curso>> instancias({String? sedeId}) async {
     var consulta = _client.from('instancias_curso').select(_columnasInstancia);
     if (sedeId != null) consulta = consulta.eq('sede_id', sedeId);
-    final filas = await consulta.order('fecha_inicio', ascending: false).order('seccion');
+    final filas = await consulta.order('fecha_inicio', ascending: false).order('seccion', ascending: true);
     return [for (final f in filas) MapeoCatalogo.instancia(f)];
   }
 
@@ -371,7 +371,7 @@ class SupabaseCatalogoRepository implements CatalogoRepository {
         .from('clases')
         .select(_columnasSesion)
         .eq('instancia_curso_id', instanciaId)
-        .order('fecha');
+        .order('fecha', ascending: true);
     return [for (final f in filas) MapeoCatalogo.sesion(f)];
   }
 

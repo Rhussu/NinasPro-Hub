@@ -338,7 +338,7 @@ class SupabaseClaseRepository implements ClaseRepository {
         .eq('activo', true)
         .gte('fecha_termino', desde);
     if (tutoraId != null) consulta = consulta.eq('tutores_instancia.tutor_id', tutoraId);
-    final filas = await consulta.order('fecha_inicio', ascending: false).order('seccion');
+    final filas = await consulta.order('fecha_inicio', ascending: false).order('seccion', ascending: true);
     // Aprovecha que hay conexión para subir lo pendiente de una sesión anterior
     unawaited(cola.sincronizar());
     return [for (final f in filas) MapeoCatalogo.instancia(f)];
@@ -350,7 +350,7 @@ class SupabaseClaseRepository implements ClaseRepository {
         .from('clases')
         .select(MapeoCatalogo.columnasSesion)
         .eq('instancia_curso_id', instanciaId)
-        .order('fecha');
+        .order('fecha', ascending: true);
     return [for (final f in filas) MapeoCatalogo.sesion(f)];
   }
 

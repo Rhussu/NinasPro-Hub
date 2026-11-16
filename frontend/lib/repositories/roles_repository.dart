@@ -177,7 +177,7 @@ class SupabaseRolesRepository implements RolesRepository {
   Future<List<RolTarea>> roles({bool incluirInactivos = false}) async {
     var consulta = _client.from('rol_tarea_tutor').select();
     if (!incluirInactivos) consulta = consulta.eq('activo', true);
-    final filas = await consulta.order('es_requerido', ascending: false).order('nombre');
+    final filas = await consulta.order('es_requerido', ascending: false).order('nombre', ascending: true);
     return [for (final f in filas) MapeoRoles.rol(f)];
   }
 

@@ -263,6 +263,89 @@ void main() {
       await repo.cola.cerrar();
     });
 
+    // TC-10 · US-33: pase de lista de tutoras, 8 tutoras con 3 ausentes
+    test('la asistencia de tutoras se lee de su RPC y se guarda con autora y hora (TC-10)', () async {
+      final tutoras = [
+        for (var i = 1; i <= 8; i++)
+          {
+            'tutor_id': 't$i',
+            'nombres': 'Tutora',
+            'apellidos': '$i',
+            'es_equipo_gestion': i == 1,
+            'estado': i <= 3 ? 'ausente' : 'presente',
+            'registrado_por_nombre': 'Camila Sepúlveda',
+            'actualizado_en': '2026-04-25T14:00:00Z',
+          },
+      ];
+      final repo = crear((r) => r.url.path.endsWith('/rpc/lista_asistencia_tutores')
+          ? ok(tutoras)
+          : ok({'conservados_por_edicion_posterior': 2}));
+
+      final lista = await repo.asistenciaTutoras('clase-1');
+      expect(jsonDecode(peticiones.single.body), {'p_clase_id': 'clase-1'});
+      expect(lista, hasLength(8));
+      expect(lista.where((t) => t.estado == EstadoAsistencia.ausente), hasLength(3));
+      expect(lista.where((t) => t.estado == EstadoAsistencia.presente), hasLength(5));
+      expect(lista.first.tutoraNombre, 'Tutora 1');
+      expect(lista.first.esEquipoGestion, isTrue);
+      expect(lista.first.editadoPor, 'Camila Sepúlveda');
+      expect(lista.first.editadoEn, DateTime.utc(2026, 4, 25, 14).toLocal());
+
+      final r = await repo.guardarAsistenciaTutoras('clase-1', lista);
+      expect(r.guardado, isTrue);
+      expect(r.mensaje, 'Se conservaron las correcciones más recientes de 2 tutoras.');
+      final cuerpo = jsonDecode(peticiones.last.body) as Map<String, dynamic>;
+      expect(peticiones.last.url.path, endsWith('/rpc/guardar_asistencia_tutores'));
+      expect((cuerpo['p_registros'] as List).where((x) => (x as Map)['estado'] == 'ausente'), hasLength(3));
+      expect(DateTime.parse(cuerpo['p_guardado_en'] as String).isUtc, isTrue);
+      await repo.cola.cerrar();
+    });
+
+    test('mi asistencia como tutora filtra por mi perfil y el curso', () async {
+      final repo = crear((_) => ok([
+            {'clase_id': 'c1', 'estado': 'presente'},
+            {'clase_id': 'c2', 'estado': 'ausente'},
+          ]));
+      final mia = await repo.miAsistencia(instanciaId: 'inst-1', tutoraId: 'perfil-daniela');
+
+      expect(peticiones.single.url.path, endsWith('/asistencia_tutores'));
+      expect(peticiones.single.url.queryParameters['tutor_id'], 'eq.perfil-daniela');
+      expect(peticiones.single.url.queryParameters['clases.instancia_curso_id'], 'eq.inst-1');
+      expect(mia, {'c1': EstadoAsistencia.presente, 'c2': EstadoAsistencia.ausente});
+      await repo.cola.cerrar();
+    });
+
+    test('las sesiones del curso se leen ordenadas por fecha', () async {
+      final repo = crear((_) => ok([]));
+      expect(await repo.sesiones('inst-1'), isEmpty);
+      expect(peticiones.single.url.path, endsWith('/clases'));
+      expect(peticiones.single.url.queryParameters['instancia_curso_id'], 'eq.inst-1');
+      expect(peticiones.single.url.queryParameters['order'], 'fecha.asc.nullslast', reason: 'elegirSesionActual toma la última registrable: el orden debe ser ascendente');
+      await repo.cola.cerrar();
+    });
+
+    test('la participación se envía por su RPC y avisa las alumnas que ya no están presentes', () async {
+      final repo = crear((_) => ok({'omitidas': 1}));
+      final r = await repo.guardarParticipacion('clase-1', [
+        const ParticipacionClase(
+          id: 'i1',
+          sesionId: 'clase-1',
+          alumnaId: 'a1',
+          alumnaNombre: 'Ana',
+          ejerciciosResueltos: 4,
+          participacionActiva: true,
+        ),
+      ]);
+
+      expect(r.guardado, isTrue);
+      expect(r.mensaje, '1 alumna ya no figura presente y no se guardaron sus ejercicios.');
+      expect(peticiones.single.url.path, endsWith('/rpc/guardar_participacion_clase'));
+      expect(jsonDecode(peticiones.single.body)['p_registros'], [
+        {'inscripcion_id': 'i1', 'ejercicios': 4, 'participo_activa': true},
+      ]);
+      await repo.cola.cerrar();
+    });
+
     test('sin red el pase de lista queda pendiente en el dispositivo', () async {
       final repo = crear((_) => ok({}), sinRed: true);
       final r = await repo.guardarAsistencia('clase-1', [registro('i1', EstadoAsistencia.presente)]);
