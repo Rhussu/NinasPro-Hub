@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.reintento.outputs.page_url }}
 
     steps:
       - name: Checkout main (producción)
@@ -125,6 +125,19 @@ jobs:
         with:
           path: site
 
+      # La API de Pages a veces no encuentra el artefacto recién subido (error
+      # transitorio). Re-ejecutar el job no sirve: deja dos artefactos con el
+      # mismo nombre. Por eso se reintenta aquí mismo, en la misma ejecución.
       - name: Deploy to GitHub Pages
         id: deployment
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+
+      - name: Esperar antes de reintentar
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 45
+
+      - name: Deploy to GitHub Pages (reintento)
+        id: reintento
+        if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@v4

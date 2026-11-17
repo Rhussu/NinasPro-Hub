@@ -1,0 +1,74 @@
+{
+  "herramienta": "gh run list (GitHub Actions)",
+  "rama": "premain",
+  "workflow": "cd-frontend.yml",
+  "fecha": "2026-11-17T00:57:47.185Z",
+  "despliegue": {
+    "sha": "fe0f18c",
+    "mensaje": "test(p3): commit de prueba para medir el tiempo de despliegue (TC-42)",
+    "inicio": "2026-11-17T00:40:45.000Z",
+    "publicado": "2026-11-17T00:44:18.000Z",
+    "minutos": 3.55,
+    "ejecuciones": 1,
+    "fallidas": 0
+  },
+  "rollback": {
+    "sha": "f63128c",
+    "mensaje": "Revert \"test(p3): commit de prueba para medir el tiempo de despliegue (TC-42)\"",
+    "inicio": "2026-11-17T00:45:35.000Z",
+    "publicado": "2026-11-17T00:56:34.000Z",
+    "minutos": 10.98,
+    "ejecuciones": 2,
+    "fallidas": 1
+  },
+  "cumple_despliegue": true,
+  "cumple_rollback": false,
+  "cumple": false,
+  "historial": [
+    {
+      "sha": "f63128c",
+      "mensaje": "Revert \"test(p3): commit de prueba para medir el tiempo de despliegue (TC-42)\"",
+      "inicio": "2026-11-17T00:45:35.000Z",
+      "publicado": "2026-11-17T00:56:34.000Z",
+      "minutos": 10.98,
+      "ejecuciones": 2,
+      "fallidas": 1
+    },
+    {
+      "sha": "fe0f18c",
+      "mensaje": "test(p3): commit de prueba para medir el tiempo de despliegue (TC-42)",
+      "inicio": "2026-11-17T00:40:45.000Z",
+      "publicado": "2026-11-17T00:44:18.000Z",
+      "minutos": 3.55,
+      "ejecuciones": 1,
+      "fallidas": 0
+    },
+    {
+      "sha": "126316c",
+      "mensaje": "feat(beta): cargar en la beta los datos ficticios de seed.sql con la clave BETA_CLAVE_CUENTAS, una sola vez y sin tocar la cuenta de la Directiva",
+      "inicio": "2026-11-17T00:36:51.000Z",
+      "publicado": "2026-11-17T00:40:33.000Z",
+      "minutos": 3.7,
+      "ejecuciones": 1,
+      "fallidas": 0
+    },
+    {
+      "sha": "dfce0eb",
+      "mensaje": "docs(pruebas): registrar DEF-07: en el plan Free de Supabase no se puede activar el hook de intentos de contraseña y no hay bloqueo tras 3 fallos",
+      "inicio": "2026-11-17T00:06:08.000Z",
+      "publicado": "2026-11-17T00:09:04.000Z",
+      "minutos": 2.93,
+      "ejecuciones": 1,
+      "fallidas": 0
+    },
+    {
+      "sha": "a4d7875",
+      "mensaje": "test(pruebas): plan de pruebas con E2E, responsivo, carga, acceso cruzado y TLS, medición de los RNF críticos, registro de defectos e informe generado desde los resultados",
+      "inicio": "2026-11-16T23:50:22.000Z",
+      "publicado": "2026-11-16T23:54:23.000Z",
+      "minutos": 4.02,
+      "ejecuciones": 1,
+      "fallidas": 0
+    }
+  ]
+}
