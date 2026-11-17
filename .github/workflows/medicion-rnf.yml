@@ -58,6 +58,8 @@ jobs:
           [ -n "$CUENTAS" ] || { echo "❌ Falta la variable BETA_CUENTAS_CARGA: correos de tutoras o Gestión con un curso y una clase con pase de lista, separados por comas"; exit 1; }
           [ -n "$CUENTAS_ACCESO" ] || { echo "❌ Falta la variable BETA_CUENTAS_ACCESO: gestion_sede_B,gestion_sede_A,tutora_sede_A,alumna_sede_A,directiva"; exit 1; }
           mkdir -p "$SALIDA"
+          # Los contenedores de k6 no corren con el usuario del runner: necesitan poder escribir
+          chmod a+rwx "$SALIDA"
 
       - name: RNF-R-1 / R-2 · carga con 30 tutoras (TC-27)
         continue-on-error: true
