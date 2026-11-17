@@ -6,3 +6,5 @@ Capturas con fecha para los RNF que no se pueden medir con un script:
 - `excel-*.png` y `sheets-*.png` (TC-15).
 
 No subir capturas con datos reales.
+
+<!-- Prueba P-3 (TC-42): commit de despliegue 2026-11-17T00:40:41Z -->
