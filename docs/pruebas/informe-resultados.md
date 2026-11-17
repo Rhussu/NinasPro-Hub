@@ -1,13 +1,13 @@
 # Informe de resultados de pruebas · NiñasPro Hub
 
-> Generado por `frontend/tool/generar_informe.dart` el 2026-11-17 00:05 UTC a partir de `docs/pruebas/resultados/`. No editar a mano: corregir los catálogos (`rnf.json`, `casos.json`, `defectos.md`) y volver a generar.
+> Generado por `frontend/tool/generar_informe.dart` el 2026-11-17 01:33 UTC a partir de `docs/pruebas/resultados/`. No editar a mano: corregir los catálogos (`rnf.json`, `casos.json`, `defectos.md`) y volver a generar.
 
 ## Resumen
 
 - **Pruebas ejecutadas:** 880 pasan · 0 fallan.
-- **RNF críticos:** 1 de 8 cumplen.
+- **RNF críticos:** 5 de 8 cumplen.
 - **Defectos:** 7 registrados, 2 abiertos.
-- **Conclusión:** El MVP todavía no cumple la DoD (§10, punto 3): faltan RNF-R-1 (cumple en local), RNF-R-2 (cumple en local), RNF-S-2 (cumple en local), RNF-S-3 (parcial), RNF-U-2 (no medido), RNF-P-3 (no medido), COSTO-0 (no medido). Ningún RNF crítico medido falla; los pendientes son mediciones en la beta y pruebas con personas.
+- **Conclusión:** El MVP todavía no cumple la DoD (§10, punto 3): faltan RNF-S-3 (parcial), RNF-U-2 (no medido), COSTO-0 (no medido). Ningún RNF crítico medido falla: lo que falta es medir o archivar evidencia.
 
 ## Niveles de prueba ejecutados
 
@@ -19,43 +19,43 @@
 | Dominio | flutter test | 13 | 0 | Responsivo 360–1920 px y áreas táctiles de 44 px (RNF-U-1, U-3) | local | `resultados/local/flutter-test.json` |
 | Integración (base de datos) | pgTAP (supabase test db) | 547 | 0 | 18 archivos: esquema, RLS por rol, reglas de clase, auditoría, alertas | local | `resultados/local/pgtap.txt` |
 | Extremo a extremo | flutter drive + Chrome headless | 3 | 0 | Tutora pasa lista · Alumna ve solo su portal · Directiva sin MFA queda bloqueada | local | `resultados/local/e2e.txt` |
-| Seguridad (acceso cruzado) | k6 sobre PostgREST/RPC | 19 | 0 | Intentos con JWT de otra sede, otra alumna, anónimo y Directiva sin MFA | local | `resultados/local/acceso-cruzado.json` |
-| Carga | k6 · 30 VUs · netem | 16040 | 0 | Comprobaciones HTTP durante la carga del sábado (TC-27); no se suman al total de pruebas | local | `resultados/local/k6-carga.json` |
+| Seguridad (acceso cruzado) | k6 sobre PostgREST/RPC | 19 | 0 | Intentos con JWT de otra sede, otra alumna, anónimo y Directiva sin MFA | beta | `resultados/beta/acceso-cruzado.json` |
+| Carga | k6 · 30 VUs · netem | 15460 | 0 | Comprobaciones HTTP durante la carga del sábado (TC-27); no se suman al total de pruebas | beta | `resultados/beta/k6-carga.json` |
 
 ## RNF críticos
 
 | RNF | Objetivo | Método reproducible | Valor obtenido | Veredicto |
 |---|---|---|---|---|
-| **RNF-R-1** Tiempo de respuesta | p95 ≤ 1.500 ms al guardar asistencia o cargar los datos de la sesión | k6 con 30 tutoras concurrentes durante 10 min, con las mismas llamadas REST/RPC que hace la app (instancias → sesiones → lista_asistencia_clase → guardar_asistencia_clase) y latencia de red simulada con tc netem (100 ms ± 20 ms). Se mide el p95 por operación. `SUPABASE_URL=… SUPABASE_ANON_KEY=… CLAVE=… bash pruebas-rnf/k6/correr.sh docs/pruebas/resultados/<ambiente>/k6-carga.json` | p95 cargar sesión 185 ms · guardar asistencia 146 ms _(local)_<br>Repetir en la beta (Supabase Cloud) con el workflow «Medición de RNF (beta)»: en local la base corre en el mismo PC y solo la latencia es simulada. | **Cumple en local** |
-| **RNF-R-2** Throughput sostenido | ≥ 15 solicitudes por segundo sostenidas con 30 usuarias concurrentes durante 10 min, sin errores | La misma corrida de k6 de RNF-R-1: tasa media de solicitudes HTTP (http_reqs) y tasa de errores (http_req_failed < 1 %). `Ver RNF-R-1 (misma corrida)` | 26,4 req/s · 16068 solicitudes · 0,0 % de errores _(local)_<br>Repetir en la beta. | **Cumple en local** |
-| **RNF-S-2** Mínimo privilegio (RBAC por rol y sede) | Ninguna cuenta accede a registros de otra sede u otra alumna; el intento se rechaza | 1) 547 pruebas pgTAP de RLS y reglas por rol (supabase test db). 2) Prueba de acceso cruzado sobre la API real: con JWT de tutora, Gestión, alumna, anónimo y Directiva sin MFA se piden IDs legítimos de otra sede u otra alumna (19 intentos). `SUPABASE_URL=… SUPABASE_ANON_KEY=… CLAVE=… k6 run pruebas-rnf/seguridad/acceso_cruzado.js` | 19/19 intentos denegados _(local)_<br>Repetir en la beta para confirmar que las políticas desplegadas son las mismas. | **Cumple en local** |
-| **RNF-S-3** Protección de datos en tránsito y en reposo | TLS 1.2+ obligatorio en tránsito (TLS 1.0 y 1.1 rechazados) y AES-256 en reposo | Handshake con openssl por versión de TLS contra GitHub Pages y el host de Supabase (el cliente puede negociar TLS 1.0, así que un rechazo es del servidor). El cifrado en reposo no se mide desde afuera: se verifica en la documentación de seguridad del proveedor y se adjunta la evidencia. `bash pruebas-rnf/seguridad/tls.sh rhussu.github.io <proyecto>.supabase.co` | rhussu.github.io: TLS 1.0 rechazado, 1.1 rechazado, 1.2 aceptado, 1.3 aceptado _(local)_<br>Falta el host de Supabase de la beta (se agrega solo en la medición de la beta) y adjuntar la evidencia del proveedor sobre AES-256 en reposo. | **Parcial** |
+| **RNF-R-1** Tiempo de respuesta | p95 ≤ 1.500 ms al guardar asistencia o cargar los datos de la sesión | k6 con 30 tutoras concurrentes durante 10 min, con las mismas llamadas REST/RPC que hace la app (instancias → sesiones → lista_asistencia_clase → guardar_asistencia_clase) y latencia de red simulada con tc netem (100 ms ± 20 ms). Se mide el p95 por operación. `SUPABASE_URL=… SUPABASE_ANON_KEY=… CLAVE=… bash pruebas-rnf/k6/correr.sh docs/pruebas/resultados/<ambiente>/k6-carga.json` | p95 cargar sesión 275 ms · guardar asistencia 182 ms _(beta)_ | **Cumple** |
+| **RNF-R-2** Throughput sostenido | ≥ 15 solicitudes por segundo sostenidas con 30 usuarias concurrentes durante 10 min, sin errores | La misma corrida de k6 de RNF-R-1: tasa media de solicitudes HTTP (http_reqs) y tasa de errores (http_req_failed < 1 %). `Ver RNF-R-1 (misma corrida)` | 25,3 req/s · 15492 solicitudes · 0,0 % de errores _(beta)_ | **Cumple** |
+| **RNF-S-2** Mínimo privilegio (RBAC por rol y sede) | Ninguna cuenta accede a registros de otra sede u otra alumna; el intento se rechaza | 1) 547 pruebas pgTAP de RLS y reglas por rol (supabase test db). 2) Prueba de acceso cruzado sobre la API real: con JWT de tutora, Gestión, alumna, anónimo y Directiva sin MFA se piden IDs legítimos de otra sede u otra alumna (19 intentos). `SUPABASE_URL=… SUPABASE_ANON_KEY=… CLAVE=… k6 run pruebas-rnf/seguridad/acceso_cruzado.js` | 19/19 intentos denegados _(beta)_ | **Cumple** |
+| **RNF-S-3** Protección de datos en tránsito y en reposo | TLS 1.2+ obligatorio en tránsito (TLS 1.0 y 1.1 rechazados) y AES-256 en reposo | Handshake con openssl por versión de TLS contra GitHub Pages y el host de Supabase (el cliente puede negociar TLS 1.0, así que un rechazo es del servidor). El cifrado en reposo no se mide desde afuera: se verifica en la documentación de seguridad del proveedor y se adjunta la evidencia. `bash pruebas-rnf/seguridad/tls.sh rhussu.github.io <proyecto>.supabase.co` | Rhussu.github.io: TLS 1.0 rechazado, 1.1 rechazado, 1.2 aceptado, 1.3 aceptado · cxsvdknvwvfoemzwqtdy.supabase.co: TLS 1.0 rechazado, 1.1 rechazado, 1.2 aceptado, 1.3 aceptado _(beta)_<br>Falta archivar la evidencia del proveedor sobre AES-256 en reposo (documentación de seguridad de Supabase) en docs/pruebas/evidencias/. | **Parcial** |
 | **RNF-U-2** Tarea principal sin ayuda | ≥ 80 % de las tutoras de prueba (mínimo 4) registran asistencia y foto sin ayuda técnica en ≤ 3 min | Prueba de usabilidad presencial del §10.3 del SRS: moderador y observador, guion de tareas, planilla de observación y SUS, con tutoras que no participaron en el desarrollo y datos ficticioscos en la beta (docs/pruebas/kit-usabilidad/). `Manual: docs/pruebas/kit-usabilidad/` | Sin sesiones de usabilidad todavía _(local)_<br>Proxy E2E (no reemplaza la prueba con personas): tarea completa de la tutora en 8633 ms | **No medido** |
 | **RNF-M-1** Cobertura de pruebas en reglas críticas | ≥ 80 % de cobertura de líneas en las reglas de negocio críticas (asistencia, autorizaciones, cálculo de porcentajes) | flutter test --coverage + lcov; tool/cobertura.sh filtra los 10 archivos de Dart con reglas críticas y genera el HTML con genhtml. Las reglas que viven en la base (porcentajes, meta 80/70 %, recuperación por ejercicios, alertas) se cubren con pgTAP: lcov no mide SQL. `cd frontend && flutter test --coverage && bash tool/cobertura.sh` | 96,6 % en reglas críticas · 92,8 % global (lcov) _(local)_ | **Cumple** |
-| **RNF-P-3** Tiempo de despliegue y de rollback | Despliegue automatizado ≤ 10 min y rollback ≤ 5 min | Se hace un commit a premain y luego su git revert. Se mide la duración de cada run del workflow cd-frontend.yml en GitHub Actions, desde que se crea hasta que la versión queda publicada. `bash pruebas-rnf/p3_tiempos.sh premain cd-frontend.yml` | Sin corridas en premain todavía | **No medido** |
+| **RNF-P-3** Tiempo de despliegue y de rollback | Despliegue automatizado ≤ 10 min y rollback ≤ 5 min | Se hace un commit a premain y luego su git revert. Por cada commit se mide, con gh run list, desde que se crea la primera ejecución de cd-frontend.yml hasta que termina la primera ejecución exitosa: el tiempo real hasta que la versión queda publicada, contando reintentos. `bash pruebas-rnf/p3_tiempos.sh premain cd-frontend.yml` | despliegue 5.97 min · rollback 2.87 min _(beta)_ | **Cumple** |
 | **COSTO-0** Restricción de costo | $0 USD/mes (capas gratuitas de GitHub y Supabase) | Revisión mensual de Billing en GitHub (Actions y Pages) y en Supabase (plan Free y uso de la organización). Se archivan capturas con fecha en docs/pruebas/evidencias/. `Manual` | Sin captura de billing archivada | **No medido** |
 
 ## Desviaciones: interpretación y decisión
 
-### RNF-R-1 · Tiempo de respuesta — Cumple en local
+### RNF-R-1 · Tiempo de respuesta — Cumple
 
-- **Interpretación:** En local el p95 queda cerca de 8 veces bajo el límite y casi todo el tiempo es la latencia simulada (≈ 120 ms de ida y vuelta): la base responde en pocos milisegundos. El riesgo real está en la nube: la distancia a la región del proyecto Supabase y el plan gratuito (CPU compartida) pueden sumar cientos de milisegundos.
-- **Decisión:** Se acepta como evidencia preliminar. El veredicto final sale de la medición en la beta. Si allí el p95 supera 1.500 ms: revisar la región del proyecto (elegir la más cercana a Chile), índices de clases e inscripciones y el tamaño de la respuesta de lista_asistencia_clase.
+- **Interpretación:** En la beta (Supabase Cloud, medido desde GitHub Actions con 100 ms ± 20 ms extra) el p95 fue de 275 ms al cargar la sesión y de 182 ms al guardar. En una corrida anterior el mismo día dio 403 ms y 312 ms, con un máximo aislado de 3,2 s. Hay variación entre corridas porque el plan Free comparte CPU, pero ni el peor p95 llega a un tercio del límite. En local, con la misma latencia simulada, había dado 185 ms y 146 ms: la nube suma unos 100 a 200 ms.
+- **Decisión:** Cumple, con margen. Los máximos aislados de 2 a 3 s no afectan el p95, pero conviene vigilarlos: si aparecen más seguido, revisar la región del proyecto y el tamaño de lista_asistencia_clase. Repetir la medición antes de cada paso de premain a main.
 
-### RNF-R-2 · Throughput sostenido — Cumple en local
+### RNF-R-2 · Throughput sostenido — Cumple
 
-- **Interpretación:** La tasa la fija el ritmo de las usuarias simuladas (pausas de 1 a 3 s entre acciones, como una tutora real), no un tope del servidor: con 30 tutoras se generan ≈ 26 req/s y la base no se satura (CPU de Postgres bajo 80 % y 0 % de errores). La prueba demuestra el escenario del sábado, no la capacidad máxima.
-- **Decisión:** Se acepta. Si en la beta aparecen errores 429 o 5xx, revisar los límites del plan gratuito antes de subir a producción.
+- **Interpretación:** En la beta: 25,3 req/s sostenidas durante 10 min con 30 tutoras y 0 % de errores (en la corrida anterior, 23,0 req/s). El ritmo lo fijan las pausas de las usuarias simuladas, no un tope del servidor, así que la prueba demuestra el escenario del sábado y no la capacidad máxima. No hubo errores 429 ni 5xx del plan Free.
+- **Decisión:** Cumple. Si en algún momento crece el número de tutoras, repetir con más usuarias simuladas (VUS).
 
-### RNF-S-2 · Mínimo privilegio (RBAC por rol y sede) — Cumple en local
+### RNF-S-2 · Mínimo privilegio (RBAC por rol y sede) — Cumple
 
-- **Interpretación:** Desviación de forma, no de fondo: el SRS espera «HTTP 403» y 9 de los 19 intentos responden 200 con una lista vacía. Son lecturas directas a tablas o vistas, donde RLS filtra las filas ajenas en vez de rechazar la consulta (así funciona PostgREST). Las RPC que reciben un ID explícito (lista de asistencia, guardar, exportar, portal) sí responden 403 y dejan el intento en la auditoría. En ningún caso se entregó un dato ajeno.
-- **Decisión:** Se acepta (DEF-02). Se propone ajustar el método del SRS a «403, o respuesta vacía cuando la lectura pasa por RLS».
+- **Interpretación:** En la beta: 19/19 intentos denegados, los mismos resultados que en local. Desviación de forma, no de fondo: el SRS espera «HTTP 403» y 9 de los 19 responden 200 con una lista vacía. Son lecturas directas a tablas o vistas, donde RLS filtra las filas ajenas en vez de rechazar la consulta (así funciona PostgREST). Las RPC con un ID explícito (lista, guardar, exportar, portal) responden 403 y registran el intento. En ningún caso se entregó un dato ajeno.
+- **Decisión:** Cumple, con la desviación aceptada (DEF-02). Se propone ajustar el método del SRS a «403, o respuesta vacía cuando la lectura pasa por RLS».
 
 ### RNF-S-3 · Protección de datos en tránsito y en reposo — Parcial
 
-- **Interpretación:** GitHub Pages rechaza TLS 1.0 y 1.1 y acepta 1.2 y 1.3 con un certificado válido. Se comprobó que el cliente sí negocia TLS 1.0 contra un servidor que lo permite (badssl.com), así que el rechazo es del servidor y no del cliente.
-- **Decisión:** Parcial hasta medir el host de la base y archivar la evidencia del cifrado en reposo. No hay nada que corregir en el código.
+- **Interpretación:** Medido en la beta: tanto GitHub Pages como el host de Supabase del proyecto beta rechazan TLS 1.0 y 1.1, aceptan 1.2 y 1.3 y tienen certificados válidos. Se comprobó aparte que el cliente sí negocia TLS 1.0 contra un servidor que lo permite (badssl.com), así que el rechazo es del servidor. El cifrado en reposo no se puede medir desde afuera.
+- **Decisión:** La parte de tránsito cumple. Queda «Parcial» hasta archivar la evidencia documental de AES-256 en reposo. No hay nada que corregir en el código.
 
 ### RNF-U-2 · Tarea principal sin ayuda — No medido
 
@@ -67,10 +67,10 @@
 - **Interpretación:** Cumple con holgura en el total, pero un archivo por separado quedaba bajo el umbral: clase_repository.dart, con 79,4 %. Le faltaban pruebas de la asistencia de tutoras, «mi asistencia», las sesiones y el envío de la participación. Al agregarlas apareció DEF-01: el orden de las sesiones era descendente.
 - **Decisión:** Corregido: 4 pruebas nuevas suben clase_repository.dart a 93,6 %. El CI ahora exige ≥ 80 % en las reglas críticas y en el total (tool/cobertura.sh).
 
-### RNF-P-3 · Tiempo de despliegue y de rollback — No medido
+### RNF-P-3 · Tiempo de despliegue y de rollback — Cumple
 
-- **Interpretación:** Riesgo identificado antes de medir: el rollback por git revert recorre el mismo pipeline que un despliegue. Ese pipeline ahora compila dos versiones (producción y beta) y corre las pruebas para el informe, así que podría pasar de 5 min.
-- **Decisión:** Medir apenas exista premain. Si el rollback pasa de 5 min: sacar las pruebas del job de publicación (usar el informe del último run del CI) o volver a desplegar el artefacto anterior sin recompilar.
+- **Interpretación:** Primer intento (2026-11-17, resultados/beta/p3-intento-1.json): despliegue en 3,55 min ✓, pero rollback en 10,98 min ✗. El pipeline en sí tarda unos 3,6 min. El exceso vino de un error transitorio de la API de Pages («no se encontró el artefacto») y de que re-ejecutar el job vuelve a fallar al quedar dos artefactos con el mismo nombre: hubo que lanzar una ejecución nueva. El tiempo de cómputo cumple; la fragilidad estaba en la recuperación ante fallas de la plataforma.
+- **Decisión:** Corregido: el paso de despliegue se reintenta una vez dentro de la misma ejecución (cd-frontend.yml) y p3_tiempos.sh mide por commit, contando reintentos. Segundo intento, con el arreglo: despliegue en 3,63 min y rollback en 2,87 min, sin fallas. Procedimiento si un despliegue igual falla: lanzar una ejecución nueva con «Run workflow»; no usar «Re-run».
 
 ### COSTO-0 · Restricción de costo — No medido
 
@@ -131,13 +131,13 @@
 
 | RNF | Crítico | Objetivo | Valor obtenido | Veredicto | Casos |
 |---|---|---|---|---|---|
-| RNF-R-1 Tiempo de respuesta | Sí | p95 ≤ 1.500 ms al guardar asistencia o cargar los datos de la sesión | p95 cargar sesión 185 ms · guardar asistencia 146 ms | Cumple en local | TC-27 |
-| RNF-R-2 Throughput sostenido | Sí | ≥ 15 solicitudes por segundo sostenidas con 30 usuarias concurrentes durante 10 min, sin errores | 26,4 req/s · 16068 solicitudes · 0,0 % de errores | Cumple en local | TC-27 |
-| RNF-S-2 Mínimo privilegio (RBAC por rol y sede) | Sí | Ninguna cuenta accede a registros de otra sede u otra alumna; el intento se rechaza | 19/19 intentos denegados | Cumple en local | TC-02, TC-17, TC-32 |
-| RNF-S-3 Protección de datos en tránsito y en reposo | Sí | TLS 1.2+ obligatorio en tránsito (TLS 1.0 y 1.1 rechazados) y AES-256 en reposo | rhussu.github.io: TLS 1.0 rechazado, 1.1 rechazado, 1.2 aceptado, 1.3 aceptado | Parcial | TC-33 |
+| RNF-R-1 Tiempo de respuesta | Sí | p95 ≤ 1.500 ms al guardar asistencia o cargar los datos de la sesión | p95 cargar sesión 275 ms · guardar asistencia 182 ms | Cumple | TC-27 |
+| RNF-R-2 Throughput sostenido | Sí | ≥ 15 solicitudes por segundo sostenidas con 30 usuarias concurrentes durante 10 min, sin errores | 25,3 req/s · 15492 solicitudes · 0,0 % de errores | Cumple | TC-27 |
+| RNF-S-2 Mínimo privilegio (RBAC por rol y sede) | Sí | Ninguna cuenta accede a registros de otra sede u otra alumna; el intento se rechaza | 19/19 intentos denegados | Cumple | TC-02, TC-17, TC-32 |
+| RNF-S-3 Protección de datos en tránsito y en reposo | Sí | TLS 1.2+ obligatorio en tránsito (TLS 1.0 y 1.1 rechazados) y AES-256 en reposo | Rhussu.github.io: TLS 1.0 rechazado, 1.1 rechazado, 1.2 aceptado, 1.3 aceptado · cxsvdknvwvfoemzwqtdy.supabase.co: TLS 1.0 rechazado, 1.1 rechazado, 1.2 aceptado, 1.3 aceptado | Parcial | TC-33 |
 | RNF-U-2 Tarea principal sin ayuda | Sí | ≥ 80 % de las tutoras de prueba (mínimo 4) registran asistencia y foto sin ayuda técnica en ≤ 3 min | Sin sesiones de usabilidad todavía | No medido | TC-36 |
 | RNF-M-1 Cobertura de pruebas en reglas críticas | Sí | ≥ 80 % de cobertura de líneas en las reglas de negocio críticas (asistencia, autorizaciones, cálculo de porcentajes) | 96,6 % en reglas críticas · 92,8 % global (lcov) | Cumple | TC-39 |
-| RNF-P-3 Tiempo de despliegue y de rollback | Sí | Despliegue automatizado ≤ 10 min y rollback ≤ 5 min | Sin corridas en premain todavía | No medido | TC-42 |
+| RNF-P-3 Tiempo de despliegue y de rollback | Sí | Despliegue automatizado ≤ 10 min y rollback ≤ 5 min | despliegue 5.97 min · rollback 2.87 min | Cumple | TC-42 |
 | COSTO-0 Restricción de costo | Sí | $0 USD/mes (capas gratuitas de GitHub y Supabase) | Sin captura de billing archivada | No medido |  |
 | RNF-R-3 Volumen de datos | No | ≥ 1 GB anual de fotos y ≥ 5.000 registros de asistencia | No ejecutado | No medido | TC-28 |
 | RNF-D-1 Disponibilidad mensual | No | ≥ 99,0 % global y ≥ 99,5 % los sábados de 09:30 a 13:30 | Sin monitor configurado | No medido | TC-29 |
@@ -179,7 +179,7 @@ Herramienta: `flutter test --coverage + lcov`. Reporte navegable: [`cobertura/`]
 | DEF-02 | TC-02, TC-32 | Menor | Aceptado | El SRS pide «HTTP 403» ante un acceso cruzado. 9 de los 19 intentos responden **200 con una lista vacía**: son lecturas directas a tablas o vistas, donde RLS filtra las filas ajenas. | Se acepta: no se entrega ningún dato ajeno, y las RPC con un ID explícito responden 403 y registran el intento. Se propone ajustar el método del SRS a «403, o respuesta vacía cuando la lectura pasa por RLS». |
 | DEF-03 | TC-41 | Mayor | Diferido | El frontend no captura los errores no controlados (no hay `FlutterError.onError` ni `PlatformDispatcher.onError`), así que un error en el celular de una tutora no queda en ningún registro centralizado. | Se difiere a la siguiente iteración (M-3 no es crítico): capturar los errores y enviarlos a una tabla de errores con su RPC y su marca de tiempo. |
 | DEF-04 | TC-37 | Menor | Cerrado | US-13 pedía áreas táctiles de 48×48 px, pero el SRS (§4.4) fija 44×44 px. | US-13 se alineó con el SRS. `responsivo_test.dart` verifica los 44 px. |
-| DEF-05 | TC-34 | Menor | Cerrado | En el diseño inicial, la beta cargaba `seed.sql`, cuyas cuentas usan una contraseña publicada en el repositorio: cualquiera que la leyera podía entrar a la beta. | Se rediseñó: la beta no carga `seed.sql`. Solo se crea la cuenta `directiva@ninaspro.cl` (`supabase/beta/directiva.sql`), con la clave del secreto `BETA_CLAVE_CUENTAS`; el resto de los datos lo crea el equipo. |
+| DEF-05 | TC-34 | Menor | Cerrado | En el diseño inicial, la beta cargaba `seed.sql`, cuyas cuentas usan una contraseña publicada en el repositorio: cualquiera que la leyera podía entrar a la beta. | Se rediseñó: la beta carga los datos ficticios con `supabase/beta/directiva.sql` y `supabase/beta/datos_prueba.sh`, que ponen la clave del secreto `BETA_CLAVE_CUENTAS` en todas las cuentas. La clave publicada en `seed.sql` solo vale en local y en el CI. |
 | DEF-07 | TC-03 | Mayor | Abierto | En Supabase Cloud no se puede activar el hook *Password Verification Attempt*: según la documentación de Supabase, solo existe en los planes Teams y Enterprise, y el proyecto está en el plan Free (restricción de $0). Sin ese hook, en la beta y en producción **no se bloquea la cuenta tras 3 intentos fallidos** y los intentos fallidos no quedan en la auditoría de seguridad. pgTAP lo da por bueno porque llama a la función directamente, no a través de Auth. | Pendiente de decisión. Pagar el plan Teams rompe COSTO-0. Mitigación propuesta sin costo: los límites de tasa de Auth y un CAPTCHA en el inicio de sesión. Si se adopta, el criterio de US-06 pasa a «limitar los intentos» en vez de «bloquear la cuenta». |
 | DEF-06 | — | Menor | Cerrado | `CLAUDE.md` describía un mockup con datos en memoria y decía «no tocar supabase/», pero la app ya usa Supabase real. | Se actualizó `CLAUDE.md`. |
 
@@ -213,13 +213,13 @@ Herramienta: `flutter test --coverage + lcov`. Reporte navegable: [`cobertura/`]
 | TC-24 | I/E | RF-10 | R-1, U-3 | Dashboard por sede | directorio_screens_test (dashboard, gráfico) · pgTAP 16 | Pasa |
 | TC-25 | I/E | RF-15 | S-2, S-5 | Reporte agregado para patrocinantes sin nombre ni RUT | directorio_screens_test (exportación disociada) · pgTAP 16 | Pasa |
 | TC-26 | I/E | RF-18 | S-2, S-5 | Foro de consultas | — | No aplica — RF-18 (Could) no implementado |
-| TC-27 | C | — | R-1, R-2, P-2 | Carga con 30 usuarias por 10 min: p95 ≤ 1,5 s, ≥ 15 req/s, RAM < 512 MB | k6 carga_sesion.js · resultados/<ambiente>/k6-carga.json | Pasa (local) — Falta repetirla en la beta |
+| TC-27 | C | — | R-1, R-2, P-2 | Carga con 30 usuarias por 10 min: p95 ≤ 1,5 s, ≥ 15 req/s, RAM < 512 MB | k6 carga_sesion.js · resultados/<ambiente>/k6-carga.json | Pasa — Beta: p95 de 275 y 182 ms, 25,3 req/s, 0 % de errores |
 | TC-28 | C | — | R-3 | ≈ 1 GB de fotos y 5.000 registros de asistencia | — | Pendiente |
 | TC-29 | M | — | D-1 | Monitor externo de disponibilidad | — | Pendiente |
 | TC-30 | M | — | D-2 | Restauración desde respaldo, midiendo RPO y RTO | — | Pendiente |
 | TC-31 | S | RF-2 | S-1 | OIDC y bloqueo de la consola de la Directiva sin segundo factor | E2E-03 · acceso_cruzado S1-01, S1-02 · pgTAP 06 · auth_test | Pasa |
 | TC-32 | S | RF-2, RF-14 | S-2 | Acceso cruzado entre sedes y roles | acceso_cruzado.js · pgTAP 18_accesos_por_rol | Pasa |
-| TC-33 | S | RF-4, 6, 8 | S-3 | TLS 1.2+ y cifrado en reposo | tls.sh · resultados/<ambiente>/tls.json | Parcial — GitHub Pages cumple; faltan el host de Supabase y la evidencia de AES-256 |
+| TC-33 | S | RF-4, 6, 8 | S-3 | TLS 1.2+ y cifrado en reposo | tls.sh · resultados/<ambiente>/tls.json | Parcial — TLS cumple en GitHub Pages y en Supabase; falta la evidencia de AES-256 |
 | TC-34 | M | RF-4, RF-9 | S-5 | Lista legal del §5.3 y datos sintéticos fuera de producción | lista-legal.md | Parcial |
 | TC-36 | M | RF-5, 9, 20, 24 | U-2 | Prueba de usabilidad con tutoras (§10.3) | kit-usabilidad/ | Pendiente — Faltan participantes y dispositivos |
 | TC-37 | M | — | U-1, U-3 | Responsivo desde 360 px, en español | responsivo_test.dart (13 pruebas) | Pasa — Automatizada en vez de manual |
@@ -227,4 +227,4 @@ Herramienta: `flutter test --coverage + lcov`. Reporte navegable: [`cobertura/`]
 | TC-39 | U | — | M-1 | Cobertura ≥ 80 % en reglas críticas | tool/cobertura.sh · resultados/<ambiente>/cobertura.json · cobertura/ | Pasa |
 | TC-40 | CI | — | M-2 | flutter analyze con 0 errores en cada PR | ci-flutter.yml · resultados/<ambiente>/analyze.txt | Pasa |
 | TC-41 | I | — | M-3 | Error provocado y registrado con marca de tiempo | — | Falla — DEF-03: no hay captura de errores no controlados en el frontend |
-| TC-42 | CI/M | — | P-1, P-3 | Despliegue ≤ 10 min y rollback ≤ 5 min | p3_tiempos.sh | Pendiente — Requiere la rama premain en GitHub |
+| TC-42 | CI/M | — | P-1, P-3 | Despliegue ≤ 10 min y rollback ≤ 5 min | p3_tiempos.sh · resultados/beta/p3.json y p3-intento-1.json | Pasa — El intento 1 falló el rollback (10,98 min); tras el arreglo, el intento 2 dio 3,63 y 2,87 min. P-1 (máquina limpia) sigue pendiente |

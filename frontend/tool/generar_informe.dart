@@ -314,9 +314,10 @@ class Informe {
 
   String get conclusion {
     final faltan = criticos.where((r) => r.veredicto != 'Cumple').map((r) => '${r.id} (${r.veredicto.toLowerCase()})');
+    final fallan = criticos.where((r) => r.veredicto == 'No cumple').map((r) => r.id).toList();
     return bloqueanMvp
-        ? 'El MVP todavía no cumple la DoD (§10, punto 3): faltan ${faltan.join(', ')}. Ningún RNF crítico medido falla; '
-            'los pendientes son mediciones en la beta y pruebas con personas.'
+        ? 'El MVP todavía no cumple la DoD (§10, punto 3): faltan ${faltan.join(', ')}. '
+            '${fallan.isEmpty ? 'Ningún RNF crítico medido falla: lo que falta es medir o archivar evidencia.' : 'No cumplen: ${fallan.join(', ')}.'}'
         : 'Todos los RNF críticos cumplen y no hay defectos críticos abiertos.';
   }
 

@@ -25,13 +25,13 @@
   { "tc": "TC-24", "tipo": "I/E", "rf": "RF-10", "rnf": "R-1, U-3", "que": "Dashboard por sede", "evidencia": "directorio_screens_test (dashboard, gráfico) · pgTAP 16", "estado": "Pasa" },
   { "tc": "TC-25", "tipo": "I/E", "rf": "RF-15", "rnf": "S-2, S-5", "que": "Reporte agregado para patrocinantes sin nombre ni RUT", "evidencia": "directorio_screens_test (exportación disociada) · pgTAP 16", "estado": "Pasa" },
   { "tc": "TC-26", "tipo": "I/E", "rf": "RF-18", "rnf": "S-2, S-5", "que": "Foro de consultas", "evidencia": "—", "estado": "No aplica", "nota": "RF-18 (Could) no implementado" },
-  { "tc": "TC-27", "tipo": "C", "rf": "—", "rnf": "R-1, R-2, P-2", "que": "Carga con 30 usuarias por 10 min: p95 ≤ 1,5 s, ≥ 15 req/s, RAM < 512 MB", "evidencia": "k6 carga_sesion.js · resultados/<ambiente>/k6-carga.json", "estado": "Pasa (local)", "nota": "Falta repetirla en la beta" },
+  { "tc": "TC-27", "tipo": "C", "rf": "—", "rnf": "R-1, R-2, P-2", "que": "Carga con 30 usuarias por 10 min: p95 ≤ 1,5 s, ≥ 15 req/s, RAM < 512 MB", "evidencia": "k6 carga_sesion.js · resultados/<ambiente>/k6-carga.json", "estado": "Pasa", "nota": "Beta: p95 de 275 y 182 ms, 25,3 req/s, 0 % de errores" },
   { "tc": "TC-28", "tipo": "C", "rf": "—", "rnf": "R-3", "que": "≈ 1 GB de fotos y 5.000 registros de asistencia", "evidencia": "—", "estado": "Pendiente" },
   { "tc": "TC-29", "tipo": "M", "rf": "—", "rnf": "D-1", "que": "Monitor externo de disponibilidad", "evidencia": "—", "estado": "Pendiente" },
   { "tc": "TC-30", "tipo": "M", "rf": "—", "rnf": "D-2", "que": "Restauración desde respaldo, midiendo RPO y RTO", "evidencia": "—", "estado": "Pendiente" },
   { "tc": "TC-31", "tipo": "S", "rf": "RF-2", "rnf": "S-1", "que": "OIDC y bloqueo de la consola de la Directiva sin segundo factor", "evidencia": "E2E-03 · acceso_cruzado S1-01, S1-02 · pgTAP 06 · auth_test", "estado": "Pasa" },
   { "tc": "TC-32", "tipo": "S", "rf": "RF-2, RF-14", "rnf": "S-2", "que": "Acceso cruzado entre sedes y roles", "evidencia": "acceso_cruzado.js · pgTAP 18_accesos_por_rol", "estado": "Pasa" },
-  { "tc": "TC-33", "tipo": "S", "rf": "RF-4, 6, 8", "rnf": "S-3", "que": "TLS 1.2+ y cifrado en reposo", "evidencia": "tls.sh · resultados/<ambiente>/tls.json", "estado": "Parcial", "nota": "GitHub Pages cumple; faltan el host de Supabase y la evidencia de AES-256" },
+  { "tc": "TC-33", "tipo": "S", "rf": "RF-4, 6, 8", "rnf": "S-3", "que": "TLS 1.2+ y cifrado en reposo", "evidencia": "tls.sh · resultados/<ambiente>/tls.json", "estado": "Parcial", "nota": "TLS cumple en GitHub Pages y en Supabase; falta la evidencia de AES-256" },
   { "tc": "TC-34", "tipo": "M", "rf": "RF-4, RF-9", "rnf": "S-5", "que": "Lista legal del §5.3 y datos sintéticos fuera de producción", "evidencia": "lista-legal.md", "estado": "Parcial" },
   { "tc": "TC-36", "tipo": "M", "rf": "RF-5, 9, 20, 24", "rnf": "U-2", "que": "Prueba de usabilidad con tutoras (§10.3)", "evidencia": "kit-usabilidad/", "estado": "Pendiente", "nota": "Faltan participantes y dispositivos" },
   { "tc": "TC-37", "tipo": "M", "rf": "—", "rnf": "U-1, U-3", "que": "Responsivo desde 360 px, en español", "evidencia": "responsivo_test.dart (13 pruebas)", "estado": "Pasa", "nota": "Automatizada en vez de manual" },
@@ -39,5 +39,5 @@
   { "tc": "TC-39", "tipo": "U", "rf": "—", "rnf": "M-1", "que": "Cobertura ≥ 80 % en reglas críticas", "evidencia": "tool/cobertura.sh · resultados/<ambiente>/cobertura.json · cobertura/", "estado": "Pasa" },
   { "tc": "TC-40", "tipo": "CI", "rf": "—", "rnf": "M-2", "que": "flutter analyze con 0 errores en cada PR", "evidencia": "ci-flutter.yml · resultados/<ambiente>/analyze.txt", "estado": "Pasa" },
   { "tc": "TC-41", "tipo": "I", "rf": "—", "rnf": "M-3", "que": "Error provocado y registrado con marca de tiempo", "evidencia": "—", "estado": "Falla", "nota": "DEF-03: no hay captura de errores no controlados en el frontend" },
-  { "tc": "TC-42", "tipo": "CI/M", "rf": "—", "rnf": "P-1, P-3", "que": "Despliegue ≤ 10 min y rollback ≤ 5 min", "evidencia": "p3_tiempos.sh", "estado": "Pendiente", "nota": "Requiere la rama premain en GitHub" }
+  { "tc": "TC-42", "tipo": "CI/M", "rf": "—", "rnf": "P-1, P-3", "que": "Despliegue ≤ 10 min y rollback ≤ 5 min", "evidencia": "p3_tiempos.sh · resultados/beta/p3.json y p3-intento-1.json", "estado": "Pasa", "nota": "El intento 1 falló el rollback (10,98 min); tras el arreglo, el intento 2 dio 3,63 y 2,87 min. P-1 (máquina limpia) sigue pendiente" }
 ]

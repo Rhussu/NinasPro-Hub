@@ -14,8 +14,8 @@
       "archivo": "k6-carga.json"
     },
     "pendiente_si_solo_local": "Repetir en la beta (Supabase Cloud) con el workflow «Medición de RNF (beta)»: en local la base corre en el mismo PC y solo la latencia es simulada.",
-    "interpretacion": "En local el p95 queda cerca de 8 veces bajo el límite y casi todo el tiempo es la latencia simulada (≈ 120 ms de ida y vuelta): la base responde en pocos milisegundos. El riesgo real está en la nube: la distancia a la región del proyecto Supabase y el plan gratuito (CPU compartida) pueden sumar cientos de milisegundos.",
-    "decision": "Se acepta como evidencia preliminar. El veredicto final sale de la medición en la beta. Si allí el p95 supera 1.500 ms: revisar la región del proyecto (elegir la más cercana a Chile), índices de clases e inscripciones y el tamaño de la respuesta de lista_asistencia_clase."
+    "interpretacion": "En la beta (Supabase Cloud, medido desde GitHub Actions con 100 ms ± 20 ms extra) el p95 fue de 275 ms al cargar la sesión y de 182 ms al guardar. En una corrida anterior el mismo día dio 403 ms y 312 ms, con un máximo aislado de 3,2 s. Hay variación entre corridas porque el plan Free comparte CPU, pero ni el peor p95 llega a un tercio del límite. En local, con la misma latencia simulada, había dado 185 ms y 146 ms: la nube suma unos 100 a 200 ms.",
+    "decision": "Cumple, con margen. Los máximos aislados de 2 a 3 s no afectan el p95, pero conviene vigilarlos: si aparecen más seguido, revisar la región del proyecto y el tamaño de lista_asistencia_clase. Repetir la medición antes de cada paso de premain a main."
   },
   {
     "id": "RNF-R-2",
@@ -32,8 +32,8 @@
       "archivo": "k6-carga.json"
     },
     "pendiente_si_solo_local": "Repetir en la beta.",
-    "interpretacion": "La tasa la fija el ritmo de las usuarias simuladas (pausas de 1 a 3 s entre acciones, como una tutora real), no un tope del servidor: con 30 tutoras se generan ≈ 26 req/s y la base no se satura (CPU de Postgres bajo 80 % y 0 % de errores). La prueba demuestra el escenario del sábado, no la capacidad máxima.",
-    "decision": "Se acepta. Si en la beta aparecen errores 429 o 5xx, revisar los límites del plan gratuito antes de subir a producción."
+    "interpretacion": "En la beta: 25,3 req/s sostenidas durante 10 min con 30 tutoras y 0 % de errores (en la corrida anterior, 23,0 req/s). El ritmo lo fijan las pausas de las usuarias simuladas, no un tope del servidor, así que la prueba demuestra el escenario del sábado y no la capacidad máxima. No hubo errores 429 ni 5xx del plan Free.",
+    "decision": "Cumple. Si en algún momento crece el número de tutoras, repetir con más usuarias simuladas (VUS)."
   },
   {
     "id": "RNF-S-2",
@@ -52,8 +52,8 @@
       "archivo": "acceso-cruzado.json"
     },
     "pendiente_si_solo_local": "Repetir en la beta para confirmar que las políticas desplegadas son las mismas.",
-    "interpretacion": "Desviación de forma, no de fondo: el SRS espera «HTTP 403» y 9 de los 19 intentos responden 200 con una lista vacía. Son lecturas directas a tablas o vistas, donde RLS filtra las filas ajenas en vez de rechazar la consulta (así funciona PostgREST). Las RPC que reciben un ID explícito (lista de asistencia, guardar, exportar, portal) sí responden 403 y dejan el intento en la auditoría. En ningún caso se entregó un dato ajeno.",
-    "decision": "Se acepta (DEF-02). Se propone ajustar el método del SRS a «403, o respuesta vacía cuando la lectura pasa por RLS»."
+    "interpretacion": "En la beta: 19/19 intentos denegados, los mismos resultados que en local. Desviación de forma, no de fondo: el SRS espera «HTTP 403» y 9 de los 19 responden 200 con una lista vacía. Son lecturas directas a tablas o vistas, donde RLS filtra las filas ajenas en vez de rechazar la consulta (así funciona PostgREST). Las RPC con un ID explícito (lista, guardar, exportar, portal) responden 403 y registran el intento. En ningún caso se entregó un dato ajeno.",
+    "decision": "Cumple, con la desviación aceptada (DEF-02). Se propone ajustar el método del SRS a «403, o respuesta vacía cuando la lectura pasa por RLS»."
   },
   {
     "id": "RNF-S-3",
@@ -69,9 +69,9 @@
       "tipo": "tls",
       "archivo": "tls.json"
     },
-    "pendiente": "Falta el host de Supabase de la beta (se agrega solo en la medición de la beta) y adjuntar la evidencia del proveedor sobre AES-256 en reposo.",
-    "interpretacion": "GitHub Pages rechaza TLS 1.0 y 1.1 y acepta 1.2 y 1.3 con un certificado válido. Se comprobó que el cliente sí negocia TLS 1.0 contra un servidor que lo permite (badssl.com), así que el rechazo es del servidor y no del cliente.",
-    "decision": "Parcial hasta medir el host de la base y archivar la evidencia del cifrado en reposo. No hay nada que corregir en el código."
+    "pendiente": "Falta archivar la evidencia del proveedor sobre AES-256 en reposo (documentación de seguridad de Supabase) en docs/pruebas/evidencias/.",
+    "interpretacion": "Medido en la beta: tanto GitHub Pages como el host de Supabase del proyecto beta rechazan TLS 1.0 y 1.1, aceptan 1.2 y 1.3 y tienen certificados válidos. Se comprobó aparte que el cliente sí negocia TLS 1.0 contra un servidor que lo permite (badssl.com), así que el rechazo es del servidor. El cifrado en reposo no se puede medir desde afuera.",
+    "decision": "La parte de tránsito cumple. Queda «Parcial» hasta archivar la evidencia documental de AES-256 en reposo. No hay nada que corregir en el código."
   },
   {
     "id": "RNF-U-2",
