@@ -6,8 +6,13 @@
     "objetivo": "p95 ≤ 1.500 ms al guardar asistencia o cargar los datos de la sesión",
     "metodo": "k6 con 30 tutoras concurrentes durante 10 min, con las mismas llamadas REST/RPC que hace la app (instancias → sesiones → lista_asistencia_clase → guardar_asistencia_clase) y latencia de red simulada con tc netem (100 ms ± 20 ms). Se mide el p95 por operación.",
     "comando": "SUPABASE_URL=… SUPABASE_ANON_KEY=… CLAVE=… bash pruebas-rnf/k6/correr.sh docs/pruebas/resultados/<ambiente>/k6-carga.json",
-    "tc": ["TC-27"],
-    "medicion": { "tipo": "k6_p95", "archivo": "k6-carga.json" },
+    "tc": [
+      "TC-27"
+    ],
+    "medicion": {
+      "tipo": "k6_p95",
+      "archivo": "k6-carga.json"
+    },
     "pendiente_si_solo_local": "Repetir en la beta (Supabase Cloud) con el workflow «Medición de RNF (beta)»: en local la base corre en el mismo PC y solo la latencia es simulada.",
     "interpretacion": "En local el p95 queda cerca de 8 veces bajo el límite y casi todo el tiempo es la latencia simulada (≈ 120 ms de ida y vuelta): la base responde en pocos milisegundos. El riesgo real está en la nube: la distancia a la región del proyecto Supabase y el plan gratuito (CPU compartida) pueden sumar cientos de milisegundos.",
     "decision": "Se acepta como evidencia preliminar. El veredicto final sale de la medición en la beta. Si allí el p95 supera 1.500 ms: revisar la región del proyecto (elegir la más cercana a Chile), índices de clases e inscripciones y el tamaño de la respuesta de lista_asistencia_clase."
@@ -19,8 +24,13 @@
     "objetivo": "≥ 15 solicitudes por segundo sostenidas con 30 usuarias concurrentes durante 10 min, sin errores",
     "metodo": "La misma corrida de k6 de RNF-R-1: tasa media de solicitudes HTTP (http_reqs) y tasa de errores (http_req_failed < 1 %).",
     "comando": "Ver RNF-R-1 (misma corrida)",
-    "tc": ["TC-27"],
-    "medicion": { "tipo": "k6_rate", "archivo": "k6-carga.json" },
+    "tc": [
+      "TC-27"
+    ],
+    "medicion": {
+      "tipo": "k6_rate",
+      "archivo": "k6-carga.json"
+    },
     "pendiente_si_solo_local": "Repetir en la beta.",
     "interpretacion": "La tasa la fija el ritmo de las usuarias simuladas (pausas de 1 a 3 s entre acciones, como una tutora real), no un tope del servidor: con 30 tutoras se generan ≈ 26 req/s y la base no se satura (CPU de Postgres bajo 80 % y 0 % de errores). La prueba demuestra el escenario del sábado, no la capacidad máxima.",
     "decision": "Se acepta. Si en la beta aparecen errores 429 o 5xx, revisar los límites del plan gratuito antes de subir a producción."
@@ -32,8 +42,15 @@
     "objetivo": "Ninguna cuenta accede a registros de otra sede u otra alumna; el intento se rechaza",
     "metodo": "1) 547 pruebas pgTAP de RLS y reglas por rol (supabase test db). 2) Prueba de acceso cruzado sobre la API real: con JWT de tutora, Gestión, alumna, anónimo y Directiva sin MFA se piden IDs legítimos de otra sede u otra alumna (19 intentos).",
     "comando": "SUPABASE_URL=… SUPABASE_ANON_KEY=… CLAVE=… k6 run pruebas-rnf/seguridad/acceso_cruzado.js",
-    "tc": ["TC-02", "TC-17", "TC-32"],
-    "medicion": { "tipo": "acceso_cruzado", "archivo": "acceso-cruzado.json" },
+    "tc": [
+      "TC-02",
+      "TC-17",
+      "TC-32"
+    ],
+    "medicion": {
+      "tipo": "acceso_cruzado",
+      "archivo": "acceso-cruzado.json"
+    },
     "pendiente_si_solo_local": "Repetir en la beta para confirmar que las políticas desplegadas son las mismas.",
     "interpretacion": "Desviación de forma, no de fondo: el SRS espera «HTTP 403» y 9 de los 19 intentos responden 200 con una lista vacía. Son lecturas directas a tablas o vistas, donde RLS filtra las filas ajenas en vez de rechazar la consulta (así funciona PostgREST). Las RPC que reciben un ID explícito (lista de asistencia, guardar, exportar, portal) sí responden 403 y dejan el intento en la auditoría. En ningún caso se entregó un dato ajeno.",
     "decision": "Se acepta (DEF-02). Se propone ajustar el método del SRS a «403, o respuesta vacía cuando la lectura pasa por RLS»."
@@ -45,8 +62,13 @@
     "objetivo": "TLS 1.2+ obligatorio en tránsito (TLS 1.0 y 1.1 rechazados) y AES-256 en reposo",
     "metodo": "Handshake con openssl por versión de TLS contra GitHub Pages y el host de Supabase (el cliente puede negociar TLS 1.0, así que un rechazo es del servidor). El cifrado en reposo no se mide desde afuera: se verifica en la documentación de seguridad del proveedor y se adjunta la evidencia.",
     "comando": "bash pruebas-rnf/seguridad/tls.sh rhussu.github.io <proyecto>.supabase.co",
-    "tc": ["TC-33"],
-    "medicion": { "tipo": "tls", "archivo": "tls.json" },
+    "tc": [
+      "TC-33"
+    ],
+    "medicion": {
+      "tipo": "tls",
+      "archivo": "tls.json"
+    },
     "pendiente": "Falta el host de Supabase de la beta (se agrega solo en la medición de la beta) y adjuntar la evidencia del proveedor sobre AES-256 en reposo.",
     "interpretacion": "GitHub Pages rechaza TLS 1.0 y 1.1 y acepta 1.2 y 1.3 con un certificado válido. Se comprobó que el cliente sí negocia TLS 1.0 contra un servidor que lo permite (badssl.com), así que el rechazo es del servidor y no del cliente.",
     "decision": "Parcial hasta medir el host de la base y archivar la evidencia del cifrado en reposo. No hay nada que corregir en el código."
@@ -58,9 +80,18 @@
     "objetivo": "≥ 80 % de las tutoras de prueba (mínimo 4) registran asistencia y foto sin ayuda técnica en ≤ 3 min",
     "metodo": "Prueba de usabilidad presencial del §10.3 del SRS: moderador y observador, guion de tareas, planilla de observación y SUS, con tutoras que no participaron en el desarrollo y datos ficticioscos en la beta (docs/pruebas/kit-usabilidad/).",
     "comando": "Manual: docs/pruebas/kit-usabilidad/",
-    "tc": ["TC-36"],
-    "medicion": { "tipo": "e2e_tiempos", "archivo": "e2e-tiempos.json", "solo_referencia": true },
-    "manual": { "valor": "Sin sesiones de usabilidad todavía", "veredicto": "No medido" },
+    "tc": [
+      "TC-36"
+    ],
+    "medicion": {
+      "tipo": "e2e_tiempos",
+      "archivo": "e2e-tiempos.json",
+      "solo_referencia": true
+    },
+    "manual": {
+      "valor": "Sin sesiones de usabilidad todavía",
+      "veredicto": "No medido"
+    },
     "interpretacion": "Falta lo esencial: personas reales. La E2E automatizada hace la misma tarea (entrar, abrir la lista, marcar 3 ausentes y guardar) en ≈ 9 s, en una compilación de depuración. Eso muestra que el sistema no pone tiempo de espera relevante, pero no mide si una tutora entiende la interfaz sin ayuda, que es lo que pide el RNF.",
     "decision": "Bloquea el cierre del MVP (DoD 10, punto 3). Agendar 4 tutoras externas en la beta con el kit, con una cuenta de tutora por participante creada en la beta. Mientras tanto el veredicto queda «No medido»."
   },
@@ -71,8 +102,13 @@
     "objetivo": "≥ 80 % de cobertura de líneas en las reglas de negocio críticas (asistencia, autorizaciones, cálculo de porcentajes)",
     "metodo": "flutter test --coverage + lcov; tool/cobertura.sh filtra los 10 archivos de Dart con reglas críticas y genera el HTML con genhtml. Las reglas que viven en la base (porcentajes, meta 80/70 %, recuperación por ejercicios, alertas) se cubren con pgTAP: lcov no mide SQL.",
     "comando": "cd frontend && flutter test --coverage && bash tool/cobertura.sh",
-    "tc": ["TC-39"],
-    "medicion": { "tipo": "cobertura", "archivo": "cobertura.json" },
+    "tc": [
+      "TC-39"
+    ],
+    "medicion": {
+      "tipo": "cobertura",
+      "archivo": "cobertura.json"
+    },
     "interpretacion": "Cumple con holgura en el total, pero un archivo por separado quedaba bajo el umbral: clase_repository.dart, con 79,4 %. Le faltaban pruebas de la asistencia de tutoras, «mi asistencia», las sesiones y el envío de la participación. Al agregarlas apareció DEF-01: el orden de las sesiones era descendente.",
     "decision": "Corregido: 4 pruebas nuevas suben clase_repository.dart a 93,6 %. El CI ahora exige ≥ 80 % en las reglas críticas y en el total (tool/cobertura.sh)."
   },
@@ -81,13 +117,17 @@
     "nombre": "Tiempo de despliegue y de rollback",
     "critico": true,
     "objetivo": "Despliegue automatizado ≤ 10 min y rollback ≤ 5 min",
-    "metodo": "Se hace un commit a premain y luego su git revert. Se mide la duración de cada run del workflow cd-frontend.yml en GitHub Actions, desde que se crea hasta que la versión queda publicada.",
+    "metodo": "Se hace un commit a premain y luego su git revert. Por cada commit se mide, con gh run list, desde que se crea la primera ejecución de cd-frontend.yml hasta que termina la primera ejecución exitosa: el tiempo real hasta que la versión queda publicada, contando reintentos.",
     "comando": "bash pruebas-rnf/p3_tiempos.sh premain cd-frontend.yml",
-    "tc": ["TC-42"],
-    "medicion": { "tipo": "p3", "archivo": "p3.json" },
-    "manual": { "valor": "Sin corridas en premain todavía", "veredicto": "No medido" },
-    "interpretacion": "Riesgo identificado antes de medir: el rollback por git revert recorre el mismo pipeline que un despliegue. Ese pipeline ahora compila dos versiones (producción y beta) y corre las pruebas para el informe, así que podría pasar de 5 min.",
-    "decision": "Medir apenas exista premain. Si el rollback pasa de 5 min: sacar las pruebas del job de publicación (usar el informe del último run del CI) o volver a desplegar el artefacto anterior sin recompilar."
+    "tc": [
+      "TC-42"
+    ],
+    "medicion": {
+      "tipo": "p3",
+      "archivo": "p3.json"
+    },
+    "interpretacion": "Primer intento (2026-11-17, resultados/beta/p3-intento-1.json): despliegue en 3,55 min ✓, pero rollback en 10,98 min ✗. El pipeline en sí tarda unos 3,6 min. El exceso vino de un error transitorio de la API de Pages («no se encontró el artefacto») y de que re-ejecutar el job vuelve a fallar al quedar dos artefactos con el mismo nombre: hubo que lanzar una ejecución nueva. El tiempo de cómputo cumple; la fragilidad estaba en la recuperación ante fallas de la plataforma.",
+    "decision": "Corregido: el paso de despliegue se reintenta una vez dentro de la misma ejecución (cd-frontend.yml) y p3_tiempos.sh mide por commit, contando reintentos. Segundo intento, con el arreglo: despliegue en 3,63 min y rollback en 2,87 min, sin fallas. Procedimiento si un despliegue igual falla: lanzar una ejecución nueva con «Run workflow»; no usar «Re-run»."
   },
   {
     "id": "COSTO-0",
@@ -98,7 +138,10 @@
     "comando": "Manual",
     "tc": [],
     "medicion": null,
-    "manual": { "valor": "Sin captura de billing archivada", "veredicto": "No medido" },
+    "manual": {
+      "valor": "Sin captura de billing archivada",
+      "veredicto": "No medido"
+    },
     "interpretacion": "La beta suma un segundo proyecto de Supabase. El plan Free admite 2 proyectos activos por organización: con producción y beta se llega al límite.",
     "decision": "Archivar las capturas de billing al cerrar el sprint. No crear un tercer proyecto (por ejemplo, de staging)."
   },
@@ -109,9 +152,14 @@
     "objetivo": "≥ 1 GB anual de fotos y ≥ 5.000 registros de asistencia",
     "metodo": "Carga acumulativa en la beta: 5.000 asistencias sintéticas y fotos comprimidas hasta ≈ 1 GB, midiendo el tamaño de la base y del bucket.",
     "comando": "Pendiente (TC-28)",
-    "tc": ["TC-28"],
+    "tc": [
+      "TC-28"
+    ],
     "medicion": null,
-    "manual": { "valor": "No ejecutado", "veredicto": "No medido" },
+    "manual": {
+      "valor": "No ejecutado",
+      "veredicto": "No medido"
+    },
     "interpretacion": "La compresión en el dispositivo deja cada foto bajo 1,5 MB y 1920 px (prueba automatizada). Con 178 fotos al año, eso es menos de 0,3 GB. El plan Free trae 1 GB de Storage: hay margen, pero poco.",
     "decision": "Postergado a la siguiente iteración. No es crítico."
   },
@@ -122,9 +170,14 @@
     "objetivo": "≥ 99,0 % global y ≥ 99,5 % los sábados de 09:30 a 13:30",
     "metodo": "Monitor externo (UptimeRobot, plan gratuito) sobre la app y /auth/v1/health, con alerta en la ventana del sábado.",
     "comando": "Pendiente (TC-29)",
-    "tc": ["TC-29"],
+    "tc": [
+      "TC-29"
+    ],
     "medicion": null,
-    "manual": { "valor": "Sin monitor configurado", "veredicto": "No medido" },
+    "manual": {
+      "valor": "Sin monitor configurado",
+      "veredicto": "No medido"
+    },
     "interpretacion": "El plan Free de Supabase pausa los proyectos después de 7 días sin actividad. La beta puede estar pausada justo cuando se la necesite.",
     "decision": "Configurar el monitor contra producción. En la beta, el mismo monitor la mantiene activa."
   },
@@ -135,9 +188,15 @@
     "objetivo": "RPO ≤ 24 h y RTO ≤ 2 h en la ventana de clases",
     "metodo": "Retención local sin conexión (automatizada) + simulación de restauración desde respaldo cronometrada (TC-30).",
     "comando": "flutter test test/cola_sincronizacion_test.dart · restauración: pendiente",
-    "tc": ["TC-08", "TC-30"],
+    "tc": [
+      "TC-08",
+      "TC-30"
+    ],
     "medicion": null,
-    "manual": { "valor": "Retención sin conexión: 10 pruebas pasan (sin duplicados al reconectar). Restauración: no ejecutada", "veredicto": "Parcial" },
+    "manual": {
+      "valor": "Retención sin conexión: 10 pruebas pasan (sin duplicados al reconectar). Restauración: no ejecutada",
+      "veredicto": "Parcial"
+    },
     "interpretacion": "La pérdida de la sesión en curso está cubierta: lo guardado sin conexión queda en el navegador y se sube solo al volver la red. Falta comprobar qué respaldos ofrece el plan contratado y cronometrar una restauración.",
     "decision": "Revisar en el panel de Supabase si el plan incluye respaldos diarios descargables. Si no, programar un pg_dump diario con GitHub Actions y cronometrar la restauración en la beta."
   },
@@ -148,9 +207,14 @@
     "objetivo": "JWT estándar de Supabase Auth; la Directiva no accede a datos sin segundo factor (aal2)",
     "metodo": "pgTAP 06 (sesion_con_mfa), pruebas de auth_test y, en la API real, la Directiva con sesión aal1 intenta leer la nómina y la auditoría (S1-01, S1-02). La E2E-03 comprueba que la app pide el código antes de mostrar la consola.",
     "comando": "k6 run pruebas-rnf/seguridad/acceso_cruzado.js · flutter drive (E2E-03)",
-    "tc": ["TC-31"],
+    "tc": [
+      "TC-31"
+    ],
     "medicion": null,
-    "manual": { "valor": "2/2 intentos sin MFA denegados; la E2E-03 se detiene en «Verificar»", "veredicto": "Cumple" },
+    "manual": {
+      "valor": "2/2 intentos sin MFA denegados; la E2E-03 se detiene en «Verificar»",
+      "veredicto": "Cumple"
+    },
     "interpretacion": "Sin desviaciones.",
     "decision": "—"
   },
@@ -161,9 +225,14 @@
     "objetivo": "Quién, qué, cuándo y valor previo en cada modificación o descarga; los registros no se pueden alterar",
     "metodo": "pgTAP 12_auditoria y 06 (inmutabilidad, valor previo y accesos denegados) y pruebas de exportación que verifican el registro de la descarga.",
     "comando": "supabase test db",
-    "tc": ["TC-16"],
+    "tc": [
+      "TC-16"
+    ],
     "medicion": null,
-    "manual": { "valor": "pgTAP 12 y 06 pasan; la exportación queda registrada (directorio_screens_test)", "veredicto": "Cumple" },
+    "manual": {
+      "valor": "pgTAP 12 y 06 pasan; la exportación queda registrada (directorio_screens_test)",
+      "veredicto": "Cumple"
+    },
     "interpretacion": "Sin desviaciones.",
     "decision": "—"
   },
@@ -174,9 +243,14 @@
     "objetivo": "Cumplir la lista de verificación del §5.3",
     "metodo": "Lista legal (docs/pruebas/lista-legal.md) cotejada contra las pruebas automatizadas: foto apta solo con autorización, justificativo sin diagnóstico, exportación disociada y datos sintéticos fuera de producción.",
     "comando": "Manual + pruebas citadas en la lista",
-    "tc": ["TC-34"],
+    "tc": [
+      "TC-34"
+    ],
     "medicion": null,
-    "manual": { "valor": "Puntos automatizables cubiertos; faltan la revisión de ambientes y la firma", "veredicto": "Parcial" },
+    "manual": {
+      "valor": "Puntos automatizables cubiertos; faltan la revisión de ambientes y la firma",
+      "veredicto": "Parcial"
+    },
     "interpretacion": "Lo que el sistema puede impedir, lo impide (pgTAP 14 y 09, pruebas de exportación). Falta la parte organizacional: quién firma la lista y la revisión de los ambientes.",
     "decision": "Completar la lista con la Product Owner en la revisión del sprint."
   },
@@ -187,9 +261,14 @@
     "objetivo": "Contraste y áreas táctiles de al menos 44×44 px (WCAG 2.1 AA); Lighthouse Accessibility ≥ 85",
     "metodo": "Prueba automatizada del tamaño de los botones del pase de lista en 3 celulares (responsivo_test.dart) + Lighthouse sobre la beta.",
     "comando": "flutter test test/responsivo_test.dart · npx lighthouse <url beta> --only-categories=accessibility",
-    "tc": ["TC-37"],
+    "tc": [
+      "TC-37"
+    ],
     "medicion": null,
-    "manual": { "valor": "Botones ≥ 44 px en 360, 375 y 430 px de ancho; Lighthouse sin correr", "veredicto": "Parcial" },
+    "manual": {
+      "valor": "Botones ≥ 44 px en 360, 375 y 430 px de ancho; Lighthouse sin correr",
+      "veredicto": "Parcial"
+    },
     "interpretacion": "Flutter Web dibuja en canvas: Lighthouse solo ve el árbol de semántica, así que el puntaje depende de que la semántica esté activa. Se mide sobre la beta publicada.",
     "decision": "Correr Lighthouse contra /beta/ cuando esté publicada."
   },
@@ -200,9 +279,14 @@
     "objetivo": "Español de Chile; móvil desde 360 px y escritorio 1080p",
     "metodo": "Pruebas de widgets con los tamaños de los perfiles de Chrome DevTools que nombra el SRS (Galaxy S8+ 360×740, iPhone SE 375×667, iPhone 14 Pro Max 430×932, 1080p). Un desborde de diseño hace fallar la prueba.",
     "comando": "flutter test test/responsivo_test.dart",
-    "tc": ["TC-37"],
+    "tc": [
+      "TC-37"
+    ],
     "medicion": null,
-    "manual": { "valor": "13/13 pruebas pasan, sin desbordes", "veredicto": "Cumple" },
+    "manual": {
+      "valor": "13/13 pruebas pasan, sin desbordes",
+      "veredicto": "Cumple"
+    },
     "interpretacion": "Sin desviaciones en las vistas de inicio y en el pase de lista. Las demás vistas quedan cubiertas por las pruebas de pantallas a 420 y 1280 px.",
     "decision": "—"
   },
@@ -213,9 +297,15 @@
     "objetivo": "Las 2 últimas versiones mayores de Chrome, Safari, Edge y Firefox",
     "metodo": "Prueba manual de render y funcionalidad en dispositivos físicos iOS y Android (TC-38), incluido el corte de wifi (TC-08).",
     "comando": "Manual",
-    "tc": ["TC-38", "TC-08"],
+    "tc": [
+      "TC-38",
+      "TC-08"
+    ],
     "medicion": null,
-    "manual": { "valor": "Solo Chrome headless (E2E). Sin dispositivos físicos", "veredicto": "No medido" },
+    "manual": {
+      "valor": "Solo Chrome headless (E2E). Sin dispositivos físicos",
+      "veredicto": "No medido"
+    },
     "interpretacion": "Safari en iPhone es el riesgo principal del proyecto (riesgo R-1 del SRS: almacenamiento sin conexión). La E2E solo cubre Chrome.",
     "decision": "Conseguir al menos un iPhone y un Android para la sesión de usabilidad y probar ahí TC-08 y TC-38."
   },
@@ -226,9 +316,15 @@
     "objetivo": "JSON/HTTPS; CSV UTF-8 y XLSX sin pérdida de tildes, ñ ni RUT",
     "metodo": "Pruebas de ida y vuelta de CSV con BOM y XLSX con tildes y ñ (planilla_test, voluntariado_roles_repository_test) + apertura manual en Excel y Google Sheets (TC-15).",
     "comando": "flutter test test/planilla_test.dart test/voluntariado_roles_repository_test.dart",
-    "tc": ["TC-14", "TC-15"],
+    "tc": [
+      "TC-14",
+      "TC-15"
+    ],
     "medicion": null,
-    "manual": { "valor": "Pruebas automatizadas pasan; falta abrir los archivos en Excel y Sheets", "veredicto": "Parcial" },
+    "manual": {
+      "valor": "Pruebas automatizadas pasan; falta abrir los archivos en Excel y Sheets",
+      "veredicto": "Parcial"
+    },
     "interpretacion": "El archivo sale bien (UTF-8 con BOM, que es lo que Excel necesita para reconocer las tildes). Falta comprobarlo en las aplicaciones reales.",
     "decision": "Abrir un CSV y un XLSX exportados desde la beta en Excel y en Sheets y archivar las capturas."
   },
@@ -239,8 +335,13 @@
     "objetivo": "0 errores y 0 advertencias en flutter analyze",
     "metodo": "flutter analyze --fatal-infos --fatal-warnings en cada PR (ci-flutter.yml).",
     "comando": "cd frontend && flutter analyze --fatal-infos --fatal-warnings",
-    "tc": ["TC-40"],
-    "medicion": { "tipo": "analyze", "archivo": "analyze.txt" },
+    "tc": [
+      "TC-40"
+    ],
+    "medicion": {
+      "tipo": "analyze",
+      "archivo": "analyze.txt"
+    },
     "interpretacion": "Sin desviaciones.",
     "decision": "—"
   },
@@ -251,9 +352,14 @@
     "objetivo": "Registro centralizado de errores no capturados del frontend y del backend, con marca de tiempo y mensaje",
     "metodo": "Provocar un error y buscarlo en el log (TC-41).",
     "comando": "Pendiente",
-    "tc": ["TC-41"],
+    "tc": [
+      "TC-41"
+    ],
     "medicion": null,
-    "manual": { "valor": "El backend queda en los logs de Supabase; el frontend no reporta sus errores no capturados", "veredicto": "No cumple" },
+    "manual": {
+      "valor": "El backend queda en los logs de Supabase; el frontend no reporta sus errores no capturados",
+      "veredicto": "No cumple"
+    },
     "interpretacion": "La app no tiene FlutterError.onError ni PlatformDispatcher.onError: un error en el celular de una tutora se pierde (DEF-03).",
     "decision": "Abierto: capturar los errores no controlados y enviarlos a una tabla de errores con su RPC. No bloquea el MVP porque M-3 no es crítico."
   },
@@ -264,9 +370,14 @@
     "objetivo": "Levantar el entorno local en una máquina limpia en ≤ 30 min siguiendo el README",
     "metodo": "Cronometrar la instalación en un PC sin el entorno.",
     "comando": "Manual",
-    "tc": ["TC-42"],
+    "tc": [
+      "TC-42"
+    ],
     "medicion": null,
-    "manual": { "valor": "En este PC todo corrió en Docker (Flutter, Supabase, k6, Chrome) sin instalar el SDK; no se cronometró en una máquina limpia", "veredicto": "Parcial" },
+    "manual": {
+      "valor": "En este PC todo corrió en Docker (Flutter, Supabase, k6, Chrome) sin instalar el SDK; no se cronometró en una máquina limpia",
+      "veredicto": "Parcial"
+    },
     "interpretacion": "Las imágenes de Docker (pruebas-rnf/e2e/Dockerfile y la de Flutter) hacen reproducible el entorno de pruebas. Falta cronometrar con alguien que siga el README desde cero.",
     "decision": "Que la próxima persona nueva del equipo lo cronometre."
   },
@@ -277,9 +388,14 @@
     "objetivo": "< 512 MB de RAM y CPU dentro de la capa gratuita durante la carga de 30 usuarias",
     "metodo": "docker stats durante la carga local + panel del proveedor durante la carga en la beta.",
     "comando": "docker stats (resultados/local/recursos-bajo-carga.txt)",
-    "tc": ["TC-27"],
+    "tc": [
+      "TC-27"
+    ],
     "medicion": null,
-    "manual": { "valor": "Local bajo carga: Postgres ≈ 249 MiB, Kong ≈ 185 MiB, PostgREST ≈ 75 MiB, Storage ≈ 78 MiB (cada uno < 512 MiB)", "veredicto": "Parcial" },
+    "manual": {
+      "valor": "Local bajo carga: Postgres ≈ 249 MiB, Kong ≈ 185 MiB, PostgREST ≈ 75 MiB, Storage ≈ 78 MiB (cada uno < 512 MiB)",
+      "veredicto": "Parcial"
+    },
     "interpretacion": "En local cada servicio queda bajo 512 MiB. En la nube los límites son los del plan Free y se leen en su panel.",
     "decision": "Leer el panel de Supabase durante la medición en la beta."
   }

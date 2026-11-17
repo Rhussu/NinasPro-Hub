@@ -1,2 +1,3 @@
 # Editar este archivo en premain pide una medición de los RNF en la beta
 # (workflow "Medición de RNF (beta)"). Anotar la fecha y el motivo.
+2026-11-17: primera medición en la beta, con los datos ficticios cargados.
