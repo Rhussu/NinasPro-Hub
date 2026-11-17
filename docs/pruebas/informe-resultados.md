@@ -1,12 +1,12 @@
 # Informe de resultados de pruebas · NiñasPro Hub
 
-> Generado por `frontend/tool/generar_informe.dart` el 2026-11-16 23:22 UTC a partir de `docs/pruebas/resultados/`. No editar a mano: corregir los catálogos (`rnf.json`, `casos.json`, `defectos.md`) y volver a generar.
+> Generado por `frontend/tool/generar_informe.dart` el 2026-11-17 00:05 UTC a partir de `docs/pruebas/resultados/`. No editar a mano: corregir los catálogos (`rnf.json`, `casos.json`, `defectos.md`) y volver a generar.
 
 ## Resumen
 
 - **Pruebas ejecutadas:** 880 pasan · 0 fallan.
 - **RNF críticos:** 1 de 8 cumplen.
-- **Defectos:** 6 registrados, 1 abiertos.
+- **Defectos:** 7 registrados, 2 abiertos.
 - **Conclusión:** El MVP todavía no cumple la DoD (§10, punto 3): faltan RNF-R-1 (cumple en local), RNF-R-2 (cumple en local), RNF-S-2 (cumple en local), RNF-S-3 (parcial), RNF-U-2 (no medido), RNF-P-3 (no medido), COSTO-0 (no medido). Ningún RNF crítico medido falla; los pendientes son mediciones en la beta y pruebas con personas.
 
 ## Niveles de prueba ejecutados
@@ -180,6 +180,7 @@ Herramienta: `flutter test --coverage + lcov`. Reporte navegable: [`cobertura/`]
 | DEF-03 | TC-41 | Mayor | Diferido | El frontend no captura los errores no controlados (no hay `FlutterError.onError` ni `PlatformDispatcher.onError`), así que un error en el celular de una tutora no queda en ningún registro centralizado. | Se difiere a la siguiente iteración (M-3 no es crítico): capturar los errores y enviarlos a una tabla de errores con su RPC y su marca de tiempo. |
 | DEF-04 | TC-37 | Menor | Cerrado | US-13 pedía áreas táctiles de 48×48 px, pero el SRS (§4.4) fija 44×44 px. | US-13 se alineó con el SRS. `responsivo_test.dart` verifica los 44 px. |
 | DEF-05 | TC-34 | Menor | Cerrado | En el diseño inicial, la beta cargaba `seed.sql`, cuyas cuentas usan una contraseña publicada en el repositorio: cualquiera que la leyera podía entrar a la beta. | Se rediseñó: la beta no carga `seed.sql`. Solo se crea la cuenta `directiva@ninaspro.cl` (`supabase/beta/directiva.sql`), con la clave del secreto `BETA_CLAVE_CUENTAS`; el resto de los datos lo crea el equipo. |
+| DEF-07 | TC-03 | Mayor | Abierto | En Supabase Cloud no se puede activar el hook *Password Verification Attempt*: según la documentación de Supabase, solo existe en los planes Teams y Enterprise, y el proyecto está en el plan Free (restricción de $0). Sin ese hook, en la beta y en producción **no se bloquea la cuenta tras 3 intentos fallidos** y los intentos fallidos no quedan en la auditoría de seguridad. pgTAP lo da por bueno porque llama a la función directamente, no a través de Auth. | Pendiente de decisión. Pagar el plan Teams rompe COSTO-0. Mitigación propuesta sin costo: los límites de tasa de Auth y un CAPTCHA en el inicio de sesión. Si se adopta, el criterio de US-06 pasa a «limitar los intentos» en vez de «bloquear la cuenta». |
 | DEF-06 | — | Menor | Cerrado | `CLAUDE.md` describía un mockup con datos en memoria y decía «no tocar supabase/», pero la app ya usa Supabase real. | Se actualizó `CLAUDE.md`. |
 
 ## Casos de prueba (SRS §11)
@@ -188,7 +189,7 @@ Herramienta: `flutter test --coverage + lcov`. Reporte navegable: [`cobertura/`]
 |---|---|---|---|---|---|---|
 | TC-01 | I | RF-1 | S-2, U-3 | La instancia curso–sede genera sus sesiones; duplicado avisa; término antes del inicio se rechaza; clase suspendida no cuenta | pgTAP 07_catalogo_calendario · catalogo_repository_test · calendario_screen_test | Pasa |
 | TC-02 | I/S | RF-2 | S-1, S-2, S-4 | Acceso a recursos propios permitido y a ajenos denegado (403 + registro) | pgTAP 04_auth_rls, 18_accesos_por_rol · acceso_cruzado.js (19/19) | Pasa — Las lecturas filtradas por RLS responden 200 con [] (DEF-02, aceptado) |
-| TC-03 | I | RF-2 | S-1 | Invitación de un solo uso, bloqueo tras 3 intentos y cuentas según rol | pgTAP 05, 06 · auth_test | Pasa |
+| TC-03 | I | RF-2 | S-1 | Invitación de un solo uso, bloqueo tras 3 intentos y cuentas según rol | pgTAP 05, 06 · auth_test | Parcial — DEF-07: en Supabase Cloud (plan Free) no se puede activar el hook que bloquea tras 3 intentos; pasa solo en local |
 | TC-04 | U/I | RF-3 | C-2, S-5 | Planilla con RUT inválidos: se inscriben las válidas y las rechazadas llevan su motivo; columnas distintas rechazan el archivo | planilla_test · rut_test · alumnas_screens_test (carga masiva) · pgTAP 10 | Pasa |
 | TC-05 | U | RF-3 | S-5 | Alumna de otra sede o año: una ficha, dos inscripciones | pgTAP 09_alumnas_autorizaciones · alumnas_screens_test (inscripción individual) | Pasa |
 | TC-06 | I | RF-4 | S-4, S-5 | Autorizaciones de datos e imagen: activación, revocación y pendientes | pgTAP 09 · alumnas_repository_test · alumnas_screens_test (ficha) | Pasa |

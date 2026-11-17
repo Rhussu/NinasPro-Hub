@@ -120,7 +120,7 @@ Los correos que envía Auth (activación y códigos de recuperación) llegan a *
 
 1. **Authentication → Hooks:**
    - *Before User Created* → `public.hook_before_user_created`.
-   - *Password Verification Attempt* → `public.hook_password_verification_attempt`.
+   - *Password Verification Attempt* → `public.hook_password_verification_attempt`. **Solo existe en los planes Teams y Enterprise**: en el plan Free no se puede activar, y entonces no hay bloqueo tras 3 intentos (DEF-07).
 2. **Authentication → Email Templates:**
    - *Confirm signup* con el contenido de `supabase/templates/confirmacion.html`.
    - *Reset password* con el contenido de `supabase/templates/recuperacion.html`, que usa `{{ .Token }}`.
