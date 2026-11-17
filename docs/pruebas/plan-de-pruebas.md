@@ -26,7 +26,7 @@ Queda fuera: RF-13, RF-17, RF-19 y RF-22 (Won't), RF-18 (foro, Could, no impleme
 | Ambiente | Qué es | Datos | Para qué |
 |---|---|---|---|
 | **Local** | Docker en el PC: `npx supabase start` + imagen de Flutter | `supabase/seed.sql` (sintético) | Todas las pruebas automatizadas y una primera medición de los RNF |
-| **Beta / QA** | Rama `premain` → `rhussu.github.io/NinasPro-Hub/beta/` + proyecto Supabase de prueba | Parte solo con `directiva@ninaspro.cl` (`supabase/beta/directiva.sql`, vía `cd-database.yml` con `crear_directiva=true`). El equipo crea a mano datos **ficticios**: nunca datos reales de alumnas | Medición oficial de los RNF (DoD 6: «desplegado en QA con datos sintéticos») y pruebas con personas |
+| **Beta / QA** | Rama `premain` → `rhussu.github.io/NinasPro-Hub/beta/` + proyecto Supabase de prueba | `directiva@ninaspro.cl` (`crear_directiva=true`) + datos ficticios de `seed.sql` (`cargar_datos_prueba=true`, `supabase/beta/datos_prueba.sh`). Todas las cuentas usan la clave del secreto `BETA_CLAVE_CUENTAS`, no la publicada en el repositorio. Nunca datos reales de alumnas | Medición oficial de los RNF (DoD 6: «desplegado en QA con datos sintéticos») y pruebas con personas |
 | **Producción** | Rama `main` → `rhussu.github.io/NinasPro-Hub/` | Reales | **Nunca** se prueba ni se mide aquí |
 
 El flujo de ramas es: `feature → premain` (PR con CI, despliegue a la beta y medición) → PR `premain → main`.

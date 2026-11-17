@@ -244,7 +244,7 @@ Para garantizar estabilidad y seguridad, el repositorio implementa una política
 
 | Rama | Sitio | Base de datos |
 |---|---|---|
-| `premain` | `https://rhussu.github.io/NinasPro-Hub/beta/` | Proyecto Supabase **de prueba**. No carga `seed.sql`: parte solo con `directiva@ninaspro.cl` y el equipo crea los datos ficticios |
+| `premain` | `https://rhussu.github.io/NinasPro-Hub/beta/` | Proyecto Supabase **de prueba**, con `directiva@ninaspro.cl` y los datos ficticios de `seed.sql`, todas las cuentas con la clave de `BETA_CLAVE_CUENTAS` |
 | `main` | `https://rhussu.github.io/NinasPro-Hub/` | Proyecto Supabase de producción |
 
 En la beta se prueba y se miden los RNF antes de abrir el PR `premain → main`. Muestra la franja «BETA · datos de prueba».
@@ -256,7 +256,7 @@ En la beta se prueba y se miden los RNF antes de abrir el PR `premain → main`.
      - **`CI - E2E`**: se dispara si se modificó `frontend/**` o `supabase/**`. Corre la app en Chrome headless contra un Supabase efímero con el seed (`flutter drive`).
    - **Bloqueo:** si algún test falla, GitHub bloquea el botón de Merge.
 2. **Push a `premain` o `main` (CD - Despliegue Selectivo):**
-   - **`CD - Deploy Supabase`**: se dispara si cambió `supabase/**`. `main` aplica las migraciones a producción y `premain` a la beta. En la beta, *Run workflow* con `crear_directiva=true` crea o actualiza la cuenta `directiva@ninaspro.cl` con la clave de `BETA_CLAVE_CUENTAS`. No borra nada (`supabase/beta/directiva.sql`).
+   - **`CD - Deploy Supabase`**: se dispara si cambió `supabase/**`. `main` aplica las migraciones a producción y `premain` a la beta. En la beta, *Run workflow* con `crear_directiva=true` crea o actualiza la cuenta `directiva@ninaspro.cl` con la clave de `BETA_CLAVE_CUENTAS`. No borra nada (`supabase/beta/directiva.sql`). Con `cargar_datos_prueba=true` agrega una sola vez los datos ficticios de `seed.sql` (`supabase/beta/datos_prueba.sh`).
    - **`CD - Deploy GitHub Pages`**: se dispara si cambió `frontend/**` o `docs/pruebas/**`. Pages publica un solo sitio por repositorio, así que cada vez se compilan **las dos ramas**: `main` en la raíz y `premain` en `/beta/`. Junto con la beta se publican el informe de pruebas y la cobertura en `/beta/pruebas/`.
      - Hasta que este workflow llegue a `main`, un despliegue desde `main` con la versión anterior borraría `/beta/`.
 3. **Medición de RNF (beta):** workflow manual sobre `premain`. Mide carga (k6), acceso cruzado, TLS y tiempos de despliegue contra la beta, guarda los resultados en `docs/pruebas/resultados/beta/` y vuelve a publicar el informe. Ver `docs/pruebas/plan-de-pruebas.md` y `pruebas-rnf/README.md`.

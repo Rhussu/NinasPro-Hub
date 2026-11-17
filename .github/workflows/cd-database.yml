@@ -5,6 +5,8 @@ name: CD - Deploy Supabase
 # La beta NO lleva datos de supabase/seed.sql (ese seed es solo para local y CI).
 # En premain, "Run workflow" con crear_directiva=true crea o actualiza la única
 # cuenta inicial, directiva@ninaspro.cl, con la clave BETA_CLAVE_CUENTAS. No borra nada.
+# Con cargar_datos_prueba=true agrega los datos ficticios de supabase/beta/datos_prueba.sh
+# (los mismos de seed.sql, con esa clave). Solo se cargan una vez.
 
 on:
   push:
@@ -18,6 +20,10 @@ on:
     inputs:
       crear_directiva:
         description: 'Solo beta: crear o actualizar la cuenta directiva@ninaspro.cl (no borra datos)'
+        type: boolean
+        default: false
+      cargar_datos_prueba:
+        description: 'Solo beta: cargar una vez los datos ficticios de prueba (sedes, cursos, staff, alumnas, clases)'
         type: boolean
         default: false
 
@@ -73,6 +79,15 @@ jobs:
           export CLAVE_SQL="$(printf '%s' "$CLAVE" | sed "s/'/''/g")"
           perl -pe 's/__CLAVE__/$ENV{CLAVE_SQL}/g' supabase/beta/directiva.sql > "$RUNNER_TEMP/directiva.sql"
           supabase db query --remote --yes -f "$RUNNER_TEMP/directiva.sql"
+
+      - name: Cargar los datos ficticios de prueba en la beta
+        if: github.ref_name == 'premain' && inputs.cargar_datos_prueba
+        env:
+          CLAVE: ${{ secrets.BETA_CLAVE_CUENTAS }}
+        run: |
+          [ -n "$CLAVE" ] || { echo "❌ Falta el secreto BETA_CLAVE_CUENTAS"; exit 1; }
+          bash supabase/beta/datos_prueba.sh > "$RUNNER_TEMP/datos_prueba.sql"
+          supabase db query --remote --yes -f "$RUNNER_TEMP/datos_prueba.sql"
 
       - name: Deploy Edge Functions (si existen)
         run: |

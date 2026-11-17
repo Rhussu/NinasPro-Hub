@@ -25,7 +25,7 @@ const CUENTAS = (__ENV.CUENTAS ||
   'camila.sepulveda@ninaspro.cl,valeria.troncoso@ninaspro.cl,daniela.valenzuela@ninaspro.cl,' +
   'francisca.herrera@ninaspro.cl,javiera.munoz@ninaspro.cl,antonia.reyes@ninaspro.cl,' +
   'catalina.soto@ninaspro.cl,martina.lagos@ninaspro.cl,fernanda.pizarro@ninaspro.cl,' +
-  'constanza.vidal@ninaspro.cl').split(',');
+  'constanza.vidal@ninaspro.cl').split(',').map((c) => c.trim());
 
 const errores = new Counter('errores_negocio');
 
@@ -80,12 +80,18 @@ export function setup() {
       { headers: h, tags: { operacion: 'login' } },
     ).json();
     if (!inst.length) { console.warn(`${correo} no tiene cursos`); continue; }
+    // La clase más reciente ya realizada que tenga un pase de lista guardado:
+    // la carga reenvía esa lista sin cambiarla.
     const clases = http.get(
-      `${URL}/rest/v1/clases?select=id,fecha,estado&instancia_curso_id=eq.${inst[0].id}&fecha=lte.${hoy()}&estado=neq.suspendida&order=fecha.desc&limit=1`,
+      `${URL}/rest/v1/clases?select=id,fecha,estado&instancia_curso_id=eq.${inst[0].id}&fecha=lte.${hoy()}&estado=neq.suspendida&order=fecha.desc&limit=8`,
       { headers: h, tags: { operacion: 'login' } },
     ).json();
-    if (!clases.length) { console.warn(`${correo} no tiene clase disponible`); continue; }
-    tutoras.push({ correo, id, token, instancia: inst[0].id, clase: clases[0].id });
+    const conLista = clases.find((c) => {
+      const l = http.post(`${URL}/rest/v1/rpc/lista_asistencia_clase`, JSON.stringify({ p_clase_id: c.id }), { headers: h, tags: { operacion: 'login' } });
+      return l.status === 200 && l.json().some((f) => f.estado === 'presente' || f.estado === 'ausente');
+    });
+    if (!conLista) { console.warn(`${correo} no tiene una clase realizada con pase de lista guardado`); continue; }
+    tutoras.push({ correo, id, token, instancia: inst[0].id, clase: conLista.id });
   }
   if (!tutoras.length) fail('Ninguna cuenta pudo preparar su clase');
   console.log(`Cuentas listas: ${tutoras.length}/${CUENTAS.length}`);
