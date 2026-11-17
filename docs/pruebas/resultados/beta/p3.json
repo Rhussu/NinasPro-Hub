@@ -1,0 +1,101 @@
+{
+  "herramienta": "gh run list (GitHub Actions)",
+  "rama": "premain",
+  "workflow": "cd-frontend.yml",
+  "fecha": "2026-11-17T01:20:20.813Z",
+  "despliegue": {
+    "sha": "52a5c15",
+    "mensaje": "test(rnf): registrar los dos intentos de P-3 y pedir la primera medición de los RNF en la beta",
+    "inicio": "2026-11-17T01:09:25.000Z",
+    "publicado": "2026-11-17T01:13:09.000Z",
+    "minutos": 3.73,
+    "ejecuciones": 1,
+    "fallidas": 0
+  },
+  "rollback": {
+    "sha": "78647a0",
+    "mensaje": "Revert \"test(p3): commit de prueba para medir el tiempo de despliegue (TC-42, intento 2)\"",
+    "inicio": "2026-11-17T01:05:38.000Z",
+    "publicado": "2026-11-17T01:08:30.000Z",
+    "minutos": 2.87,
+    "ejecuciones": 1,
+    "fallidas": 0
+  },
+  "cumple_despliegue": true,
+  "cumple_rollback": true,
+  "cumple": true,
+  "historial": [
+    {
+      "sha": "52a5c15",
+      "mensaje": "test(rnf): registrar los dos intentos de P-3 y pedir la primera medición de los RNF en la beta",
+      "inicio": "2026-11-17T01:09:25.000Z",
+      "publicado": "2026-11-17T01:13:09.000Z",
+      "minutos": 3.73,
+      "ejecuciones": 1,
+      "fallidas": 0
+    },
+    {
+      "sha": "78647a0",
+      "mensaje": "Revert \"test(p3): commit de prueba para medir el tiempo de despliegue (TC-42, intento 2)\"",
+      "inicio": "2026-11-17T01:05:38.000Z",
+      "publicado": "2026-11-17T01:08:30.000Z",
+      "minutos": 2.87,
+      "ejecuciones": 1,
+      "fallidas": 0
+    },
+    {
+      "sha": "7860759",
+      "mensaje": "test(p3): commit de prueba para medir el tiempo de despliegue (TC-42, intento 2)",
+      "inicio": "2026-11-17T01:01:38.000Z",
+      "publicado": "2026-11-17T01:05:16.000Z",
+      "minutos": 3.63,
+      "ejecuciones": 1,
+      "fallidas": 0
+    },
+    {
+      "sha": "07d1f18",
+      "mensaje": "fix(cd): reintentar el despliegue a Pages en la misma ejecución y medir P-3 desde el push hasta la primera publicación",
+      "inicio": "2026-11-17T00:58:03.000Z",
+      "publicado": "2026-11-17T01:01:20.000Z",
+      "minutos": 3.28,
+      "ejecuciones": 1,
+      "fallidas": 0
+    },
+    {
+      "sha": "f63128c",
+      "mensaje": "Revert \"test(p3): commit de prueba para medir el tiempo de despliegue (TC-42)\"",
+      "inicio": "2026-11-17T00:45:35.000Z",
+      "publicado": "2026-11-17T00:56:34.000Z",
+      "minutos": 10.98,
+      "ejecuciones": 2,
+      "fallidas": 1
+    },
+    {
+      "sha": "fe0f18c",
+      "mensaje": "test(p3): commit de prueba para medir el tiempo de despliegue (TC-42)",
+      "inicio": "2026-11-17T00:40:45.000Z",
+      "publicado": "2026-11-17T00:44:18.000Z",
+      "minutos": 3.55,
+      "ejecuciones": 1,
+      "fallidas": 0
+    },
+    {
+      "sha": "126316c",
+      "mensaje": "feat(beta): cargar en la beta los datos ficticios de seed.sql con la clave BETA_CLAVE_CUENTAS, una sola vez y sin tocar la cuenta de la Directiva",
+      "inicio": "2026-11-17T00:36:51.000Z",
+      "publicado": "2026-11-17T00:40:33.000Z",
+      "minutos": 3.7,
+      "ejecuciones": 1,
+      "fallidas": 0
+    },
+    {
+      "sha": "dfce0eb",
+      "mensaje": "docs(pruebas): registrar DEF-07: en el plan Free de Supabase no se puede activar el hook de intentos de contraseña y no hay bloqueo tras 3 fallos",
+      "inicio": "2026-11-17T00:06:08.000Z",
+      "publicado": "2026-11-17T00:09:04.000Z",
+      "minutos": 2.93,
+      "ejecuciones": 1,
+      "fallidas": 0
+    }
+  ]
+}
