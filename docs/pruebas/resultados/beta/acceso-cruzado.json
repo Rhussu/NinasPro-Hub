@@ -1,0 +1,104 @@
+{
+  "herramienta": "k6 (acceso cruzado sobre PostgREST/RPC)",
+  "fecha": "2026-11-17T01:31:38.826Z",
+  "intentos": 19,
+  "denegados": 19,
+  "cumple": true,
+  "detalle": [
+    {
+      "id": "S2-01",
+      "descripcion": "Tutora lee las clases de otra sede",
+      "denegado": true
+    },
+    {
+      "id": "S2-02",
+      "descripcion": "Tutora lee la lista de asistencia de otra sede",
+      "denegado": true
+    },
+    {
+      "id": "S2-03",
+      "descripcion": "Tutora guarda asistencia en una clase de otra sede",
+      "denegado": true
+    },
+    {
+      "id": "S2-04",
+      "descripcion": "Tutora lee la nómina de otra sede",
+      "denegado": true
+    },
+    {
+      "id": "S2-05",
+      "descripcion": "Tutora lee la auditoría",
+      "denegado": true
+    },
+    {
+      "id": "S2-06",
+      "descripcion": "Tutora exporta un reporte",
+      "denegado": true
+    },
+    {
+      "id": "S2-07",
+      "descripcion": "Gestión lee justificativos de otra sede",
+      "denegado": true
+    },
+    {
+      "id": "S2-08",
+      "descripcion": "Gestión lee la lista de asistencia de otra sede",
+      "denegado": true
+    },
+    {
+      "id": "S2-17",
+      "descripcion": "Gestión exporta la nómina de otra sede",
+      "denegado": true
+    },
+    {
+      "id": "S2-09",
+      "descripcion": "Alumna lee la ficha de otra alumna cambiando el ID",
+      "denegado": true
+    },
+    {
+      "id": "S2-10",
+      "descripcion": "Alumna lee la asistencia de otra alumna",
+      "denegado": true
+    },
+    {
+      "id": "S2-16",
+      "descripcion": "Alumna abre el portal de otra cambiando el ID (AT-8)",
+      "denegado": true
+    },
+    {
+      "id": "S2-11",
+      "descripcion": "Alumna lee la lista de asistencia de una clase",
+      "denegado": true
+    },
+    {
+      "id": "S2-12",
+      "descripcion": "Alumna lee la nómina",
+      "denegado": true
+    },
+    {
+      "id": "S2-13",
+      "descripcion": "Alumna lee los justificativos de otras",
+      "denegado": true
+    },
+    {
+      "id": "S2-14",
+      "descripcion": "Anónimo lee alumnas",
+      "denegado": true
+    },
+    {
+      "id": "S2-15",
+      "descripcion": "Anónimo guarda asistencia",
+      "denegado": true
+    },
+    {
+      "id": "S1-01",
+      "descripcion": "Directiva sin MFA (aal1) lee la nómina nacional",
+      "denegado": true
+    },
+    {
+      "id": "S1-02",
+      "descripcion": "Directiva sin MFA (aal1) consulta la auditoría",
+      "denegado": true
+    }
+  ]
+}

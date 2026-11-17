@@ -1,3 +1,3 @@
-{"herramienta":"OpenSSL 3.5.5 27 Jan 2026 (Library: OpenSSL 3.5.5 27 Jan 2026)","fecha":"2026-11-17T01:20:12Z","hosts":[
+{"herramienta":"OpenSSL 3.5.5 27 Jan 2026 (Library: OpenSSL 3.5.5 27 Jan 2026)","fecha":"2026-11-17T01:31:39Z","hosts":[
 {"host":"Rhussu.github.io","tls1_0":"rechazado","tls1_1":"rechazado","tls1_2":"aceptado","tls1_3":"aceptado","certificado":"0 (ok)","vence":"Dec 29 23:44:45 2026 GMT","cumple":true},
 {"host":"cxsvdknvwvfoemzwqtdy.supabase.co","tls1_0":"rechazado","tls1_1":"rechazado","tls1_2":"aceptado","tls1_3":"aceptado","certificado":"0 (ok)","vence":"Jan 22 14:22:32 2027 GMT","cumple":true}],"cumple":true}

@@ -2,13 +2,13 @@
   "herramienta": "gh run list (GitHub Actions)",
   "rama": "premain",
   "workflow": "cd-frontend.yml",
-  "fecha": "2026-11-17T01:20:20.813Z",
+  "fecha": "2026-11-17T01:31:44.342Z",
   "despliegue": {
-    "sha": "52a5c15",
-    "mensaje": "test(rnf): registrar los dos intentos de P-3 y pedir la primera medición de los RNF en la beta",
-    "inicio": "2026-11-17T01:09:25.000Z",
-    "publicado": "2026-11-17T01:13:09.000Z",
-    "minutos": 3.73,
+    "sha": "d922284",
+    "mensaje": "fix(medicion): dar permiso de escritura a los contenedores de k6 sobre la carpeta de resultados y repetir la medición",
+    "inicio": "2026-11-17T01:20:59.000Z",
+    "publicado": "2026-11-17T01:26:57.000Z",
+    "minutos": 5.97,
     "ejecuciones": 1,
     "fallidas": 0
   },
@@ -25,6 +25,24 @@
   "cumple_rollback": true,
   "cumple": true,
   "historial": [
+    {
+      "sha": "d922284",
+      "mensaje": "fix(medicion): dar permiso de escritura a los contenedores de k6 sobre la carpeta de resultados y repetir la medición",
+      "inicio": "2026-11-17T01:20:59.000Z",
+      "publicado": "2026-11-17T01:26:57.000Z",
+      "minutos": 5.97,
+      "ejecuciones": 1,
+      "fallidas": 0
+    },
+    {
+      "sha": "4163895",
+      "mensaje": "test(rnf): medición en la beta del 2026-11-17",
+      "inicio": "2026-11-17T01:20:23.000Z",
+      "publicado": "2026-11-17T01:23:58.000Z",
+      "minutos": 3.58,
+      "ejecuciones": 1,
+      "fallidas": 0
+    },
     {
       "sha": "52a5c15",
       "mensaje": "test(rnf): registrar los dos intentos de P-3 y pedir la primera medición de los RNF en la beta",
@@ -76,24 +94,6 @@
       "inicio": "2026-11-17T00:40:45.000Z",
       "publicado": "2026-11-17T00:44:18.000Z",
       "minutos": 3.55,
-      "ejecuciones": 1,
-      "fallidas": 0
-    },
-    {
-      "sha": "126316c",
-      "mensaje": "feat(beta): cargar en la beta los datos ficticios de seed.sql con la clave BETA_CLAVE_CUENTAS, una sola vez y sin tocar la cuenta de la Directiva",
-      "inicio": "2026-11-17T00:36:51.000Z",
-      "publicado": "2026-11-17T00:40:33.000Z",
-      "minutos": 3.7,
-      "ejecuciones": 1,
-      "fallidas": 0
-    },
-    {
-      "sha": "dfce0eb",
-      "mensaje": "docs(pruebas): registrar DEF-07: en el plan Free de Supabase no se puede activar el hook de intentos de contraseña y no hay bloqueo tras 3 fallos",
-      "inicio": "2026-11-17T00:06:08.000Z",
-      "publicado": "2026-11-17T00:09:04.000Z",
-      "minutos": 2.93,
       "ejecuciones": 1,
       "fallidas": 0
     }

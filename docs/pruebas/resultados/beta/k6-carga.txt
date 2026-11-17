@@ -2,55 +2,54 @@ Unable to find image 'alpine:3.20' locally
 3.20: Pulling from library/alpine
 25f1d6b1951a: Pulling fs layer
 25f1d6b1951a: Download complete
+3a030ca3f633: Download complete
 d4050d56ebf2: Download complete
 25f1d6b1951a: Pull complete
-3a030ca3f633: Download complete
 Digest: sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc
 Status: Downloaded newer image for alpine:3.20
 Latencia simulada: 100ms ± 20ms, pérdida 0%
-round-trip min/avg/max = 88.881/98.342/111.411 ms
+3 packets transmitted, 0 packets received, 100% packet loss
 Unable to find image 'grafana/k6:0.57.0' locally
 0.57.0: Pulling from grafana/k6
-f073781953be: Pulling fs layer
-f860ff442d92: Pulling fs layer
 4f4fb700ef54: Pulling fs layer
+f860ff442d92: Pulling fs layer
 66a3d608f3fa: Pulling fs layer
+f073781953be: Pulling fs layer
 4f4fb700ef54: Already exists
 f073781953be: Download complete
 66a3d608f3fa: Download complete
 5c4831ac1272: Download complete
-f073781953be: Pull complete
 66a3d608f3fa: Pull complete
+f073781953be: Pull complete
 f860ff442d92: Download complete
 4f4fb700ef54: Pull complete
 f860ff442d92: Pull complete
 Digest: sha256:70af91f86cd8e142e0544a4edaf79835a80033f71974b92edd5ac36fd4442a7b
 Status: Downloaded newer image for grafana/k6:0.57.0
-time="2026-11-17T01:09:59Z" level=info msg="Cuentas listas: 8/8" source=console
+time="2026-11-17T01:21:30Z" level=info msg="Cuentas listas: 8/8" source=console
 
      ✓ instancias 200
      ✓ sesiones 200
      ✓ lista 200
      ✓ guardar 200
 
-     checks...............................: 100.00% 14216 out of 14216
-     data_received........................: 30 MB   48 kB/s
-     data_sent............................: 5.7 MB  9.2 kB/s
-     http_req_blocked.....................: avg=506.47µs min=122ns    med=321ns    p(90)=407ns    p(95)=448ns    p(99)=585ns    max=311.58ms
-     http_req_connecting..................: avg=245.83µs min=0s       med=0s       p(90)=0s       p(95)=0s       p(99)=0s       max=147.12ms
-     http_req_duration....................: avg=268.82ms min=136.79ms med=249.04ms p(90)=339.4ms  p(95)=391.04ms p(99)=567.79ms max=3.2s    
-       { expected_response:true }.........: avg=268.82ms min=136.79ms med=249.04ms p(90)=339.4ms  p(95)=391.04ms p(99)=567.79ms max=3.2s    
-     ✓ { operacion:cargar_sesion }........: avg=276.87ms min=136.79ms med=257.61ms p(90)=350.13ms p(95)=403.11ms p(99)=596.2ms  max=3.2s    
-     ✓ { operacion:guardar_asistencia }...: avg=243.57ms min=168.4ms  med=233.82ms p(90)=276.89ms p(95)=312.42ms p(99)=461.4ms  max=1.8s    
-   ✓ http_req_failed......................: 0.00%   0 out of 14248
-     http_req_receiving...................: avg=940.64µs min=13.62µs  med=502.68µs p(90)=1.58ms   p(95)=1.72ms   p(99)=2ms      max=179.8ms 
-     http_req_sending.....................: avg=33.4µs   min=11.54µs  med=31.13µs  p(90)=44.57µs  p(95)=49.57µs  p(99)=62.94µs  max=2.57ms  
-     http_req_tls_handshaking.............: avg=252.25µs min=0s       med=0s       p(90)=0s       p(95)=0s       p(99)=0s       max=151.63ms
-     http_req_waiting.....................: avg=267.85ms min=136.73ms med=248.38ms p(90)=337.08ms p(95)=389.38ms p(99)=564.23ms max=3.2s    
-   ✓ http_reqs............................: 14248   23.028635/s
-     iteration_duration...................: avg=5.08s    min=2.95s    med=5.04s    p(90)=6.19s    p(95)=6.44s    p(99)=6.87s    max=8.34s   
-     iterations...........................: 3554    5.744228/s
-     vus..................................: 2       min=0              max=30
+     checks...............................: 100.00% 15460 out of 15460
+     data_received........................: 32 MB   53 kB/s
+     data_sent............................: 6.2 MB  10 kB/s
+     http_req_blocked.....................: avg=450.96µs min=182ns   med=475ns    p(90)=680ns    p(95)=757ns    p(99)=1.27µs   max=286.24ms
+     http_req_connecting..................: avg=223.98µs min=0s      med=0s       p(90)=0s       p(95)=0s       p(99)=0s       max=154.7ms 
+     http_req_duration....................: avg=171.48ms min=55.52ms med=156.99ms p(90)=232.56ms p(95)=260.29ms p(99)=355.29ms max=1.84s   
+       { expected_response:true }.........: avg=171.48ms min=55.52ms med=156.99ms p(90)=232.56ms p(95)=260.29ms p(99)=355.29ms max=1.84s   
+     ✓ { operacion:cargar_sesion }........: avg=179.92ms min=55.52ms med=165.9ms  p(90)=244.16ms p(95)=274.63ms p(99)=379.28ms max=1.84s   
+     ✓ { operacion:guardar_asistencia }...: avg=145.84ms min=89.57ms med=144.17ms p(90)=170.85ms p(95)=181.55ms p(99)=204.3ms  max=327ms   
+   ✓ http_req_failed......................: 0.00%   0 out of 15492
+     http_req_receiving...................: avg=883.18µs min=23.51µs med=487.17µs p(90)=1.65ms   p(95)=1.8ms    p(99)=2.06ms   max=136.26ms
+     http_req_sending.....................: avg=56.08µs  min=16.22µs med=53.61µs  p(90)=79.4µs   p(95)=86.76µs  p(99)=103.81µs max=3ms     
+     http_req_tls_handshaking.............: avg=220.12µs min=0s      med=0s       p(90)=0s       p(95)=0s       p(99)=0s       max=146.91ms
+     http_req_waiting.....................: avg=170.54ms min=55.4ms  med=156.12ms p(90)=230.82ms p(95)=258.41ms p(99)=352.88ms max=1.84s   
+   ✓ http_reqs............................: 15492   25.305081/s
+     iteration_duration...................: avg=4.67s    min=2.66s   med=4.66s    p(90)=5.76s    p(95)=6.03s    p(99)=6.46s    max=8.07s   
+     iterations...........................: 3865    6.313203/s
+     vus..................................: 1       min=0              max=30
      vus_max..............................: 30      min=30             max=30
 
-time="2026-11-17T01:20:05Z" level=error msg="failed to handle the end-of-test summary" error="Could not save some summary information:\n\t- could not open '/out/k6-carga.json': open /out/k6-carga.json: permission denied"
